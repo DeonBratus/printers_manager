@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Printer Manager</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Боковая панель -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-print"></i>
+                <span>3D Print Manager</span>
+            </div>
+            <nav class="nav-menu">
+                <ul>
+                    <li class="active" data-section="dashboard">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Dashboard</span>
+                    </li>
+                    <li data-section="printers">
+                        <i class="fas fa-print"></i>
+                        <span>Printers</span>
+                    </li>
+                    <li data-section="models">
+                        <i class="fas fa-cube"></i>
+                        <span>Models</span>
+                    </li>
+                    <li data-section="printings">
+                        <i class="fas fa-tasks"></i>
+                        <span>Printings</span>
+                    </li>
+                    <li data-section="reports">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Reports</span>
+                    </li>
+                </ul>
+            </nav>
+            <div class="user-panel">
+                <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="user-info">
+                    <span class="username">Admin</span>
+                    <span class="user-role">Administrator</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Основное содержимое -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search...">
+                </div>
+                <div class="notifications">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge">3</span>
+                </div>
+            </header>
+
+            <!-- Секции контента -->
+            <section class="content-section active" id="dashboard">
+                <h2>Dashboard</h2>
+                <div class="stats-grid">
+                    <!-- Карточки статистики -->
+                    <div class="stat-card">
+                        <div class="stat-icon printer">
+                            <i class="fas fa-print"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="total-printers">0</h3>
+                            <p>Total Printers</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon model">
+                            <i class="fas fa-cube"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="total-models">0</h3>
+                            <p>Total Models</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon active">
+                            <i class="fas fa-spinner"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="active-printings">0</h3>
+                            <p>Active Printings</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon completed">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="completed-printings">0</h3>
+                            <p>Completed Today</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <!-- Графики -->
+                    <div class="chart-card">
+                        <h3>Printer Status</h3>
+                        <canvas id="printer-status-chart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Print Time Distribution</h3>
+                        <canvas id="print-time-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="recent-activity">
+                    <h3>Recent Printings</h3>
+                    <div class="activity-list" id="recent-printings">
+                        <!-- Активность будет добавлена через JS -->
+                    </div>
+                </div>
+            </section>
+
+            <section class="content-section" id="printers">
+                <div class="section-header">
+                    <h2>Printers Management</h2>
+                    <button class="btn btn-primary" id="add-printer-btn">
+                        <i class="fas fa-plus"></i> Add Printer
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table id="printers-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Total Print Time</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Данные будут добавлены через JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="content-section" id="models">
+                <div class="section-header">
+                    <h2>Models Management</h2>
+                    <button class="btn btn-primary" id="add-model-btn">
+                        <i class="fas fa-plus"></i> Add Model
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table id="models-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Print Time (h)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Данные будут добавлены через JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="content-section" id="printings">
+                <div class="section-header">
+                    <h2>Printings Management</h2>
+                    <button class="btn btn-primary" id="start-printing-btn">
+                        <i class="fas fa-play"></i> Start Printing
+                    </button>
+                </div>
+                <div class="printings-grid">
+                    <div class="active-printings">
+                        <h3>Active Printings</h3>
+                        <div class="printing-cards" id="active-printing-cards">
+                            <!-- Карточки активных печатей -->
+                        </div>
+                    </div>
+                    <div class="printing-history">
+                        <h3>Printing History</h3>
+                        <div class="table-container">
+                            <table id="printings-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Printer</th>
+                                        <th>Model</th>
+                                        <th>Start Time</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Данные будут добавлены через JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="content-section" id="reports">
+                <h2>Reports</h2>
+                <div class="reports-grid">
+                    <div class="report-card">
+                        <h3>Daily Report</h3>
+                        <div class="report-controls">
+                            <input type="date" id="daily-report-date">
+                            <button class="btn btn-secondary" id="generate-daily-report">Generate</button>
+                        </div>
+                        <div class="report-results" id="daily-report-results"></div>
+                    </div>
+                    <div class="report-card">
+                        <h3>Printer Report</h3>
+                        <div class="report-controls">
+                            <select id="printer-report-select">
+                                <option value="">Select Printer</option>
+                            </select>
+                            <button class="btn btn-secondary" id="generate-printer-report">Generate</button>
+                        </div>
+                        <div class="report-results" id="printer-report-results"></div>
+                    </div>
+                    <div class="report-card">
+                        <h3>Model Report</h3>
+                        <div class="report-controls">
+                            <select id="model-report-select">
+                                <option value="">Select Model</option>
+                            </select>
+                            <button class="btn btn-secondary" id="generate-model-report">Generate</button>
+                        </div>
+                        <div class="report-results" id="model-report-results"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Модальные окна -->
+    <div class="modal" id="add-printer-modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>Add New Printer</h3>
+            <form id="printer-form">
+                <div class="form-group">
+                    <label for="printer-name">Printer Name</label>
+                    <input type="text" id="printer-name" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="add-model-modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>Add New Model</h3>
+            <form id="model-form">
+                <div class="form-group">
+                    <label for="model-name">Model Name</label>
+                    <input type="text" id="model-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="printing-time">Printing Time (hours)</label>
+                    <input type="number" id="printing-time" step="0.1" min="0.1" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="start-printing-modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>Start New Printing</h3>
+            <form id="printing-form">
+                <div class="form-group">
+                    <label for="printing-printer">Printer</label>
+                    <select id="printing-printer" required>
+                        <option value="">Select Printer</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="printing-model">Model</label>
+                    <select id="printing-model" required>
+                        <option value="">Select Model</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Start Printing</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="/static/js/main.js"></script>
+</body>
+</html>

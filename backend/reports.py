@@ -2,20 +2,32 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from datetime import datetime, timedelta
 import models
+from typing import Dict, Any
+from models import Printer, Model, Printing
 
-def get_daily_report(db: Session, date: datetime = None):
-    if date is None:
-        date = datetime.now().date()
+def get_daily_report(db: Session, date: datetime.date) -> Dict[str, Any]:
+    start_datetime = datetime.combine(date, datetime.min.time())
+    end_datetime = datetime.combine(date + timedelta(days=1), datetime.min.time())
     
-    start_date = datetime.combine(date, datetime.min.time())
-    end_date = start_date + timedelta(days=1)
-    
-    return db.query(models.Printing).filter(
-        and_(
-            models.Printing.start_time >= start_date,
-            models.Printing.start_time < end_date
-        )
+    printings = db.query(Printing).filter(
+        Printing.start_time >= start_datetime,
+        Printing.start_time < end_datetime
     ).all()
+    
+    total_prints = len(printings)
+    completed_prints = len([p for p in printings if p.real_time_stop])
+    failed_prints = len([p for p in printings if p.real_time_stop and p.downtime > 0])
+    
+    total_print_time = sum((p.real_time_stop - p.start_time).total_seconds() / 3600 
+                          for p in printings if p.real_time_stop)
+    
+    return {
+        "total_prints": total_prints,
+        "successful_prints": completed_prints - failed_prints,
+        "failed_prints": failed_prints,
+        "total_print_time": total_print_time,
+        "average_print_time": total_print_time / completed_prints if completed_prints > 0 else 0
+    }
 
 def get_printer_report(db: Session, printer_id: int):
     printer = db.query(models.Printer).filter(models.Printer.id == printer_id).first()
