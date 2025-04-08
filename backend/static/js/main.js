@@ -6,7 +6,6 @@ import '/static/js/charts.js';
 import '/static/js/reports.js';
 import '/static/js/printing.js';
 import { generateDailyReport, generatePrinterReport, generateModelReport, populateReportSelects } from './reports.js';
-import './task-distributor.js';
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
