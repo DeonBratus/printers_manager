@@ -1,94 +1,94 @@
+import { TableManager } from './table-manager.js';
 import { fetchAPI } from './config.js';
 import { showError, showSuccess } from './notifications.js';
+import { loadDashboardData } from './dashboard.js';
 
+class PrintersTableManager extends TableManager {
+    formatTableRows(printers) {
+        return printers.map(printer => `
+            <tr>
+                <td>${printer.id || ''}</td>
+                <td>${printer.name}</td>
+                <td>
+                    <span class="status-badge status-${printer.status.toLowerCase()}">
+                        ${printer.status}
+                    </span>
+                </td>
+                <td>${printer.total_print_time?.toFixed(2) || '0.00'} hrs</td>
+                <td>${printer.total_downtime?.toFixed(2) || '0.00'} hrs</td>
+                <td>
+                    <button class="btn btn-icon" onclick="window.editPrinter('${printer.id}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-icon" onclick="window.deletePrinter('${printer.id}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+}
+
+class ModelsTableManager extends TableManager {
+    formatTableRows(models) {
+        return models.map(model => `
+            <tr>
+                <td>${model.id || ''}</td>
+                <td>${model.name || 'Unnamed Model'}</td>
+                <td>${(model.printing_time || 0).toFixed(1)} hrs</td>
+                <td>
+                    <button class="btn btn-icon" onclick="window.editModel('${model.id}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-icon" onclick="window.deleteModel('${model.id}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+}
+
+class PrintingsHistoryTableManager extends TableManager {
+    formatTableRows(printings) {
+        return printings.map(printing => `
+            <tr>
+                <td>${printing.id}</td>
+                <td>${printing.printer_name || 'Unknown Printer'}</td>
+                <td>${printing.model_name || 'Unknown Model'}</td>
+                <td>${new Date(printing.start_time).toLocaleString()}</td>
+                <td>${printing.real_time_stop ? new Date(printing.real_time_stop).toLocaleString() : 'In progress'}</td>
+                <td>${this.formatDuration(printing)}</td>
+            </tr>
+        `).join('');
+    }
+
+    formatDuration(printing) {
+        if (!printing.real_time_stop) return 'N/A';
+        const duration = (new Date(printing.real_time_stop) - new Date(printing.start_time)) / (1000 * 60 * 60);
+        return `${duration.toFixed(1)} hrs`;
+    }
+}
+
+// Инициализация таблиц
+const printersTable = new PrintersTableManager('printers-table', { itemsPerPage: 10 });
+const modelsTable = new ModelsTableManager('models-table', { itemsPerPage: 10 });
+const printingsHistoryTable = new PrintingsHistoryTableManager('printings-table', { itemsPerPage: 10 });
+
+// Функции загрузки данных
 export async function loadPrinters() {
     try {
         const printers = await fetchAPI('/printers/');
-        const printersTable = document.getElementById('printers-table')?.querySelector('tbody');
-        
-        if (!printersTable) {
-            console.error('Printers table not found');
-            return;
-        }
-
-        if (printers && Array.isArray(printers)) {
-            printersTable.innerHTML = printers.map(printer => `
-                <tr>
-                    <td>${printer.id || ''}</td>
-                    <td>${printer.name || 'Unnamed Printer'}</td>
-                    <td>
-                        <span class="status-badge status-${printer.status || 'idle'}">
-                            ${printer.status || 'idle'}
-                        </span>
-                    </td>
-                    <td>${(printer.total_print_time || 0).toFixed(1)} hrs</td>
-                    <td>
-                        <button class="btn btn-secondary" onclick="window.editPrinter(${printer.id})">
-                            <i class="fas fa-edit"></i> Edit
-                        </button>
-                        <button class="btn btn-danger" onclick="window.deletePrinter(${printer.id})">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-
-            // Добавим стили для статусов, если их еще нет
-            if (!document.getElementById('printer-status-styles')) {
-                const styles = document.createElement('style');
-                styles.id = 'printer-status-styles';
-                styles.textContent = `
-                    .status-badge {
-                        padding: 4px 8px;
-                        border-radius: 12px;
-                        font-size: 0.9em;
-                        font-weight: 500;
-                    }
-                    .status-idle { background: #4caf50; color: white; }
-                    .status-printing { background: #2196f3; color: white; }
-                    .status-paused { background: #ff9800; color: white; }
-                    .status-error { background: #f44336; color: white; }
-                `;
-                document.head.appendChild(styles);
-            }
-        } else {
-            showError('Invalid printer data received');
-        }
+        printersTable.setData(printers);
     } catch (error) {
-        console.error('Error loading printers:', error);
         showError('Failed to load printers');
+        console.error(error);
     }
 }
 
 export async function loadModels() {
     try {
-        const models = await fetchAPI('/models/');
-        const modelsTable = document.getElementById('models-table')?.querySelector('tbody');
-        
-        if (!modelsTable) {
-            console.error('Models table not found');
-            return;
-        }
-
-        if (models && Array.isArray(models)) {
-            modelsTable.innerHTML = models.map(model => `
-                <tr>
-                    <td>${model.id || ''}</td>
-                    <td>${model.name || 'Unnamed Model'}</td>
-                    <td>${(model.printing_time || 0).toFixed(1)} hrs</td>
-                    <td>
-                        <button class="btn btn-secondary" onclick="window.editModel(${model.id})">
-                            <i class="fas fa-edit"></i> Edit
-                        </button>
-                        <button class="btn btn-danger" onclick="window.deleteModel(${model.id})">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-        } else {
-            showError('Invalid model data received');
-        }
+        await modelsTable.loadData();
     } catch (error) {
         console.error('Error loading models:', error);
         showError('Failed to load models');
@@ -99,115 +99,19 @@ export async function loadActivePrintings() {
     try {
         const printings = await fetchAPI('/printings/');
         const activePrintings = printings.filter(p => !p.real_time_stop);
-        const activePrintingCards = document.getElementById('active-printing-cards');
-        
-        if (!activePrintingCards) {
-            console.error('Active printing cards container not found');
-            return;
-        }
-
-        activePrintingCards.innerHTML = activePrintings.map(printing => `
-            <div class="printing-card" data-printing-id="${printing.id}">
-                <div class="printing-header">
-                    <span class="printing-title">${printing.model_name || 'Unknown model'}</span>
-                    <span class="printing-time">${new Date(printing.start_time).toLocaleString()}</span>
-                </div>
-                <div class="printing-progress">
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${printing.progress || 0}%"></div>
-                    </div>
-                    <span class="progress-text">${Math.round(printing.progress || 0)}%</span>
-                </div>
-                <div class="printing-info">
-                    <div>
-                        <span><i class="fas fa-print"></i> ${printing.printer_name || 'Unknown printer'}</span>
-                        <span><i class="fas fa-clock"></i> ${printing.printing_time.toFixed(1)} hrs</span>
-                    </div>
-                    <span class="status-badge status-${printing.status || 'printing'}">
-                        ${printing.status || 'printing'}
-                    </span>
-                </div>
-                <div class="printing-actions">
-                    ${printing.status === 'paused' 
-                        ? `<button class="btn btn-success" onclick="window.resumePrinting(${printing.id})">
-                             <i class="fas fa-play"></i> Resume
-                           </button>`
-                        : `<button class="btn btn-warning" onclick="window.pausePrinting(${printing.id})">
-                             <i class="fas fa-pause"></i> Pause
-                           </button>`
-                    }
-                    <button class="btn btn-danger" onclick="window.stopPrinting(${printing.id})">
-                        <i class="fas fa-stop"></i> Stop
-                    </button>
-                </div>
-            </div>
-        `).join('');
+        renderActivePrintingCards(activePrintings);
     } catch (error) {
         console.error('Error loading active printings:', error);
         showError('Failed to load active printings');
     }
 }
 
-export async function loadPrintingsHistory() {
-    try {
-        const printings = await fetchAPI('/printings/');
-        const completedPrintings = printings.filter(p => p.real_time_stop);
-        const printingsTable = document.getElementById('printings-table')?.querySelector('tbody');
-        
-        if (!printingsTable) {
-            console.error('Printings table not found');
-            return;
-        }
+function renderActivePrintingCards(activePrintings) {
+    const activePrintingCards = document.getElementById('active-printing-cards');
+    
+    if (!activePrintingCards) return;
 
-        printingsTable.innerHTML = completedPrintings.map(printing => `
-            <tr>
-                <td>${printing.id}</td>
-                <td>${printing.printer_name || 'Unknown Printer'}</td>
-                <td>${printing.model_name || 'Unknown Model'}</td>
-                <td>${new Date(printing.start_time).toLocaleString()}</td>
-                <td>${new Date(printing.real_time_stop).toLocaleString()}</td>
-                <td>${((new Date(printing.real_time_stop) - new Date(printing.start_time)) / (1000 * 60 * 60)).toFixed(1)} hrs</td>
-            </tr>
-        `).join('');
-    } catch (error) {
-        console.error('Error loading printing history:', error);
-        showError('Failed to load printing history');
-    }
-}
-
-// Добавляем функцию автообновления
-export function startPrintingUpdates() {
-    // Останавливаем предыдущий интервал, если он существует
-    if (window.printingUpdateInterval) {
-        clearInterval(window.printingUpdateInterval);
-    }
-
-    // Создаем новый интервал обновления
-    window.printingUpdateInterval = setInterval(async () => {
-        const printingsSection = document.getElementById('printings');
-        // Обновляем только если секция печати активна
-        if (printingsSection?.classList.contains('active')) {
-            try {
-                const printings = await fetchAPI('/printings/');
-                const activePrintings = printings.filter(p => !p.real_time_stop);
-                const completedPrintings = printings.filter(p => p.real_time_stop);
-                
-                // Обновляем активные печати
-                updateActivePrintingCards(activePrintings);
-                // Обновляем историю печати
-                updatePrintingHistory(completedPrintings);
-            } catch (error) {
-                console.error('Error updating printings:', error);
-            }
-        }
-    }, 3000); // Обновляем каждые 3 секунды
-}
-
-function updateActivePrintingCards(activePrintings) {
-    const container = document.getElementById('active-printing-cards');
-    if (!container) return;
-
-    container.innerHTML = activePrintings.map(printing => `
+    activePrintingCards.innerHTML = activePrintings.map(printing => `
         <div class="printing-card" data-printing-id="${printing.id}">
             <div class="printing-header">
                 <span class="printing-title">${printing.model_name || 'Unknown model'}</span>
@@ -231,10 +135,10 @@ function updateActivePrintingCards(activePrintings) {
             <div class="printing-actions">
                 ${printing.status === 'paused' 
                     ? `<button class="btn btn-success" onclick="window.resumePrinting(${printing.id})">
-                         <i class="fas fa-play"></i> Resume
+                        <i class="fas fa-play"></i> Resume
                        </button>`
                     : `<button class="btn btn-warning" onclick="window.pausePrinting(${printing.id})">
-                         <i class="fas fa-pause"></i> Pause
+                        <i class="fas fa-pause"></i> Pause
                        </button>`
                 }
                 <button class="btn btn-danger" onclick="window.stopPrinting(${printing.id})">
@@ -245,27 +149,39 @@ function updateActivePrintingCards(activePrintings) {
     `).join('');
 }
 
-function updatePrintingHistory(completedPrintings) {
-    const table = document.getElementById('printings-table')?.querySelector('tbody');
-    if (!table) return;
-
-    table.innerHTML = completedPrintings.map(printing => `
-        <tr>
-            <td>${printing.id}</td>
-            <td>${printing.printer_name || 'Unknown Printer'}</td>
-            <td>${printing.model_name || 'Unknown Model'}</td>
-            <td>${new Date(printing.start_time).toLocaleString()}</td>
-            <td>${new Date(printing.real_time_stop).toLocaleString()}</td>
-            <td>${((new Date(printing.real_time_stop) - new Date(printing.start_time)) / (1000 * 60 * 60)).toFixed(1)} hrs</td>
-        </tr>
-    `).join('');
+export async function loadPrintingsHistory() {
+    try {
+        await printingsHistoryTable.loadData();
+    } catch (error) {
+        console.error('Error loading printing history:', error);
+        showError('Failed to load printing history');
+    }
 }
 
-// ...existing code...
+// Автообновление данных
+export function startPrintingUpdates() {
+    if (window.printingUpdateInterval) {
+        clearInterval(window.printingUpdateInterval);
+    }
+
+    window.printingUpdateInterval = setInterval(async () => {
+        const printingsSection = document.getElementById('printings');
+        if (printingsSection?.classList.contains('active')) {
+            try {
+                await Promise.all([loadActivePrintings(), loadPrintingsHistory()]);
+            } catch (error) {
+                console.error('Error updating printings:', error);
+            }
+        }
+    }, 3000);
+}
 
 export function startAutoUpdate() {
-    // Обновляем каждые 3 секунды
-    setInterval(async () => {
+    if (window.autoUpdateInterval) {
+        clearInterval(window.autoUpdateInterval);
+    }
+
+    window.autoUpdateInterval = setInterval(async () => {
         const activeSection = document.querySelector('.content-section.active');
         if (!activeSection) return;
 
@@ -277,60 +193,11 @@ export function startAutoUpdate() {
                 case 'printers':
                     await loadPrinters();
                     break;
+                case 'models':
+                    await loadModels();
+                    break;
                 case 'printings':
-                    const [printings, printers] = await Promise.all([
-                        fetchAPI('/printings/'),
-                        fetchAPI('/printers/')
-                    ]);
-                    
-                    // Обновляем активные печати
-                    const activePrintings = printings.filter(p => !p.real_time_stop);
-                    const activePrintingCards = document.getElementById('active-printing-cards');
-                    if (activePrintingCards) {
-                        activePrintingCards.innerHTML = activePrintings.map(printing => {
-                            const printer = printers.find(p => p.id === printing.printer_id);
-                            return `
-                                <div class="printing-card" data-printing-id="${printing.id}">
-                                    <div class="printing-header">
-                                        <span class="printing-title">${printing.model_name || 'Unknown model'}</span>
-                                        <span class="printing-time">${new Date(printing.start_time).toLocaleString()}</span>
-                                    </div>
-                                    <div class="printing-progress">
-                                        <div class="progress-bar">
-                                            <div class="progress-fill" style="width: ${printing.progress || 0}%"></div>
-                                        </div>
-                                        <span class="progress-text">${Math.round(printing.progress || 0)}%</span>
-                                    </div>
-                                    <div class="printing-info">
-                                        <div>
-                                            <span><i class="fas fa-print"></i> ${printer?.name || 'Unknown printer'}</span>
-                                            <span><i class="fas fa-clock"></i> ${printing.printing_time.toFixed(1)} hrs</span>
-                                        </div>
-                                        <span class="status-badge status-${printer?.status || 'printing'}">
-                                            ${printer?.status || 'printing'}
-                                        </span>
-                                    </div>
-                                    <div class="printing-actions">
-                                        ${printer?.status === 'paused' 
-                                            ? `<button class="btn btn-success" onclick="window.resumePrinting(${printing.id})">
-                                                 <i class="fas fa-play"></i> Resume
-                                               </button>`
-                                            : `<button class="btn btn-warning" onclick="window.pausePrinting(${printing.id})">
-                                                 <i class="fas fa-pause"></i> Pause
-                                               </button>`
-                                        }
-                                        <button class="btn btn-danger" onclick="window.stopPrinting(${printing.id})">
-                                            <i class="fas fa-stop"></i> Stop
-                                        </button>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('');
-                    }
-                    
-                    // Обновляем историю печати
-                    const completedPrintings = printings.filter(p => p.real_time_stop);
-                    updatePrintingHistory(completedPrintings);
+                    await Promise.all([loadActivePrintings(), loadPrintingsHistory()]);
                     break;
             }
         } catch (error) {
@@ -339,4 +206,32 @@ export function startAutoUpdate() {
     }, 3000);
 }
 
-// ...existing code...
+// Инициализация фильтров для карточек печати
+function initializePrintingFilters() {
+    const searchInput = document.getElementById('active-printings-search');
+    const statusFilter = document.getElementById('active-printings-status-filter');
+
+    const filterCards = () => {
+        const searchTerm = (searchInput?.value || '').toLowerCase();
+        const statusValue = (statusFilter?.value || 'all').toLowerCase();
+        
+        document.querySelectorAll('.printing-card').forEach(card => {
+            const title = (card.querySelector('.printing-title')?.textContent || '').toLowerCase();
+            const printer = (card.querySelector('.printing-info span:first-child')?.textContent || '').toLowerCase();
+            const status = (card.querySelector('.status-badge')?.textContent || '').toLowerCase();
+            
+            const matchesSearch = title.includes(searchTerm) || printer.includes(searchTerm);
+            const matchesStatus = statusValue === 'all' || status === statusValue;
+            
+            card.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
+        });
+    };
+
+    searchInput?.addEventListener('input', filterCards);
+    statusFilter?.addEventListener('change', filterCards);
+}
+
+// Инициализация при загрузке
+document.addEventListener('DOMContentLoaded', () => {
+    initializePrintingFilters();
+});

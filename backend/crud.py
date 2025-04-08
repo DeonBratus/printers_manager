@@ -1,9 +1,17 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from datetime import datetime, timedelta
 import models
 import schemas
 
 # Printer CRUD
+def format_hours_to_hhmm(hours: float) -> str:
+    """Конвертирует часы в формат HH:mm"""
+    total_minutes = int(hours * 60)
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+    return f"{hours:02d}:{minutes:02d}"
+
 def create_printer(db: Session, printer: schemas.PrinterCreate):
     db_printer = models.Printer(**printer.dict())
     db.add(db_printer)
@@ -12,10 +20,23 @@ def create_printer(db: Session, printer: schemas.PrinterCreate):
     return db_printer
 
 def get_printer(db: Session, printer_id: int):
-    return db.query(models.Printer).filter(models.Printer.id == printer_id).first()
+    printer = db.query(models.Printer).filter(models.Printer.id == printer_id).first()
+    # if printer:
+    #     printer.total_downtime = format_hours_to_hhmm(printer.total_downtime)
+    return printer
 
-def get_printers(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Printer).offset(skip).limit(limit).all()
+def get_printers(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False):
+    query = db.query(models.Printer)
+    
+    if sort_by:
+        if hasattr(models.Printer, sort_by):
+            order_by = desc(getattr(models.Printer, sort_by)) if sort_desc else getattr(models.Printer, sort_by)
+            query = query.order_by(order_by)
+    
+    printers = query.offset(skip).limit(limit).all()
+    for printer in printers:
+        printer.id = str(printer.id)
+    return printers
 
 def update_printer(db: Session, printer_id: int, printer: schemas.PrinterCreate):
     db_printer = db.query(models.Printer).filter(models.Printer.id == printer_id).first()
@@ -44,8 +65,15 @@ def create_model(db: Session, model: schemas.ModelCreate):
 def get_model(db: Session, model_id: int):
     return db.query(models.Model).filter(models.Model.id == model_id).first()
 
-def get_models(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Model).offset(skip).limit(limit).all()
+def get_models(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False):
+    query = db.query(models.Model)
+    
+    if sort_by:
+        if hasattr(models.Model, sort_by):
+            order_by = desc(getattr(models.Model, sort_by)) if sort_desc else getattr(models.Model, sort_by)
+            query = query.order_by(order_by)
+    
+    return query.offset(skip).limit(limit).all()
 
 def update_model(db: Session, model_id: int, model: schemas.ModelCreate):
     db_model = db.query(models.Model).filter(models.Model.id == model_id).first()
@@ -121,10 +149,10 @@ def get_printing_with_details(db: Session, printing_id: int):
             printing.progress = 100
             
         # Добавляем имена принтера и модели
-        printer = get_printer(db, printing.printer_id)
-        model = get_model(db, printing.model_id)
-        printing.printer_name = printer.name if printer else None
-        printing.model_name = model.name if model else None
+        printer = get_printer(db, printing.printer_id) if printing.printer_id else None
+        model = get_model(db, printing.model_id) if printing.model_id else None
+        printing.printer_name = printer.name if printer else "Unknown Printer"
+        printing.model_name = model.name if model else "Unknown Model"
         
         # Добавляем статус
         if printing.real_time_stop:
@@ -136,8 +164,15 @@ def get_printing_with_details(db: Session, printing_id: int):
             
     return printing
 
-def get_printings(db: Session, skip: int = 0, limit: int = 100):
-    printings = db.query(models.Printing).offset(skip).limit(limit).all()
+def get_printings(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False):
+    query = db.query(models.Printing)
+    
+    if sort_by:
+        if hasattr(models.Printing, sort_by):
+            order_by = desc(getattr(models.Printing, sort_by)) if sort_desc else getattr(models.Printing, sort_by)
+            query = query.order_by(order_by)
+    
+    printings = query.offset(skip).limit(limit).all()
     return [get_printing_with_details(db, p.id) for p in printings]
 
 def update_printing(db: Session, printing_id: int, printing: schemas.PrintingCreate):
@@ -155,39 +190,3 @@ def delete_printing(db: Session, printing_id: int):
         db.delete(db_printing)
         db.commit()
     return db_printing
-
-# Queue CRUD
-def create_queue_item(db: Session, queue_item: schemas.PrintQueueCreate):
-    db_queue_item = models.PrintQueue(**queue_item.dict())
-    db.add(db_queue_item)
-    db.commit()
-    db.refresh(db_queue_item)
-    return db_queue_item
-
-def get_printer_queue(db: Session, printer_id: int):
-    return db.query(models.PrintQueue)\
-             .filter(models.PrintQueue.printer_id == printer_id)\
-             .filter(models.PrintQueue.status.in_(["queued", "printing"]))\
-             .order_by(models.PrintQueue.priority.desc(),
-                      models.PrintQueue.created_at.asc())\
-             .all()
-
-def get_next_queue_item(db: Session, printer_id: int):
-    return db.query(models.PrintQueue)\
-             .filter(models.PrintQueue.printer_id == printer_id,
-                    models.PrintQueue.status == "queued")\
-             .order_by(models.PrintQueue.priority.desc(),
-                      models.PrintQueue.created_at.asc())\
-             .first()
-
-def update_queue_item_status(db: Session, queue_id: int, status: str):
-    db_queue_item = db.query(models.PrintQueue).filter(models.PrintQueue.id == queue_id).first()
-    if db_queue_item:
-        db_queue_item.status = status
-        if status == "printing":
-            db_queue_item.start_time = datetime.now()
-        elif status in ["completed", "cancelled"]:
-            db_queue_item.completed_at = datetime.now()
-        db.commit()
-        db.refresh(db_queue_item)
-    return db_queue_item

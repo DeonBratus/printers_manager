@@ -3,73 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Printer Manager</title>
+    <meta name="description" content="3D Printer Management System">
+    <title>NeonPrint Manager</title>
     <link rel="stylesheet" href="/static/css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Боковая панель -->
-        <aside class="sidebar">
-            <div class="logo">
-                <i class="fas fa-print"></i>
-                <span>3D Print Manager</span>
+        <!-- Верхняя навигационная панель -->
+        <header class="top-nav">
+            <div class="logo-container">
+                <div class="logo">
+                    <i class="fas fa-print"></i>
+                    <span>NeonPrint</span>
+                </div>
+                <div class="logo-background"></div>
             </div>
+            
             <nav class="nav-menu">
                 <ul>
                     <li class="active" data-section="dashboard">
                         <i class="fas fa-tachometer-alt"></i>
                         <span>Dashboard</span>
+                        <div class="nav-highlight"></div>
                     </li>
                     <li data-section="printers">
                         <i class="fas fa-print"></i>
                         <span>Printers</span>
+                        <div class="nav-highlight"></div>
                     </li>
                     <li data-section="models">
                         <i class="fas fa-cube"></i>
                         <span>Models</span>
+                        <div class="nav-highlight"></div>
                     </li>
                     <li data-section="printings">
                         <i class="fas fa-tasks"></i>
                         <span>Printings</span>
+                        <div class="nav-highlight"></div>
                     </li>
                     <li data-section="reports">
                         <i class="fas fa-chart-bar"></i>
                         <span>Reports</span>
+                        <div class="nav-highlight"></div>
                     </li>
                 </ul>
             </nav>
-            <div class="user-panel">
-                <div class="user-avatar">
-                    <i class="fas fa-user"></i>
+            
+            <div class="user-actions">
+                <button class="btn btn-primary" id="open-general-report-modal">
+                    <i class="fas fa-chart-bar"></i>
+                    General Report
+                </button>
+                <div class="notifications">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge pulse">3</span>
                 </div>
-                <div class="user-info">
-                    <span class="username">Admin</span>
-                    <span class="user-role">Administrator</span>
+                <div class="user-panel">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="user-info">
+                        <span class="username">Admin</span>
+                        <span class="user-role">Administrator</span>
+                    </div>
                 </div>
             </div>
-        </aside>
+        </header>
 
         <!-- Основное содержимое -->
         <main class="main-content">
-            <header class="top-bar">
-                <div class="search-bar">
-                    <i class="fas fa-search"></i>
-                    <input type="text" placeholder="Search...">
-                </div>
-                <div class="notifications">
-                    <i class="fas fa-bell"></i>
-                    <span class="badge">3</span>
-                </div>
-            </header>
-
             <!-- Секции контента -->
             <section class="content-section active" id="dashboard">
-                <h2>Dashboard</h2>
+                <div class="section-header">
+                    <h2 class="section-title">Dashboard</h2>
+                </div>
+                
                 <div class="stats-grid">
                     <!-- Карточки статистики -->
-                    <div class="stat-card">
+                    <div class="stat-card glow-on-hover">
                         <div class="stat-icon printer">
                             <i class="fas fa-print"></i>
                         </div>
@@ -77,8 +92,9 @@
                             <h3 id="total-printers">0</h3>
                             <p>Total Printers</p>
                         </div>
+                        <div class="stat-wave"></div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card glow-on-hover">
                         <div class="stat-icon model">
                             <i class="fas fa-cube"></i>
                         </div>
@@ -86,8 +102,9 @@
                             <h3 id="total-models">0</h3>
                             <p>Total Models</p>
                         </div>
+                        <div class="stat-wave"></div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card glow-on-hover">
                         <div class="stat-icon active">
                             <i class="fas fa-spinner"></i>
                         </div>
@@ -95,8 +112,9 @@
                             <h3 id="active-printings">0</h3>
                             <p>Active Printings</p>
                         </div>
+                        <div class="stat-wave"></div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card glow-on-hover">
                         <div class="stat-icon completed">
                             <i class="fas fa-check-circle"></i>
                         </div>
@@ -104,44 +122,70 @@
                             <h3 id="completed-printings">0</h3>
                             <p>Completed Today</p>
                         </div>
+                        <div class="stat-wave"></div>
                     </div>
                 </div>
 
                 <div class="charts-grid">
                     <!-- Графики -->
-                    <div class="chart-card">
+                    <div class="chart-card floating-card">
                         <h3>Printer Status</h3>
                         <canvas id="printer-status-chart"></canvas>
+                        <div class="chart-hover"></div>
                     </div>
-                    <div class="chart-card">
+                    <div class="chart-card floating-card">
                         <h3>Print Time Distribution</h3>
                         <canvas id="print-time-chart"></canvas>
+                        <div class="chart-hover"></div>
                     </div>
                 </div>
 
-                <div class="recent-activity">
-                    <h3>Recent Printings</h3>
+                <div class="recent-activity floating-card">
+                    <div class="section-header">
+                        <h3>Recent Printings</h3>
+                        <div class="activity-controls">
+                            <button class="btn btn-icon"><i class="fas fa-sync-alt"></i></button>
+                        </div>
+                    </div>
                     <div class="activity-list" id="recent-printings">
                         <!-- Активность будет добавлена через JS -->
                     </div>
+                    <div class="activity-wave"></div>
                 </div>
             </section>
 
             <section class="content-section" id="printers">
                 <div class="section-header">
-                    <h2>Printers Management</h2>
-                    <button class="btn btn-primary" id="add-printer-btn">
-                        <i class="fas fa-plus"></i> Add Printer
-                    </button>
+                    <h2 class="section-title">Printers Management</h2>
+                    <div class="section-actions">
+                        <button class="btn btn-primary floating" id="add-printer-btn">
+                            <i class="fas fa-plus"></i> Add Printer
+                        </button>
+                    </div>
                 </div>
-                <div class="table-container">
+                <div class="table-container floating-card">
+                    <div class="table-header">
+                        <div class="table-search">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="printers-table-search" placeholder="Search printers...">
+                        </div>
+                        <div class="table-filters">
+                            <select id="printers-table-status-filter">
+                                <option value="all">All Status</option>
+                                <option value="idle">Idle</option>
+                                <option value="printing">Printing</option>
+                                <option value="error">Error</option>
+                            </select>
+                        </div>
+                    </div>
                     <table id="printers-table">
                         <thead>
                             <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Status</th>
-                                <th>Total Print Time</th>
+                                <th data-sort="id">ID</th>
+                                <th data-sort="name">Name</th>
+                                <th data-sort="status">Status</th>
+                                <th data-sort="total_print_time">Total Print Time</th>
+                                <th data-sort="total_downtime">Total Downtime</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -149,74 +193,145 @@
                             <!-- Данные будут добавлены через JavaScript -->
                         </tbody>
                     </table>
+                    <div class="table-footer">
+                        <div class="pagination">
+                            <button class="btn btn-icon" id="printers-table-prev-page">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span id="printers-table-pagination-info">Page 1 of 1</span>
+                            <button class="btn btn-icon" id="printers-table-next-page">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
             <section class="content-section" id="models">
                 <div class="section-header">
-                    <h2>Models Management</h2>
-                    <button class="btn btn-primary" id="add-model-btn">
-                        <i class="fas fa-plus"></i> Add Model
-                    </button>
+                    <h2 class="section-title">Models Management</h2>
+                    <div class="section-actions">
+                        <button class="btn btn-primary floating" id="add-model-btn">
+                            <i class="fas fa-plus"></i> Add Model
+                        </button>
+                    </div>
                 </div>
-                <div class="table-container">
+                <div class="table-container floating-card">
+                    <div class="table-header">
+                        <div class="table-search">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="models-table-search" placeholder="Search models...">
+                        </div>
+                    </div>
                     <table id="models-table">
                         <thead>
                             <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Print Time (h)</th>
+                                <th data-sort="id">ID</th>
+                                <th data-sort="name">Name</th>
+                                <th data-sort="printing_time">Print Time (h)</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <!-- Данные будут добавлены через JS -->
+                            <!-- Данные будут добавлены через JavaScript -->
                         </tbody>
                     </table>
+                    <div class="table-footer">
+                        <div class="pagination">
+                            <button class="btn btn-icon" id="models-table-prev-page">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span id="models-table-pagination-info">Page 1 of 1</span>
+                            <button class="btn btn-icon" id="models-table-next-page">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
             <section class="content-section" id="printings">
                 <div class="section-header">
-                    <h2>Printings Management</h2>
-                    <button class="btn btn-primary" id="start-printing-btn">
-                        <i class="fas fa-play"></i> Start Printing
-                    </button>
+                    <h2 class="section-title">Printings Management</h2>
+                    <div class="section-actions">
+                        <button class="btn btn-primary floating" id="start-printing-btn">
+                            <i class="fas fa-play"></i> Start Printing
+                        </button>
+                    </div>
                 </div>
                 <div class="printings-grid">
                     <div class="active-printings">
-                        <h3>Active Printings</h3>
+                        <div class="section-header">
+                            <h3>Active Printings</h3>
+                            <div class="table-search">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="active-printings-search" placeholder="Search active printings...">
+                            </div>
+                            <div class="table-filters">
+                                <select id="active-printings-status-filter">
+                                    <option value="all">All Status</option>
+                                    <option value="printing">Printing</option>
+                                    <option value="paused">Paused</option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="printing-cards" id="active-printing-cards">
                             <!-- Карточки активных печатей -->
                         </div>
                     </div>
                     <div class="printing-history">
                         <h3>Printing History</h3>
-                        <div class="table-container">
+                        <div class="table-container floating-card">
+                            <div class="table-header">
+                                <div class="table-search">
+                                    <i class="fas fa-search"></i>
+                                    <input type="text" id="printings-table-search" placeholder="Search printings...">
+                                </div>
+                                <div class="table-filters">
+                                    <select id="printings-table-status-filter">
+                                        <option value="all">All Status</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="failed">Failed</option>
+                                    </select>
+                                </div>
+                            </div>
                             <table id="printings-table">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
-                                        <th>Printer</th>
-                                        <th>Model</th>
-                                        <th>Start Time</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
+                                        <th data-sort="id">ID</th>
+                                        <th data-sort="printer_id">Printer</th>
+                                        <th data-sort="model_id">Model</th>
+                                        <th data-sort="start_time">Start Time</th>
+                                        <th data-sort="real_time_stop">End Time</th>
+                                        <th data-sort="printing_time">Duration</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <!-- Данные будут добавлены через JS -->
+                                    <!-- Данные будут добавлены через JavaScript -->
                                 </tbody>
                             </table>
+                            <div class="table-footer">
+                                <div class="pagination">
+                                    <button class="btn btn-icon" id="printings-table-prev-page">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <span id="printings-table-pagination-info">Page 1 of 1</span>
+                                    <button class="btn btn-icon" id="printings-table-next-page">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
             <section class="content-section" id="reports">
-                <h2>Reports</h2>
+                <div class="section-header">
+                    <h2 class="section-title">Reports</h2>
+                </div>
                 <div class="reports-grid">
-                    <div class="report-card">
+                    <div class="report-card floating-card">
                         <h3>Daily Report</h3>
                         <div class="report-controls">
                             <input type="date" id="daily-report-date">
@@ -224,7 +339,7 @@
                         </div>
                         <div class="report-results" id="daily-report-results"></div>
                     </div>
-                    <div class="report-card">
+                    <div class="report-card floating-card">
                         <h3>Printer Report</h3>
                         <div class="report-controls">
                             <select id="printer-report-select">
@@ -234,7 +349,7 @@
                         </div>
                         <div class="report-results" id="printer-report-results"></div>
                     </div>
-                    <div class="report-card">
+                    <div class="report-card floating-card">
                         <h3>Model Report</h3>
                         <div class="report-controls">
                             <select id="model-report-select">
@@ -301,6 +416,35 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Start Printing</button>
             </form>
+        </div>
+    </div>
+
+    <div class="modal" id="general-report-modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>All Printers Report</h3>
+            <div class="report-controls">
+                <button class="btn btn-secondary" id="generate-all-printers-report">Generate Report</button>
+                <button class="btn btn-primary" id="download-all-printers-report">
+                    <i class="fas fa-download"></i> Download CSV
+                </button>
+            </div>
+            <div class="table-container">
+                <table id="all-printers-report-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Total Print Time (hrs)</th>
+                            <th>Total Downtime (hrs)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Data will be populated via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 

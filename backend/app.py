@@ -5,8 +5,11 @@ from typing import List, Optional
 import uvicorn
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.requests import Request
+from background_tasks import start_scheduler
+import csv
+from io import StringIO
 
 from database import get_db
 from models import Base
@@ -20,7 +23,7 @@ from crud import (
     create_model, get_model, get_models, update_model, delete_model,
     create_printing, get_printing, get_printings, update_printing, delete_printing,
 )
-from printer_control import complete_printing, pause_printing, resume_printing, cancel_printing
+from printer_control import complete_printing, pause_printing, resume_printing, cancel_printing, calculate_printer_downtime
 from reports import get_daily_report, get_printer_report, get_model_report
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
@@ -54,19 +57,30 @@ Base.metadata.create_all(bind=engine)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# Запускаем планировщик при старте приложения
+@app.on_event("startup")
+async def startup_event():
+    start_scheduler()
+
 # Обновленный корневой маршрут для отображения фронтенда
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 # Printer endpoints
-@app.post("/printers/", response_model=Printer)
+@app.post("/printers/", response_model=List[Printer])
 def create_new_printer(printer: PrinterCreate, db: Session = Depends(get_db)):
     return create_printer(db, printer)
 
 @app.get("/printers/", response_model=List[Printer])
-def read_printers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    printers = get_printers(db, skip=skip, limit=limit)
+def read_printers(
+    skip: int = 0, 
+    limit: int = 100, 
+    sort_by: Optional[str] = None,
+    sort_desc: bool = False,
+    db: Session = Depends(get_db)
+):
+    printers = get_printers(db, skip=skip, limit=limit, sort_by=sort_by, sort_desc=sort_desc)
     return printers
 
 @app.get("/printers/{printer_id}", response_model=Printer)
@@ -90,14 +104,29 @@ def delete_existing_printer(printer_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Printer not found")
     return db_printer
 
+@app.get("/printers/{printer_id}/downtime")
+def get_printer_downtime(printer_id: int, db: Session = Depends(get_db)):
+    """Получение текущего времени простоя принтера"""
+    try:
+        downtime = calculate_printer_downtime(db, printer_id)
+        return {"printer_id": printer_id, "downtime": downtime}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Model endpoints
 @app.post("/models/", response_model=Model)
 def create_new_model(model: ModelCreate, db: Session = Depends(get_db)):
     return create_model(db, model)
 
 @app.get("/models/", response_model=List[Model])
-def read_models(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    models = get_models(db, skip=skip, limit=limit)
+def read_models(
+    skip: int = 0, 
+    limit: int = 100, 
+    sort_by: Optional[str] = None,
+    sort_desc: bool = False,
+    db: Session = Depends(get_db)
+):
+    models = get_models(db, skip=skip, limit=limit, sort_by=sort_by, sort_desc=sort_desc)
     return models
 
 @app.get("/models/{model_id}", response_model=Model)
@@ -154,8 +183,14 @@ def create_new_printing(printing: PrintingCreate, db: Session = Depends(get_db))
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/printings/", response_model=List[Printing])
-def read_printings(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    printings = get_printings(db, skip=skip, limit=limit)
+def read_printings(
+    skip: int = 0, 
+    limit: int = 100, 
+    sort_by: Optional[str] = None,
+    sort_desc: bool = False,
+    db: Session = Depends(get_db)
+):
+    printings = get_printings(db, skip=skip, limit=limit, sort_by=sort_by, sort_desc=sort_desc)
     return printings
 
 @app.get("/printings/{printing_id}", response_model=Printing)
@@ -257,6 +292,32 @@ def get_model_report_endpoint(model_id: int, db: Session = Depends(get_db)):
     if report is None:
         raise HTTPException(status_code=404, detail="Model not found")
     return report
+
+@app.get("/reports/printers/export/", response_class=StreamingResponse)
+def export_printers_report(db: Session = Depends(get_db)):
+    """Экспорт отчета по всем принтерам в формате CSV"""
+    printers = get_printers(db)
+    
+    # Создаем CSV в памяти
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Name", "Status", "Total Print Time (hrs)", "Total Downtime (hrs)"])
+    
+    for printer in printers:
+        writer.writerow([
+            printer.id,
+            printer.name,
+            printer.status,
+            f"{printer.total_print_time:.2f}",
+            f"{printer.total_downtime:.2f}"
+        ])
+    
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=printers_report.csv"}
+    )
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
