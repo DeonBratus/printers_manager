@@ -86,7 +86,7 @@ function createPrinterStatusChart(printers) {
                     statusCounts.paused || 0,
                     statusCounts.error || 0
                 ],
-                backgroundColor: ['#4caf50', '#2196f3', '#ff9800', '#B0B0B0', '#f44336']
+                backgroundColor: ['#4caf50', '#2196f3', '#ff9800', '#9e9e9e', '#f44336']
             }]
         },
         options: {

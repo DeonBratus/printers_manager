@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
 import models
-from crud import get_printing, get_printer, format_hours_to_hhmm
-from sqlalchemy import func
+from services.printer import format_hours_to_hhmm, get_printers, get_printer
+from services.printing import get_printings, get_printing
+from dal import printer as printer_dal
+
 
 def calculate_printer_downtime(db: Session, printer_id: int, current_time: datetime = None) -> float:
     """
@@ -43,22 +45,15 @@ def complete_printing(db: Session, printing_id: int, auto_complete: bool = False
         return None
     
     if auto_complete:
-        # При достижении 100% меняем статус принтера на waiting
-        printing.status = "printing"
-        printer.status = "waiting"  # Принтер ждет подтверждения
+        printer_dal.update(db, printer.id, {"status": "waiting"})
     else:
-        # При ручном завершении оператором
         current_time = datetime.now()
-        printing.real_time_stop = current_time
-        printing.status = "completed"
-        actual_printing_time = (printing.real_time_stop - printing.start_time).total_seconds() / 3600
-        printer.total_print_time += actual_printing_time
-        printer.status = "idle"  # После подтверждения принтер переходит в простой
-    
-    db.add(printer)
-    db.add(printing)
-    db.commit()
-    db.refresh(printing)
+        actual_printing_time = (current_time - printing.start_time).total_seconds() / 3600
+        printer_dal.update(db, printer.id, {
+            "status": "idle",
+            "total_print_time": printer.total_print_time + actual_printing_time
+        })
+        
     return printing
 
 def pause_printing(db: Session, printing_id: int):

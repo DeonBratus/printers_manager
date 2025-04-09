@@ -1,9 +1,10 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session
+from datetime import datetime
 from database import SessionLocal
 from printer_control import calculate_printer_downtime
-from crud import get_printers, get_printer, format_hours_to_hhmm
-from datetime import datetime
+from services.printer import get_printers, format_hours_to_hhmm
+from dal import printer as printer_dal
 
 def update_printer_downtimes():
     """Обновляет время простоя для всех принтеров в состоянии idle"""
@@ -17,10 +18,11 @@ def update_printer_downtimes():
             if printer.status == "idle" or printer.status == "waiting":
                 # Получаем актуальное время простоя с момента последней активности
                 current_downtime = calculate_printer_downtime(db, printer.id, current_time)
-                printer.total_downtime += current_downtime  # Форматированное значение
-                print(f"Printer {printer.name} (ID: {printer.id}) downtime updated: {printer.total_downtime}")
-                db.add(printer)
-        
+                # Вычисляем разницу между текущим простоем и прошлым
+                downtime_difference = current_downtime - printer.total_downtime
+                # Обновляем через DAL только разницу
+                printer_dal.update(db, printer.id, {"total_downtime": printer.total_downtime + downtime_difference})
+                formatted_time = format_hours_to_hhmm(downtime_difference)        
         db.commit()
     except Exception as e:
         print(f"Error updating printer downtimes: {e}")
