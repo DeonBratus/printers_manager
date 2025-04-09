@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Система управления 3D принтерами">
-    <title>AtomNet Control</title>
+    <meta name="description" content="3D Printer Management System">
+    <title> AtomNet Control</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,50 +27,46 @@
                 <ul>
                     <li class="active" data-section="dashboard">
                         <i class="fas fa-tachometer-alt"></i>
-                        <span>Панель управления</span>
+                        <span>Dashboard</span>
                         <div class="nav-highlight"></div>
                     </li>
                     <li data-section="printers">
                         <i class="fas fa-print"></i>
-                        <span>Принтеры</span>
+                        <span>Printers</span>
                         <div class="nav-highlight"></div>
                     </li>
                     <li data-section="models">
                         <i class="fas fa-cube"></i>
-                        <span>Модели</span>
+                        <span>Models</span>
                         <div class="nav-highlight"></div>
                     </li>
                     <li data-section="printings">
                         <i class="fas fa-tasks"></i>
-                        <span>Печать</span>
+                        <span>Printings</span>
                         <div class="nav-highlight"></div>
                     </li>
                     <li data-section="reports">
                         <i class="fas fa-chart-bar"></i>
-                        <span>Отчеты</span>
+                        <span>Reports</span>
                         <div class="nav-highlight"></div>
                     </li>
                     <li data-section="scheduler">
                         <i class="fas fa-calendar-alt"></i>
-                        <span>Планировщик</span>
+                        <span>Scheduler</span>
                         <div class="nav-highlight"></div>
                     </li>
                     <li data-section="gcode">
                         <i class="fas fa-code"></i>
-                        <span>GCode Просмотр</span>
+                        <span>GCode Viewer</span>
                         <div class="nav-highlight"></div>
                     </li>
                 </ul>
             </nav>
             
             <div class="user-actions">
-                <select id="language-select" class="language-select">
-                    <option value="ru">Русский</option>
-                    <option value="en">English</option>
-                </select>
                 <button class="btn btn-primary" id="open-general-report-modal">
                     <i class="fas fa-chart-bar"></i>
-                    Общий отчет
+                    General Report
                 </button>
                 <div class="notifications">
                     <i class="fas fa-bell"></i>
@@ -81,8 +77,8 @@
                         <i class="fas fa-user"></i>
                     </div>
                     <div class="user-info">
-                        <span class="username">Админ</span>
-                        <span class="user-role">Администратор</span>
+                        <span class="username">Admin</span>
+                        <span class="user-role">Administrator</span>
                     </div>
                 </div>
             </div>
@@ -93,7 +89,7 @@
             <!-- Секции контента -->
             <section class="content-section active" id="dashboard">
                 <div class="section-header">
-                    <h2 class="section-title">Панель управления</h2>
+                    <h2 class="section-title">Dashboard</h2>
                 </div>
                 
                 <div class="stats-grid">
@@ -104,7 +100,7 @@
                         </div>
                         <div class="stat-info">
                             <h3 id="total-printers">0</h3>
-                            <p>Всего принтеров</p>
+                            <p>Total Printers</p>
                         </div>
                         <div class="stat-wave"></div>
                     </div>
@@ -114,7 +110,7 @@
                         </div>
                         <div class="stat-info">
                             <h3 id="total-models">0</h3>
-                            <p>Всего моделей</p>
+                            <p>Total Models</p>
                         </div>
                         <div class="stat-wave"></div>
                     </div>
@@ -124,7 +120,7 @@
                         </div>
                         <div class="stat-info">
                             <h3 id="active-printings">0</h3>
-                            <p>Активные печати</p>
+                            <p>Active Printings</p>
                         </div>
                         <div class="stat-wave"></div>
                     </div>
@@ -134,7 +130,7 @@
                         </div>
                         <div class="stat-info">
                             <h3 id="completed-printings">0</h3>
-                            <p>Завершено сегодня</p>
+                            <p>Completed Today</p>
                         </div>
                         <div class="stat-wave"></div>
                     </div>
@@ -143,12 +139,12 @@
                 <div class="charts-grid">
                     <!-- Графики -->
                     <div class="chart-card floating-card">
-                        <h3>Статус принтеров</h3>
+                        <h3>Printer Status</h3>
                         <canvas id="printer-status-chart"></canvas>
                         <div class="chart-hover"></div>
                     </div>
                     <div class="chart-card floating-card">
-                        <h3>Распределение времени печати</h3>
+                        <h3>Print Time Distribution</h3>
                         <canvas id="print-time-chart"></canvas>
                         <div class="chart-hover"></div>
                     </div>
@@ -156,7 +152,7 @@
 
                 <div class="recent-activity floating-card">
                     <div class="section-header">
-                        <h3>Последние печати</h3>
+                        <h3>Recent Printings</h3>
                         <div class="activity-controls">
                             <button class="btn btn-icon"><i class="fas fa-sync-alt"></i></button>
                         </div>
@@ -170,10 +166,10 @@
 
             <section class="content-section" id="printers">
                 <div class="section-header">
-                    <h2 class="section-title">Управление принтерами</h2>
+                    <h2 class="section-title">Printers Management</h2>
                     <div class="section-actions">
                         <button class="btn btn-primary floating" id="add-printer-btn">
-                            <i class="fas fa-plus"></i> Добавить принтер
+                            <i class="fas fa-plus"></i> Add Printer
                         </button>
                     </div>
                 </div>
@@ -181,16 +177,16 @@
                     <div class="table-header">
                         <div class="table-search">
                             <i class="fas fa-search"></i>
-                            <input type="text" id="printers-table-search" placeholder="Поиск принтеров...">
+                            <input type="text" id="printers-table-search" placeholder="Search printers...">
                         </div>
                         <div class="table-filters">
                             <select id="printers-table-status-filter">
-                                <option value="all">Все статусы</option>
-                                <option value="idle">Простаивает</option>
-                                <option value="printing">Печатает</option>
-                                <option value="waiting">Ожидает</option>
-                                <option value="paused">Приостановлен</option>
-                                <option value="error">Ошибка</option>
+                                <option value="all">All Status</option>
+                                <option value="idle">Idle</option>
+                                <option value="printing">Printing</option>
+                                <option value="waiting">Waiting</option>
+                                <option value="paused">Paused</option>
+                                <option value="error">Error</option>
                             </select>
                         </div>
                     </div>
@@ -198,11 +194,11 @@
                         <thead>
                             <tr>
                                 <th data-sort="id">ID</th>
-                                <th data-sort="name">Название</th>
-                                <th data-sort="status">Статус</th>
-                                <th data-sort="total_print_time">Общее время печати</th>
-                                <th data-sort="total_downtime">Общее время простоя</th>
-                                <th>Действия</th>
+                                <th data-sort="name">Name</th>
+                                <th data-sort="status">Status</th>
+                                <th data-sort="total_print_time">Total Print Time</th>
+                                <th data-sort="total_downtime">Total Downtime</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -214,7 +210,7 @@
                             <button class="btn btn-icon" id="printers-table-prev-page">
                                 <i class="fas fa-chevron-left"></i>
                             </button>
-                            <span id="printers-table-pagination-info">Страница 1 из 1</span>
+                            <span id="printers-table-pagination-info">Page 1 of 1</span>
                             <button class="btn btn-icon" id="printers-table-next-page">
                                 <i class="fas fa-chevron-right"></i>
                             </button>
@@ -225,10 +221,10 @@
 
             <section class="content-section" id="models">
                 <div class="section-header">
-                    <h2 class="section-title">Управление моделями</h2>
+                    <h2 class="section-title">Models Management</h2>
                     <div class="section-actions">
                         <button class="btn btn-primary floating" id="add-model-btn">
-                            <i class="fas fa-plus"></i> Добавить модель
+                            <i class="fas fa-plus"></i> Add Model
                         </button>
                     </div>
                 </div>
@@ -236,16 +232,16 @@
                     <div class="table-header">
                         <div class="table-search">
                             <i class="fas fa-search"></i>
-                            <input type="text" id="models-table-search" placeholder="Поиск моделей...">
+                            <input type="text" id="models-table-search" placeholder="Search models...">
                         </div>
                     </div>
                     <table id="models-table">
                         <thead>
                             <tr>
                                 <th data-sort="id">ID</th>
-                                <th data-sort="name">Название</th>
-                                <th data-sort="printing_time">Время печати (ч)</th>
-                                <th>Действия</th>
+                                <th data-sort="name">Name</th>
+                                <th data-sort="printing_time">Print Time (h)</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -257,7 +253,7 @@
                             <button class="btn btn-icon" id="models-table-prev-page">
                                 <i class="fas fa-chevron-left"></i>
                             </button>
-                            <span id="models-table-pagination-info">Страница 1 из 1</span>
+                            <span id="models-table-pagination-info">Page 1 of 1</span>
                             <button class="btn btn-icon" id="models-table-next-page">
                                 <i class="fas fa-chevron-right"></i>
                             </button>
@@ -268,26 +264,26 @@
 
             <section class="content-section" id="printings">
                 <div class="section-header">
-                    <h2 class="section-title">Управление печатью</h2>
+                    <h2 class="section-title">Printings Management</h2>
                     <div class="section-actions">
                         <button class="btn btn-primary floating" id="start-printing-btn">
-                            <i class="fas fa-play"></i> Начать печать
+                            <i class="fas fa-play"></i> Start Printing
                         </button>
                     </div>
                 </div>
                 <div class="printings-grid">
                     <div class="active-printings">
                         <div class="section-header">
-                            <h3>Активные печати</h3>
+                            <h3>Active Printings</h3>
                             <div class="table-search">
                                 <i class="fas fa-search"></i>
-                                <input type="text" id="active-printings-search" placeholder="Поиск активных печатей...">
+                                <input type="text" id="active-printings-search" placeholder="Search active printings...">
                             </div>
                             <div class="table-filters">
                                 <select id="active-printings-status-filter">
-                                    <option value="all">Все статусы</option>
-                                    <option value="printing">Печатает</option>
-                                    <option value="paused">Приостановлен</option>
+                                    <option value="all">All Status</option>
+                                    <option value="printing">Printing</option>
+                                    <option value="paused">Paused</option>
                                 </select>
                             </div>
                         </div>
@@ -296,18 +292,18 @@
                         </div>
                     </div>
                     <div class="printing-history">
-                        <h3>История печати</h3>
+                        <h3>Printing History</h3>
                         <div class="table-container floating-card">
                             <div class="table-header">
                                 <div class="table-search">
                                     <i class="fas fa-search"></i>
-                                    <input type="text" id="printings-table-search" placeholder="Поиск печатей...">
+                                    <input type="text" id="printings-table-search" placeholder="Search printings...">
                                 </div>
                                 <div class="table-filters">
                                     <select id="printings-table-status-filter">
-                                        <option value="all">Все статусы</option>
-                                        <option value="completed">Завершено</option>
-                                        <option value="aborted">Прервано</option>
+                                        <option value="all">All Status</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="aborted">Aborted</option>
                                     </select>
                                 </div>
                             </div>
@@ -315,12 +311,12 @@
                                 <thead>
                                     <tr>
                                         <th data-sort="id">ID</th>
-                                        <th data-sort="printer_id">Принтер</th>
-                                        <th data-sort="model_id">Модель</th>
-                                        <th data-sort="start_time">Время начала</th>
-                                        <th data-sort="real_time_stop">Время окончания</th>
-                                        <th data-sort="printing_time">Длительность</th>
-                                        <th data-sort="status">Статус</th>
+                                        <th data-sort="printer_id">Printer</th>
+                                        <th data-sort="model_id">Model</th>
+                                        <th data-sort="start_time">Start Time</th>
+                                        <th data-sort="real_time_stop">End Time</th>
+                                        <th data-sort="printing_time">Duration</th>
+                                        <th data-sort="status">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -332,7 +328,7 @@
                                     <button class="btn btn-icon" id="printings-table-prev-page">
                                         <i class="fas fa-chevron-left"></i>
                                     </button>
-                                    <span id="printings-table-pagination-info">Страница 1 из 1</span>
+                                    <span id="printings-table-pagination-info">Page 1 of 1</span>
                                     <button class="btn btn-icon" id="printings-table-next-page">
                                         <i class="fas fa-chevron-right"></i>
                                     </button>
@@ -345,34 +341,34 @@
 
             <section class="content-section" id="reports">
                 <div class="section-header">
-                    <h2 class="section-title">Отчеты</h2>
+                    <h2 class="section-title">Reports</h2>
                 </div>
                 <div class="reports-grid">
                     <div class="report-card floating-card">
-                        <h3>Ежедневный отчет</h3>
+                        <h3>Daily Report</h3>
                         <div class="report-controls">
                             <input type="date" id="daily-report-date">
-                            <button class="btn btn-secondary" id="generate-daily-report">Сформировать</button>
+                            <button class="btn btn-secondary" id="generate-daily-report">Generate</button>
                         </div>
                         <div class="report-results" id="daily-report-results"></div>
                     </div>
                     <div class="report-card floating-card">
-                        <h3>Отчет по принтеру</h3>
+                        <h3>Printer Report</h3>
                         <div class="report-controls">
                             <select id="printer-report-select">
-                                <option value="">Выберите принтер</option>
+                                <option value="">Select Printer</option>
                             </select>
-                            <button class="btn btn-secondary" id="generate-printer-report">Сформировать</button>
+                            <button class="btn btn-secondary" id="generate-printer-report">Generate</button>
                         </div>
                         <div class="report-results" id="printer-report-results"></div>
                     </div>
                     <div class="report-card floating-card">
-                        <h3>Отчет по модели</h3>
+                        <h3>Model Report</h3>
                         <div class="report-controls">
                             <select id="model-report-select">
-                                <option value="">Выберите модель</option>
+                                <option value="">Select Model</option>
                             </select>
-                            <button class="btn btn-secondary" id="generate-model-report">Сформировать</button>
+                            <button class="btn btn-secondary" id="generate-model-report">Generate</button>
                         </div>
                         <div class="report-results" id="model-report-results"></div>
                     </div>
@@ -381,28 +377,28 @@
 
             <section class="content-section" id="scheduler">
                 <div class="section-header">
-                    <h2 class="section-title">Планировщик печати</h2>
+                    <h2 class="section-title">Print Scheduler</h2>
                     <div class="section-actions">
                         <button class="btn btn-primary floating" id="add-schedule-btn">
-                            <i class="fas fa-plus"></i> Запланировать печать
+                            <i class="fas fa-plus"></i> Schedule Print
                         </button>
                     </div>
                 </div>
                 <div class="schedule-grid">
                     <div class="schedule-timeline floating-card">
-                        <h3>График печати</h3>
+                        <h3>Print Timeline</h3>
                         <div class="timeline-container" id="print-timeline">
                             <!-- Заглушка для временной шкалы -->
                             <div class="timeline-item">
-                                <div class="timeline-printer">Принтер 1</div>
+                                <div class="timeline-printer">Printer 1</div>
                                 <div class="timeline-bar" style="width: 70%; background: var(--primary-color);">
-                                    Модель A - осталось 2ч
+                                    Model A - 2h remaining
                                 </div>
                             </div>
                             <div class="timeline-item">
-                                <div class="timeline-printer">Принтер 2</div>
+                                <div class="timeline-printer">Printer 2</div>
                                 <div class="timeline-bar" style="width: 30%; background: var(--secondary-color);">
-                                    Модель B - осталось 1ч
+                                    Model B - 1h remaining
                                 </div>
                             </div>
                         </div>
@@ -412,7 +408,7 @@
 
             <section class="content-section" id="gcode">
                 <div class="section-header">
-                    <h2 class="section-title">Просмотр GCode</h2>
+                    <h2 class="section-title">GCode Viewer</h2>
                 </div>
                 <div class="gcode-container floating-card">
                     <div class="gcode-preview">
@@ -423,61 +419,61 @@
                             <div class="file-controls">
                                 <input type="file" id="gcode-file" accept=".gcode">
                                 <button class="btn btn-primary" onclick="document.getElementById('gcode-file').click()">
-                                    <i class="fas fa-file-upload"></i> Загрузить GCode
+                                    <i class="fas fa-file-upload"></i> Load GCode
                                 </button>
                             </div>
                             <div class="view-controls">
-                                <h4>Управление слоями</h4>
+                                <h4>Layer Control</h4>
                                 <div class="layer-control">
-                                    <label for="layer-slider">Слой: <span id="current-layer">0</span> / <span id="max-layer">0</span></label>
+                                    <label for="layer-slider">Layer: <span id="current-layer">0</span> / <span id="max-layer">0</span></label>
                                     <input type="range" id="layer-slider" min="0" value="0" step="1">
                                 </div>
-                                <h4>Управление видимостью</h4>
+                                <h4>Visibility Controls</h4>
                                 <div class="view-control">
                                     <input type="checkbox" id="show-wall" checked>
-                                    <label for="show-wall">Внешние стены</label>
+                                    <label for="show-wall">Outer Walls</label>
                                 </div>
                                 <div class="view-control">
                                     <input type="checkbox" id="show-wall-inner" checked>
-                                    <label for="show-wall-inner">Внутренние стены</label>
+                                    <label for="show-wall-inner">Inner Walls</label>
                                 </div>
                                 <div class="view-control">
                                     <input type="checkbox" id="show-skin" checked>
-                                    <label for="show-skin">Верх/Низ</label>
+                                    <label for="show-skin">Top/Bottom</label>
                                 </div>
                                 <div class="view-control">
                                     <input type="checkbox" id="show-fill" checked>
-                                    <label for="show-fill">Заполнение</label>
+                                    <label for="show-fill">Infill</label>
                                 </div>
                                 <div class="view-control">
                                     <input type="checkbox" id="show-support" checked>
-                                    <label for="show-support">Поддержка</label>
+                                    <label for="show-support">Support</label>
                                 </div>
                                 <div class="view-control">
                                     <input type="checkbox" id="show-skirt" checked>
-                                    <label for="show-skirt">Окаймление</label>
+                                    <label for="show-skirt">Skirt/Brim</label>
                                 </div>
                                 <div class="view-control">
                                     <input type="checkbox" id="show-travel" checked>
-                                    <label for="show-travel">Перемещения</label>
+                                    <label for="show-travel">Travel Moves</label>
                                 </div>
                             </div>
                         </div>
                         <div class="info-card">
-                            <h4>Информация о файле</h4>
-                            <p>Название: sample.gcode</p>
-                            <p>Размер: 1.2 MB</p>
-                            <p>Оценочное время печати: 2ч 30м</p>
+                            <h4>File Info</h4>
+                            <p>Name: sample.gcode</p>
+                            <p>Size: 1.2 MB</p>
+                            <p>Estimated print time: 2h 30m</p>
                         </div>
                         <div class="gcode-content">
-                            <pre><code>; Пример GCode
-G21 ; Установить единицы измерения в миллиметрах
-G90 ; Использовать абсолютные координаты
-M82 ; Использовать абсолютные расстояния для экструзии
-M104 S200 ; Установить температуру сопла
-M140 S60 ; Установить температуру стола
-G28 ; Вернуться в исходное положение
-; Здесь будет больше GCode...</code></pre>
+                            <pre><code>; Sample GCode
+G21 ; Set units to millimeters
+G90 ; Use absolute coordinates
+M82 ; Use absolute distances for extrusion
+M104 S200 ; Set nozzle temperature
+M140 S60 ; Set bed temperature
+G28 ; Home all axes
+; More GCode would appear here...</code></pre>
                         </div>
                     </div>
                 </div>
@@ -489,13 +485,13 @@ G28 ; Вернуться в исходное положение
     <div class="modal" id="add-printer-modal">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
-            <h3>Добавить принтер</h3>
+            <h3>Add New Printer</h3>
             <form id="printer-form">
                 <div class="form-group">
-                    <label for="printer-name">Название принтера</label>
+                    <label for="printer-name">Printer Name</label>
                     <input type="text" id="printer-name" required>
                 </div>
-                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="submit" class="btn btn-primary">Save</button>
             </form>
         </div>
     </div>
@@ -503,17 +499,17 @@ G28 ; Вернуться в исходное положение
     <div class="modal" id="add-model-modal">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
-            <h3>Добавить модель</h3>
+            <h3>Add New Model</h3>
             <form id="model-form">
                 <div class="form-group">
-                    <label for="model-name">Название модели</label>
+                    <label for="model-name">Model Name</label>
                     <input type="text" id="model-name" required>
                 </div>
                 <div class="form-group">
-                    <label for="printing-time">Время печати (часов)</label>
+                    <label for="printing-time">Printing Time (hours)</label>
                     <input type="number" id="printing-time" step="0.1" min="0.1" required>
                 </div>
-                <button type="submit" class="btn btn-primary">Сохранить</button>
+                <button type="submit" class="btn btn-primary">Save</button>
             </form>
         </div>
     </div>
@@ -521,21 +517,21 @@ G28 ; Вернуться в исходное положение
     <div class="modal" id="start-printing-modal">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
-            <h3>Начать новую печать</h3>
+            <h3>Start New Printing</h3>
             <form id="printing-form">
                 <div class="form-group">
-                    <label for="printing-printer">Принтер</label>
+                    <label for="printing-printer">Printer</label>
                     <select id="printing-printer" required>
-                        <option value="">Выберите принтер</option>
+                        <option value="">Select Printer</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="printing-model">Модель</label>
+                    <label for="printing-model">Model</label>
                     <select id="printing-model" required>
-                        <option value="">Выберите модель</option>
+                        <option value="">Select Model</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary">Начать печать</button>
+                <button type="submit" class="btn btn-primary">Start Printing</button>
             </form>
         </div>
     </div>
@@ -543,11 +539,11 @@ G28 ; Вернуться в исходное положение
     <div class="modal" id="general-report-modal">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
-            <h3>Отчет по всем принтерам</h3>
+            <h3>All Printers Report</h3>
             <div class="report-controls">
-                <button class="btn btn-secondary" id="generate-all-printers-report">Сформировать отчет</button>
+                <button class="btn btn-secondary" id="generate-all-printers-report">Generate Report</button>
                 <button class="btn btn-primary" id="download-all-printers-report">
-                    <i class="fas fa-download"></i> Скачать CSV
+                    <i class="fas fa-download"></i> Download CSV
                 </button>
             </div>
             <div class="table-container">
@@ -555,14 +551,14 @@ G28 ; Вернуться в исходное положение
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Название</th>
-                            <th>Статус</th>
-                            <th>Общее время печати (ч)</th>
-                            <th>Общее время простоя (ч)</th>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Total Print Time (hrs)</th>
+                            <th>Total Downtime (hrs)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Данные будут добавлены через JavaScript -->
+                        <!-- Data will be populated via JavaScript -->
                     </tbody>
                 </table>
             </div>

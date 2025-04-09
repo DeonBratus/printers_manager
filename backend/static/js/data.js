@@ -117,7 +117,7 @@ export async function loadPrinters() {
         const printers = await fetchAPI('/printers/');
         printersTable.setData(printers);
     } catch (error) {
-        showError('Failed to load printers');
+        showError('Не удалось загрузить список принтеров');
         console.error(error);
     }
 }
@@ -127,7 +127,7 @@ export async function loadModels() {
         await modelsTable.loadData();
     } catch (error) {
         console.error('Error loading models:', error);
-        showError('Failed to load models');
+        showError('Не удалось загрузить список моделей');
     }
 }
 
@@ -140,7 +140,7 @@ export async function loadActivePrintings() {
         renderActivePrintingCards(activePrintings);
     } catch (error) {
         console.error('Error loading active printings:', error);
-        showError('Failed to load active printings');
+        showError('Не удалось загрузить активные печати');
     }
 }
 

@@ -15,9 +15,9 @@ window.handlePrinterFormSubmit = async function(event) {
         });
         document.getElementById('add-printer-modal').classList.remove('active');
         loadPrinters();
-        showSuccess('Printer added successfully');
+        showSuccess('Принтер успешно добавлен');
     } catch (error) {
-        showError('Failed to add printer');
+        showError('Не удалось добавить принтер');
     }
 };
 
@@ -35,9 +35,9 @@ window.handleModelFormSubmit = async function(event) {
         });
         document.getElementById('add-model-modal').classList.remove('active');
         loadModels();
-        showSuccess('Model added successfully');
+        showSuccess('Модель успешно добавлена');
     } catch (error) {
-        showError('Failed to add model');
+        showError('Не удалось добавить модель');
     }
 };
 
@@ -74,7 +74,7 @@ window.handlePrintingFormSubmit = async function(event) {
     const modelId = parseInt(document.getElementById('printing-model').value);
     
     if (!printerId || !modelId) {
-        showError('Please select both printer and model');
+        showError('Пожалуйста, выберите принтер и модель');
         return;
     }
 
@@ -104,12 +104,12 @@ window.handlePrintingFormSubmit = async function(event) {
         });
 
         document.getElementById('start-printing-modal').classList.remove('active');
-        showSuccess('Printing started successfully');
+        showSuccess('Печать успешно запущена');
         await loadActivePrintings();
         await loadPrinters(); // Обновляем список принтеров после запуска печати
     } catch (error) {
         console.error('Error starting printing:', error);
-        showError('Failed to start printing');
+        showError('Не удалось запустить печать');
     }
 };
 

@@ -8,7 +8,7 @@ export function showSuccess(message) {
 
 function createNotification(message, className) {
     const notification = document.createElement('div');
-    notification.className = className;
+    notification.className = className + ' notification-ru'; // Добавляем класс для русских уведомлений
     notification.textContent = message;
     document.body.appendChild(notification);
     setTimeout(() => notification.remove(), 3000);
