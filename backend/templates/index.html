@@ -406,18 +406,56 @@
             <section class="content-section" id="gcode">
                 <div class="section-header">
                     <h2 class="section-title">GCode Viewer</h2>
-                    <div class="section-actions">
-                        <input type="file" id="gcode-file" accept=".gcode" style="display: none;">
-                        <button class="btn btn-primary floating" onclick="document.getElementById('gcode-file').click()">
-                            <i class="fas fa-file-upload"></i> Load GCode
-                        </button>
-                    </div>
                 </div>
                 <div class="gcode-container floating-card">
                     <div class="gcode-preview">
                         <div id="gcode-3d-preview"></div>
                     </div>
                     <div class="gcode-info">
+                        <div class="gcode-controls">
+                            <div class="file-controls">
+                                <input type="file" id="gcode-file" accept=".gcode">
+                                <button class="btn btn-primary" onclick="document.getElementById('gcode-file').click()">
+                                    <i class="fas fa-file-upload"></i> Load GCode
+                                </button>
+                            </div>
+                            <div class="view-controls">
+                                <h4>Layer Control</h4>
+                                <div class="layer-control">
+                                    <label for="layer-slider">Layer: <span id="current-layer">0</span> / <span id="max-layer">0</span></label>
+                                    <input type="range" id="layer-slider" min="0" value="0" step="1">
+                                </div>
+                                <h4>Visibility Controls</h4>
+                                <div class="view-control">
+                                    <input type="checkbox" id="show-wall" checked>
+                                    <label for="show-wall">Outer Walls</label>
+                                </div>
+                                <div class="view-control">
+                                    <input type="checkbox" id="show-wall-inner" checked>
+                                    <label for="show-wall-inner">Inner Walls</label>
+                                </div>
+                                <div class="view-control">
+                                    <input type="checkbox" id="show-skin" checked>
+                                    <label for="show-skin">Top/Bottom</label>
+                                </div>
+                                <div class="view-control">
+                                    <input type="checkbox" id="show-fill" checked>
+                                    <label for="show-fill">Infill</label>
+                                </div>
+                                <div class="view-control">
+                                    <input type="checkbox" id="show-support" checked>
+                                    <label for="show-support">Support</label>
+                                </div>
+                                <div class="view-control">
+                                    <input type="checkbox" id="show-skirt" checked>
+                                    <label for="show-skirt">Skirt/Brim</label>
+                                </div>
+                                <div class="view-control">
+                                    <input type="checkbox" id="show-travel" checked>
+                                    <label for="show-travel">Travel Moves</label>
+                                </div>
+                            </div>
+                        </div>
                         <div class="info-card">
                             <h4>File Info</h4>
                             <p>Name: sample.gcode</p>

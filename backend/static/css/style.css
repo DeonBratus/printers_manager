@@ -884,7 +884,7 @@ tr:hover {
 /* GCode Preview */
 .gcode-preview {
     width: 100%;
-    height: 500px;
+    height: 700px; /* Увеличиваем высоту с 500px до 700px */
     background-color: var(--dark-color);
     border-radius: var(--border-radius);
     overflow: hidden;
@@ -900,6 +900,77 @@ tr:hover {
     grid-template-columns: 2fr 1fr;
     gap: var(--space-lg);
     padding: var(--space-lg);
+}
+
+.gcode-controls {
+    margin-bottom: var(--space-lg);
+    padding: var(--space-md);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+}
+
+.file-controls {
+    margin-bottom: var(--space-md);
+}
+
+.file-controls input[type="file"] {
+    display: none;
+}
+
+.view-controls {
+    border-top: 1px solid var(--border-color);
+    padding-top: var(--space-md);
+}
+
+.view-controls h4 {
+    margin-bottom: var(--space-sm);
+    color: var(--text-primary);
+}
+
+.view-control {
+    display: flex;
+    align-items: center;
+    margin-bottom: var(--space-xs);
+    padding: var(--space-xs) 0;
+}
+
+.view-control:last-child {
+    margin-bottom: 0;
+}
+
+.view-control input[type="checkbox"] {
+    margin-right: var(--space-sm);
+}
+
+.view-control label {
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.gcode-view-controls {
+    display: none;
+}
+
+.layer-control {
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm);
+    background: var(--bg-primary);
+    border-radius: var(--border-radius);
+}
+
+.layer-control label {
+    display: block;
+    margin-bottom: var(--space-xs);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+.layer-control input[type="range"] {
+    width: 100%;
+    margin: var(--space-xs) 0;
 }
 
 @media (max-width: 768px) {
