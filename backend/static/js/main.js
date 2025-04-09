@@ -6,6 +6,7 @@ import '/static/js/charts.js';
 import '/static/js/reports.js';
 import '/static/js/printing.js';
 import { generateDailyReport, generatePrinterReport, generateModelReport, populateReportSelects, setupGeneralReportModal } from './reports.js';
+import { initGCodeViewer } from './gcode-3d-viewer.js';
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
@@ -64,5 +65,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeSection?.id === 'dashboard') {
             loadDashboardData();
         }
+    });
+
+    // Добавляем обработчики для новых вкладок
+    document.getElementById('gcode-file')?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Заглушка для демонстрации
+            console.log('Loading GCode file:', file.name);
+            // В реальном приложении здесь будет парсинг и отображение GCode
+        }
+    });
+
+    // Удалим старый обработчик
+    document.getElementById('gcode-file')?.removeEventListener('change', () => {});
+
+    // Инициализируем просмотрщик G-code
+    initGCodeViewer();
+
+    // Заглушка для планировщика
+    document.getElementById('add-schedule-btn')?.addEventListener('click', () => {
+        showSuccess('Scheduling feature coming soon!');
     });
 });

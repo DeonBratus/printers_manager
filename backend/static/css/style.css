@@ -119,12 +119,18 @@ h2 {
     gap: var(--space-sm);
 }
 
+.logo-image {
+    height: 32px;
+    width: auto;
+    margin-right: var(--space-sm);
+}
+
 .logo {
+    display: flex;
+    align-items: center;
     font-size: var(--text-xl);
     font-weight: 700;
     color: var(--primary-color);
-    display: flex;
-    align-items: center;
     transition: var(--transition);
 }
 
@@ -836,6 +842,70 @@ tr:hover {
 .form-group select:focus {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+}
+
+/* Scheduler Styles */
+.schedule-grid {
+    margin-top: var(--space-lg);
+}
+
+.schedule-timeline {
+    padding: var(--space-lg);
+}
+
+.timeline-container {
+    margin-top: var(--space-md);
+}
+
+.timeline-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+}
+
+.timeline-printer {
+    width: 120px;
+    font-weight: 500;
+}
+
+.timeline-bar {
+    height: 30px;
+    border-radius: var(--border-radius);
+    padding: var(--space-xs) var(--space-sm);
+    color: white;
+    display: flex;
+    align-items: center;
+    font-size: var(--text-sm);
+}
+
+/* GCode Preview */
+.gcode-preview {
+    width: 100%;
+    height: 500px;
+    background-color: var(--dark-color);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+#gcode-3d-preview {
+    width: 100%;
+    height: 100%;
+}
+
+.gcode-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-lg);
+    padding: var(--space-lg);
+}
+
+@media (max-width: 768px) {
+    .gcode-container {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Responsive Design */
