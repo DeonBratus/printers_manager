@@ -139,12 +139,12 @@ def get_printing_with_details(db: Session, printing_id: int):
             if printing.calculated_time_stop and printing.start_time:
                 total_time = (printing.calculated_time_stop - printing.start_time).total_seconds()
                 elapsed_time = (datetime.now() - printing.start_time).total_seconds()
-                printing.progress = min(100, (elapsed_time / total_time) * 100)
+                printing.progress = min(100, (elapsed_time / (total_time + 0.0000001)) * 100)
             else:
                 # Если нет calculated_time_stop, используем printing_time
                 elapsed_time = (datetime.now() - printing.start_time).total_seconds()
                 total_time = printing.printing_time * 3600  # переводим часы в секунды
-                printing.progress = min(100, (elapsed_time / total_time) * 100)
+                printing.progress = min(100, (elapsed_time / (total_time + 0.0000001)) * 100)
         else:
             printing.progress = 100
             

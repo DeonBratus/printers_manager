@@ -18,8 +18,9 @@ def update_printer_downtimes():
                 # Получаем актуальное время простоя с момента последней активности
                 current_downtime = calculate_printer_downtime(db, printer.id, current_time)
                 printer.total_downtime = current_downtime  # Сохраняем числовое значение
-                printer.formatted_downtime = format_hours_to_hhmm(current_downtime)  # Форматированное значение
-                print(f"Printer {printer.name} (ID: {printer.id}) downtime updated: {printer.formatted_downtime}")
+                sum_downtime = printer.total_downtime + current_downtime
+                printer.total_downtime = sum_downtime  # Форматированное значение
+                print(f"Printer {printer.name} (ID: {printer.id}) downtime updated: {printer.total_downtime}")
                 db.add(printer)
         
         db.commit()
