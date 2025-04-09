@@ -72,20 +72,21 @@ function createPrinterStatusChart(printers) {
     const statusCounts = printers.reduce((acc, printer) => {
         acc[printer.status || 'idle'] = (acc[printer.status || 'idle'] || 0) + 1;
         return acc;
-    }, { idle: 0, printing: 0, paused: 0, error: 0 });
+    }, { idle: 0, printing: 0, waiting: 0, paused: 0, error: 0 });
 
     window.printerStatusChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['Idle', 'Printing', 'Paused', 'Error'],
+            labels: ['Idle', 'Printing', 'Waiting', 'Paused', 'Error'],
             datasets: [{
                 data: [
                     statusCounts.idle || 0,
                     statusCounts.printing || 0,
+                    statusCounts.waiting || 0,
                     statusCounts.paused || 0,
                     statusCounts.error || 0
                 ],
-                backgroundColor: ['#4caf50', '#2196f3', '#ff9800', '#f44336']
+                backgroundColor: ['#4caf50', '#2196f3', '#ff9800', '#B0B0B0', '#f44336']
             }]
         },
         options: {

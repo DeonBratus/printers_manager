@@ -136,12 +136,35 @@ window.resumePrinting = async function(printingId) {
 
 window.stopPrinting = async function(printingId) {
     try {
-        await fetchAPI(`/printings/${printingId}/complete`, { method: 'POST' });
-        showSuccess('Printing completed successfully');
-        loadActivePrintings();
-        loadPrintingsHistory();
+        await fetchAPI(`/printings/${printingId}/cancel`, { method: 'POST' });  // Меняем на cancel вместо complete
+        showSuccess('Printing aborted successfully');
+        await Promise.all([
+            loadActivePrintings(),
+            loadPrintingsHistory(),
+            loadPrinters()
+        ]);
     } catch (error) {
-        showError('Failed to stop printing');
+        showError('Failed to abort printing');
+    }
+};
+
+window.confirmPrinting = async function(id, isPrinter = false) {
+    try {
+        if (isPrinter) {
+            // Для подтверждения из таблицы принтеров
+            await fetchAPI(`/printers/${id}/confirm`, { method: 'POST' });
+        } else {
+            // Для подтверждения из карточки печати
+            await fetchAPI(`/printings/${id}/complete`, { method: 'POST' });
+        }
+        showSuccess('Printing completed successfully');
+        await Promise.all([
+            loadActivePrintings(),
+            loadPrintingsHistory(),
+            loadPrinters()
+        ]);
+    } catch (error) {
+        showError('Failed to complete printing');
     }
 };
 

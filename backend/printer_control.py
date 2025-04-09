@@ -7,13 +7,13 @@ from sqlalchemy import func
 def calculate_printer_downtime(db: Session, printer_id: int, current_time: datetime = None) -> float:
     """
     Вычисляет текущее время простоя принтера.
-    Простой считается только когда принтер в состоянии idle.
+    Простой считается когда принтер в состоянии idle или waiting
     """
     if current_time is None:
         current_time = datetime.now()
         
     printer = get_printer(db, printer_id)
-    if not printer or printer.status != "idle":
+    if not printer or (printer.status != "idle" and printer.status != "waiting"):
         return 0.0
         
     # Получаем время последней активности принтера
@@ -33,7 +33,7 @@ def calculate_printer_downtime(db: Session, printer_id: int, current_time: datet
         print(f"Printer {printer_id} idle time since creation: {format_hours_to_hhmm(idle_time)}")
         return idle_time
 
-def complete_printing(db: Session, printing_id: int):
+def complete_printing(db: Session, printing_id: int, auto_complete: bool = False):
     printing = get_printing(db, printing_id)
     if not printing or printing.real_time_stop is not None:
         return None
@@ -42,26 +42,21 @@ def complete_printing(db: Session, printing_id: int):
     if not printer:
         return None
     
-    current_time = datetime.now()
-    printing.real_time_stop = current_time
-    actual_printing_time = (printing.real_time_stop - printing.start_time).total_seconds() / 3600
-    
-    # Определяем успешность печати
-    expected_end_time = printing.calculated_time_stop
-    time_difference = abs((current_time - expected_end_time).total_seconds() / 3600)
-    
-    if current_time < expected_end_time and time_difference > (printing.printing_time * 0.1):
-        printing.status = "aborted"
+    if auto_complete:
+        # При достижении 100% меняем статус принтера на waiting
+        printing.status = "printing"
+        printer.status = "waiting"  # Принтер ждет подтверждения
     else:
+        # При ручном завершении оператором
+        current_time = datetime.now()
+        printing.real_time_stop = current_time
         printing.status = "completed"
+        actual_printing_time = (printing.real_time_stop - printing.start_time).total_seconds() / 3600
+        printer.total_print_time += actual_printing_time
+        printer.status = "idle"  # После подтверждения принтер переходит в простой
     
-    # Обновляем статистику принтера
-    printer.status = "idle"
-    printer.total_print_time += actual_printing_time
-    # Простой будет рассчитываться динамически
-    
-    db.add(printing)
     db.add(printer)
+    db.add(printing)
     db.commit()
     db.refresh(printing)
     return printing
@@ -122,7 +117,7 @@ def cancel_printing(db: Session, printing_id: int):
     
     current_time = datetime.now()
     printing.real_time_stop = current_time
-    printing.status = "cancelled"
+    printing.status = "aborted"  # Устанавливаем статус aborted
     
     # Вычисляем фактическое время печати
     actual_printing_time = (printing.real_time_stop - printing.start_time).total_seconds() / 3600
@@ -130,10 +125,12 @@ def cancel_printing(db: Session, printing_id: int):
     # Обновляем статистику принтера
     printer.status = "idle"
     printer.total_print_time += actual_printing_time
-    # Простой будет рассчитываться динамически
     
+    # Сохраняем изменения
     db.add(printing)
     db.add(printer)
     db.commit()
+    
+    # Обновляем объект печати из базы данных
     db.refresh(printing)
     return printing

@@ -140,11 +140,25 @@ def get_printing_with_details(db: Session, printing_id: int):
                 total_time = (printing.calculated_time_stop - printing.start_time).total_seconds()
                 elapsed_time = (datetime.now() - printing.start_time).total_seconds()
                 printing.progress = min(100, (elapsed_time / (total_time + 0.0000001)) * 100)
+                
+                # Автоматически завершаем печать при достижении 100%
+                if printing.progress >= 100:
+                    from printer_control import complete_printing
+                    complete_printing(db, printing.id, auto_complete=True)
+                    # Перезагружаем данные печати после автозавершения
+                    printing = db.query(models.Printing).filter(models.Printing.id == printing_id).first()
             else:
                 # Если нет calculated_time_stop, используем printing_time
                 elapsed_time = (datetime.now() - printing.start_time).total_seconds()
                 total_time = printing.printing_time * 3600  # переводим часы в секунды
                 printing.progress = min(100, (elapsed_time / (total_time + 0.0000001)) * 100)
+                
+                # Также проверяем на автозавершение
+                if printing.progress >= 100:
+                    from printer_control import complete_printing
+                    complete_printing(db, printing.id, auto_complete=True)
+                    # Перезагружаем данные печати после автозавершения
+                    printing = db.query(models.Printing).filter(models.Printing.id == printing_id).first()
         else:
             printing.progress = 100
             
@@ -154,8 +168,10 @@ def get_printing_with_details(db: Session, printing_id: int):
         printing.printer_name = printer.name if printer else "Unknown Printer"
         printing.model_name = model.name if model else "Unknown Model"
         
-        # Добавляем статус
-        if printing.real_time_stop:
+        # Используем сохраненный статус печати
+        if printing.status == "aborted":
+            printing.status = "aborted"
+        elif printing.status == "completed":
             printing.status = "completed"
         elif hasattr(printer, 'status'):
             printing.status = printer.status

@@ -11,18 +11,30 @@ class PrintersTableManager extends TableManager {
                 <td>${printer.name}</td>
                 <td>
                     <span class="status-badge status-${printer.status.toLowerCase()}">
-                        ${printer.status}
+                        ${printer.status === 'waiting' ? 'Waiting Confirmation' : printer.status}
                     </span>
                 </td>
                 <td>${printer.total_print_time?.toFixed(2) || '0.00'} hrs</td>
                 <td>${printer.total_downtime?.toFixed(2) || '0.00'} hrs</td>
                 <td>
-                    <button class="btn btn-icon" onclick="window.editPrinter('${printer.id}')">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-icon" onclick="window.deletePrinter('${printer.id}')">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    <div class="action-buttons">
+                        ${printer.status === 'printing' ? `
+                            <button class="btn btn-success btn-sm" onclick="window.confirmPrinting('${printer.id}', true)">
+                                <i class="fas fa-check"></i> Early Complete
+                            </button>
+                        ` : printer.status === 'waiting' ? `
+                            <button class="btn btn-success btn-sm" onclick="window.confirmPrinting('${printer.id}', true)">
+                                <i class="fas fa-check"></i> Confirm
+                            </button>
+                        ` : `
+                            <button class="btn btn-icon" onclick="window.editPrinter('${printer.id}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-icon" onclick="window.deletePrinter('${printer.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        `}
+                    </div>
                 </td>
             </tr>
         `).join('');
@@ -51,22 +63,46 @@ class ModelsTableManager extends TableManager {
 
 class PrintingsHistoryTableManager extends TableManager {
     formatTableRows(printings) {
-        return printings.map(printing => `
-            <tr>
-                <td>${printing.id}</td>
-                <td>${printing.printer_name || 'Unknown Printer'}</td>
-                <td>${printing.model_name || 'Unknown Model'}</td>
-                <td>${new Date(printing.start_time).toLocaleString()}</td>
-                <td>${printing.real_time_stop ? new Date(printing.real_time_stop).toLocaleString() : 'In progress'}</td>
-                <td>${this.formatDuration(printing)}</td>
-            </tr>
-        `).join('');
+        return printings
+            .filter(printing => {
+                const statusFilter = document.getElementById('printings-table-status-filter')?.value;
+                if (!statusFilter || statusFilter === 'all') return true;
+                
+                // Учитываем реальный статус печати
+                if (statusFilter === 'completed' && printing.status === 'completed') return true;
+                if (statusFilter === 'aborted' && printing.status === 'aborted') return true;
+                return false;
+            })
+            .map(printing => `
+                <tr>
+                    <td>${printing.id}</td>
+                    <td>${printing.printer_name || 'Unknown Printer'}</td>
+                    <td>${printing.model_name || 'Unknown Model'}</td>
+                    <td>${new Date(printing.start_time).toLocaleString()}</td>
+                    <td>${printing.real_time_stop ? new Date(printing.real_time_stop).toLocaleString() : 'In progress'}</td>
+                    <td>${this.formatDuration(printing)}</td>
+                    <td>
+                        <span class="status-badge status-${printing.status?.toLowerCase() || 'printing'}">
+                            ${this.formatStatus(printing.status)}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
     }
 
     formatDuration(printing) {
         if (!printing.real_time_stop) return 'N/A';
         const duration = (new Date(printing.real_time_stop) - new Date(printing.start_time)) / (1000 * 60 * 60);
         return `${duration.toFixed(1)} hrs`;
+    }
+
+    formatStatus(status) {
+        switch(status) {
+            case 'completed': return 'Completed';
+            case 'aborted': return 'Aborted';
+            case 'printing': return 'In Progress';
+            default: return status || 'Unknown';
+        }
     }
 }
 
@@ -98,7 +134,9 @@ export async function loadModels() {
 export async function loadActivePrintings() {
     try {
         const printings = await fetchAPI('/printings/');
-        const activePrintings = printings.filter(p => !p.real_time_stop);
+        const activePrintings = printings.filter(p => 
+            !p.real_time_stop || p.status === 'pending_completion'
+        );
         renderActivePrintingCards(activePrintings);
     } catch (error) {
         console.error('Error loading active printings:', error);
@@ -111,7 +149,9 @@ function renderActivePrintingCards(activePrintings) {
     
     if (!activePrintingCards) return;
 
-    activePrintingCards.innerHTML = activePrintings.map(printing => `
+    activePrintingCards.innerHTML = activePrintings
+        .filter(printing => !printing.real_time_stop)
+        .map(printing => `
         <div class="printing-card" data-printing-id="${printing.id}">
             <div class="printing-header">
                 <span class="printing-title">${printing.model_name || 'Unknown model'}</span>
@@ -129,21 +169,21 @@ function renderActivePrintingCards(activePrintings) {
                     <span><i class="fas fa-clock"></i> ${printing.printing_time.toFixed(1)} hrs</span>
                 </div>
                 <span class="status-badge status-${printing.status || 'printing'}">
-                    ${printing.status || 'printing'}
+                    ${printing.status === 'waiting' ? 'Waiting for confirmation' : printing.status || 'printing'}
                 </span>
             </div>
             <div class="printing-actions">
-                ${printing.status === 'paused' 
-                    ? `<button class="btn btn-success" onclick="window.resumePrinting(${printing.id})">
-                        <i class="fas fa-play"></i> Resume
+                ${printing.status === 'waiting' 
+                    ? `<button class="btn btn-success" onclick="window.confirmPrinting(${printing.id})">
+                         <i class="fas fa-check"></i> Confirm Completion
                        </button>`
-                    : `<button class="btn btn-warning" onclick="window.pausePrinting(${printing.id})">
-                        <i class="fas fa-pause"></i> Pause
+                    : `<button class="btn btn-success" onclick="window.confirmPrinting(${printing.id})">
+                         <i class="fas fa-check"></i> Early Complete
+                       </button>
+                       <button class="btn btn-danger" onclick="window.stopPrinting(${printing.id})">
+                         <i class="fas fa-stop"></i> Abort
                        </button>`
                 }
-                <button class="btn btn-danger" onclick="window.stopPrinting(${printing.id})">
-                    <i class="fas fa-stop"></i> Stop
-                </button>
             </div>
         </div>
     `).join('');

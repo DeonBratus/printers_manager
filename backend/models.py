@@ -10,7 +10,7 @@ class Printer(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
-    status = Column(String, default="idle")
+    status = Column(String, default="idle")  # idle, printing, waiting, paused, error
     total_print_time = Column(Float, default=0.0)
     total_downtime = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.now)
@@ -39,7 +39,7 @@ class Printing(Base):
     calculated_time_stop = Column(DateTime)
     real_time_stop = Column(DateTime, nullable=True)
     downtime = Column(Float, default=0.0)
-    status = Column(String, default="printing")
+    status = Column(String, default="printing")  # printing, paused, completed, cancelled, pending_completion
     pause_time = Column(DateTime, nullable=True)
     
     printer_id = Column(Integer, ForeignKey("td_printers.id"))

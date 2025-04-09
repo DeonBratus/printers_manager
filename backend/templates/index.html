@@ -184,6 +184,8 @@
                                 <option value="all">All Status</option>
                                 <option value="idle">Idle</option>
                                 <option value="printing">Printing</option>
+                                <option value="waiting">Waiting</option>
+                                <option value="paused">Paused</option>
                                 <option value="error">Error</option>
                             </select>
                         </div>
@@ -301,7 +303,7 @@
                                     <select id="printings-table-status-filter">
                                         <option value="all">All Status</option>
                                         <option value="completed">Completed</option>
-                                        <option value="failed">Failed</option>
+                                        <option value="aborted">Aborted</option>
                                     </select>
                                 </div>
                             </div>
@@ -314,6 +316,7 @@
                                         <th data-sort="start_time">Start Time</th>
                                         <th data-sort="real_time_stop">End Time</th>
                                         <th data-sort="printing_time">Duration</th>
+                                        <th data-sort="status">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>

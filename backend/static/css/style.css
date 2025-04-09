@@ -494,6 +494,19 @@ h2 {
     color: var(--primary-color);
 }
 
+.action-buttons {
+    display: flex;
+    gap: var(--space-xs);
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
 /* Tables */
 .table-container {
     background: var(--bg-primary);
@@ -625,6 +638,18 @@ tr:hover {
 .status-error {
     background-color: rgba(244, 67, 54, 0.1);
     color: #f44336;
+}
+
+.status-waiting {
+    background-color: rgba(255, 152, 0, 0.1);
+    color: #ff9800;
+}
+
+.status-badge.status-waiting {
+    background-color: rgba(255, 152, 0, 0.1);
+    color: #ff9800;
+    padding: 4px 8px;
+    border-radius: 4px;
 }
 
 /* Printing Cards */

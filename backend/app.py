@@ -113,6 +113,53 @@ def get_printer_downtime(printer_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Printer control endpoints
+@app.post("/printers/{printer_id}/resume", response_model=Printer)
+def resume_printer(printer_id: int, db: Session = Depends(get_db)):
+    """Возобновление печати на принтере"""
+    printer = get_printer(db, printer_id)
+    if not printer:
+        raise HTTPException(status_code=404, detail="Printer not found")
+    
+    if printer.status != "waiting":
+        raise HTTPException(status_code=400, detail="Printer is not in waiting state")
+    
+    printer.status = "printing"
+    db.add(printer)
+    db.commit()
+    db.refresh(printer)
+    return printer
+
+@app.post("/printers/{printer_id}/confirm", response_model=Printer)
+def confirm_printer(printer_id: int, db: Session = Depends(get_db)):
+    """Подтверждение завершения печати"""
+    printer = get_printer(db, printer_id)
+    if not printer:
+        raise HTTPException(status_code=404, detail="Printer not found")
+    
+    if printer.status != "waiting":
+        raise HTTPException(status_code=400, detail="Printer is not in waiting state")
+    
+    # Находим последнюю печать этого принтера
+    last_printing = db.query(Printing).filter(
+        Printing.printer_id == printer_id,
+        Printing.real_time_stop == None
+    ).first()
+    
+    if last_printing:
+        current_time = datetime.now()
+        last_printing.real_time_stop = current_time
+        last_printing.status = "completed"
+        actual_printing_time = (current_time - last_printing.start_time).total_seconds() / 3600
+        printer.total_print_time += actual_printing_time
+        db.add(last_printing)
+    
+    printer.status = "idle"
+    db.add(printer)
+    db.commit()
+    db.refresh(printer)
+    return printer
+
 # Model endpoints
 @app.post("/models/", response_model=Model)
 def create_new_model(model: ModelCreate, db: Session = Depends(get_db)):
