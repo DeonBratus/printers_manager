@@ -118,6 +118,12 @@ class GCode3DViewer {
 
         // Добавим обработчики событий для чекбоксов
         this.setupViewControls();
+
+        // В конце конструктора добавим принудительное обновление размеров
+        requestAnimationFrame(() => {
+            this.handleResize();
+            this.renderer.render(this.scene, this.camera);
+        });
     }
 
     setupLighting() {
@@ -401,6 +407,13 @@ class GCode3DViewer {
 
         // Обновляем камеру
         this.updateCamera();
+
+        // После обновления камеры добавляем принудительное обновление размеров и рендер
+        requestAnimationFrame(() => {
+            this.handleResize();
+            this.controls.update();
+            this.renderer.render(this.scene, this.camera);
+        });
     }
 
     clearScene() {
@@ -444,6 +457,8 @@ class GCode3DViewer {
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(width, height);
+        // Добавляем принудительный рендер после изменения размера
+        this.renderer.render(this.scene, this.camera);
     }
 
     updateLayerVisibility(layer) {
@@ -483,6 +498,12 @@ export function initGCodeViewer() {
     const codeElement = document.querySelector('.gcode-content pre code');
 
     window.addEventListener('resize', () => viewer.handleResize());
+
+    // Добавляем принудительную инициализацию после создания
+    setTimeout(() => {
+        viewer.handleResize();
+        viewer.renderer.render(viewer.scene, viewer.camera);
+    }, 100);
 
     if (!fileInput || !infoElement || !codeElement) {
         console.error('Required elements not found');
