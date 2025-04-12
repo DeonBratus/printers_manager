@@ -1,0 +1,42 @@
+<section class="content-section" id="models">
+    <div class="section-header">
+        <h2 class="section-title">Управление моделями</h2>
+        <div class="section-actions">
+            <button class="btn btn-primary floating" id="add-model-btn">
+                <i class="fas fa-plus"></i> Добавить модель
+            </button>
+        </div>
+    </div>
+    <div class="table-container floating-card">
+        <div class="table-header">
+            <div class="table-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="models-table-search" placeholder="Поиск моделей...">
+            </div>
+        </div>
+        <table id="models-table">
+            <thead>
+                <tr>
+                    <th data-sort="id">ID</th>
+                    <th data-sort="name">Название</th>
+                    <th data-sort="printing_time">Время печати (ч)</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Данные будут добавлены через JavaScript -->
+            </tbody>
+        </table>
+        <div class="table-footer">
+            <div class="pagination">
+                <button class="btn btn-icon" id="models-table-prev-page">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span id="models-table-pagination-info">Страница 1 из 1</span>
+                <button class="btn btn-icon" id="models-table-next-page">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</section> 

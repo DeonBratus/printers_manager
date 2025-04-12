@@ -1,0 +1,245 @@
+/* Стили для навигации и шапки сайта */
+
+.top-nav {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-high);
+  background-color: var(--bg-primary);
+  box-shadow: var(--shadow-sm);
+  height: var(--navbar-height);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 var(--space-xl);
+  border-bottom: 1px solid var(--border-color);
+  transition: all var(--transition-normal) var(--ease-in-out);
+}
+
+/* Логотип */
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--primary-color);
+  transition: color var(--transition-short) var(--ease-in-out);
+}
+
+.logo:hover {
+  color: var(--primary-dark);
+}
+
+.logo-image {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+}
+
+.logo-text {
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
+}
+
+/* Меню навигации */
+.nav-menu {
+  display: flex;
+  margin-left: auto;
+}
+
+.nav-menu ul {
+  display: flex;
+  list-style: none;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+}
+
+.nav-menu li {
+  position: relative;
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  transition: all var(--transition-short) var(--ease-in-out);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.nav-menu li:hover {
+  color: var(--primary-color);
+  background-color: var(--hover-bg);
+}
+
+.nav-menu li.active {
+  color: var(--primary-color);
+  background-color: var(--primary-bg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.nav-menu li i {
+  font-size: var(--text-base);
+  transition: transform var(--transition-short) var(--ease-out);
+}
+
+.nav-menu li:hover i {
+  transform: translateY(-1px);
+}
+
+/* Индикатор активного элемента */
+.nav-highlight {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  background-color: var(--primary-color);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-short) var(--ease-in-out);
+}
+
+.nav-menu li.active .nav-highlight {
+  opacity: 1;
+}
+
+/* Действия пользователя в навигации */
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+/* Переключатель тем */
+.theme-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  transition: all var(--transition-short) var(--ease-in-out);
+}
+
+.theme-toggle:hover {
+  background-color: var(--hover-bg);
+  color: var(--primary-color);
+}
+
+/* Значок уведомления */
+.notifications {
+  position: relative;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  transition: all var(--transition-short) var(--ease-in-out);
+}
+
+.notifications:hover {
+  background-color: var(--hover-bg);
+  color: var(--primary-color);
+}
+
+.badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background-color: var(--error-color);
+  color: white;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-xs);
+}
+
+.badge.pulse {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--error-color), 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(var(--error-color), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--error-color), 0);
+  }
+}
+
+/* Панель пользователя */
+.user-panel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--border-radius);
+  transition: background-color var(--transition-short) var(--ease-in-out);
+}
+
+.user-panel:hover {
+  background-color: var(--hover-bg);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: var(--primary-bg);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--text-sm);
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.username {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.user-role {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+} 

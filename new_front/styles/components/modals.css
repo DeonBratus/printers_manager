@@ -1,0 +1,190 @@
+/* Стили для модальных окон */
+
+/* Затемнение фона */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--overlay-bg);
+  z-index: var(--z-modal);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-normal) var(--ease-in-out),
+              visibility var(--transition-normal) var(--ease-in-out);
+  padding: var(--space-md);
+  overflow-y: auto;
+}
+
+.modal.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Контент модального окна */
+.modal-content {
+  width: 100%;
+  max-width: 500px;
+  max-height: calc(100vh - var(--space-xl) * 2);
+  overflow-y: auto;
+  background-color: var(--bg-primary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-20px);
+  opacity: 0;
+  transition: transform var(--transition-normal) var(--ease-out),
+              opacity var(--transition-normal) var(--ease-out);
+}
+
+.modal.active .modal-content {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* Заголовок модального окна */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+/* Закрытие модального окна */
+.close-modal {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--text-xl);
+  line-height: 1;
+  transition: color var(--transition-short) var(--ease-in-out);
+  padding: var(--space-xs);
+  margin: calc(-1 * var(--space-xs));
+  border-radius: 50%;
+}
+
+.close-modal:hover {
+  color: var(--text-primary);
+  background-color: var(--hover-bg);
+}
+
+/* Содержимое модального окна */
+.modal-body {
+  padding: var(--space-lg);
+  overflow-y: auto;
+}
+
+/* Подвал модального окна */
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+}
+
+/* Размеры модального окна */
+.modal-sm .modal-content {
+  max-width: 300px;
+}
+
+.modal-lg .modal-content {
+  max-width: 800px;
+}
+
+.modal-xl .modal-content {
+  max-width: 1140px;
+}
+
+.modal-fullscreen .modal-content {
+  max-width: 100%;
+  height: 100vh;
+  margin: 0;
+  border-radius: 0;
+}
+
+/* Модальное окно с центрированием */
+.modal-dialog-centered {
+  display: flex;
+  align-items: center;
+  min-height: calc(100% - var(--space-xl) * 2);
+}
+
+/* Модальное окно с прокруткой */
+.modal-dialog-scrollable .modal-content {
+  overflow-y: auto;
+}
+
+.modal-dialog-scrollable .modal-body {
+  overflow-y: auto;
+}
+
+/* Модальное окно подтверждения */
+.modal-confirm .modal-body {
+  text-align: center;
+  padding-top: var(--space-xl);
+  padding-bottom: var(--space-xl);
+}
+
+.modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto var(--space-lg);
+  border-radius: 50%;
+  font-size: var(--text-2xl);
+}
+
+.modal-icon.success {
+  background-color: rgba(var(--success-color), 0.1);
+  color: var(--success-color);
+}
+
+.modal-icon.warning {
+  background-color: rgba(var(--warning-color), 0.1);
+  color: var(--warning-color);
+}
+
+.modal-icon.error {
+  background-color: rgba(var(--error-color), 0.1);
+  color: var(--error-color);
+}
+
+/* Анимация для модального окна */
+@keyframes modal-show {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modal-hide {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+} 

@@ -23,8 +23,7 @@ app = FastAPI(
 origins = [
     "http://localhost",
     "http://127.0.0.1",
-    "http://localhost:5500",  # для Live Server в VSCode
-    "*"  # временно разрешаем все источники для разработки
+    "http://localhost:3000",  # для Live Server в VSCode
 ]
 
 app.add_middleware(

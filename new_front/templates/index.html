@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Система управления 3D принтерами">
+    <title>AtomNet Control</title>
+    
+    <!-- Основные стили с поддержкой темы -->
+    <link rel="stylesheet" href="/styles/theme.css">
+    
+    <!-- Стили для дашборда -->
+    <link rel="stylesheet" href="/styles/dashboard.css">
+    
+    <!-- Шрифты -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Иконки Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Стили для сообщений об ошибках - при загрузке компонентов -->
+    <style>
+        .error-message {
+            background-color: var(--error-color);
+            color: white;
+            padding: var(--space-md);
+            border-radius: var(--border-radius);
+            margin: var(--space-md);
+            box-shadow: var(--shadow-md);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Хедер будет загружен динамически -->
+        <div id="header-container"></div>
+
+        <!-- Основное содержимое -->
+        <main class="main-content">
+            <!-- Секции контента будут загружены динамически -->
+            <div id="dashboard-container"></div>
+            <div id="printers-container"></div>
+            <div id="models-container"></div>
+            <div id="printings-container"></div>
+            <div id="reports-container"></div>
+            <div id="scheduler-container"></div>
+            <div id="gcode-container"></div>
+        </main>
+    </div>
+
+    <!-- Модальные окна будут загружены динамически -->
+    <div id="modals-container"></div>
+
+    <!-- Основные скрипты -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Загрузчик компонентов -->
+    <script>
+        // Функция для загрузки HTML-компонентов
+        async function loadComponent(url, containerId) {
+            try {
+                console.log(`Загрузка компонента: ${url} в контейнер ${containerId}`);
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Failed to load component: ${url} (${response.status}: ${response.statusText})`);
+                }
+                const html = await response.text();
+                console.log(`Компонент ${url} успешно загружен, размер: ${html.length} байт`);
+                
+                const container = document.getElementById(containerId);
+                if (!container) {
+                    throw new Error(`Container with ID ${containerId} not found!`);
+                }
+                container.innerHTML = html;
+                return true;
+            } catch (error) {
+                console.error(`Error loading component ${url}:`, error);
+                document.getElementById(containerId).innerHTML = 
+                    `<div class="error-message">Ошибка загрузки компонента: ${error.message}</div>`;
+                return false;
+            }
+        }
+        
+        // Функция для загрузки и выполнения JavaScript модуля
+        async function loadAndRunMainScript() {
+            try {
+                console.log('Загрузка и инициализация основного скрипта...');
+                // Динамический импорт модулей
+                const [MainModule, ThemeModule] = await Promise.all([
+                    import('/js/main.js'),
+                    import('/js/theme.js')
+                ]);
+                
+                // Инициализация темы
+                if (typeof ThemeModule.initThemeSystem === 'function') {
+                    console.log('Инициализация системы тем');
+                    ThemeModule.initThemeSystem();
+                } else {
+                    console.warn('Функция initThemeSystem не найдена в модуле theme.js');
+                }
+                
+                // Вызов функции инициализации приложения
+                if (typeof MainModule.initializeApp === 'function') {
+                    console.log('Вызов функции initializeApp');
+                    MainModule.initializeApp();
+                } else {
+                    throw new Error('Функция initializeApp не найдена в основном модуле');
+                }
+            } catch (error) {
+                console.error('Ошибка при инициализации приложения:', error);
+                document.body.innerHTML += 
+                    `<div class="error-message">Ошибка инициализации приложения: ${error.message}</div>`;
+            }
+        }
+
+        // Загрузка всех компонентов при загрузке страницы
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('DOMContentLoaded: начинаем загрузку компонентов');
+            
+            try {
+                // Загрузка основных компонентов
+                await loadComponent('/templates/components/header.html', 'header-container');
+                await loadComponent('/templates/components/dashboard.html', 'dashboard-container');
+                await loadComponent('/templates/components/printers.html', 'printers-container');
+                await loadComponent('/templates/components/models.html', 'models-container');
+                await loadComponent('/templates/components/printings.html', 'printings-container');
+                await loadComponent('/templates/components/reports.html', 'reports-container');
+                await loadComponent('/templates/components/scheduler.html', 'scheduler-container');
+                await loadComponent('/templates/components/gcode.html', 'gcode-container');
+                await loadComponent('/templates/components/modals.html', 'modals-container');
+                
+                console.log('Все компоненты загружены, запускаем инициализацию приложения');
+                
+                // Загрузка и выполнение основного скрипта после загрузки всех компонентов
+                await loadAndRunMainScript();
+            } catch (error) {
+                console.error('Критическая ошибка при загрузке компонентов:', error);
+                document.body.innerHTML = 
+                    `<div class="error-message">Произошла критическая ошибка при загрузке компонентов: ${error.message}</div>`;
+            }
+        });
+    </script>
+</body>
+</html>

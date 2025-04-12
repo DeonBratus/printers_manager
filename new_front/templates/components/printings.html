@@ -1,0 +1,76 @@
+<section class="content-section" id="printings">
+    <div class="section-header">
+        <h2 class="section-title">Управление печатью</h2>
+        <div class="section-actions">
+            <button class="btn btn-primary floating" id="start-printing-btn">
+                <i class="fas fa-play"></i> Начать печать
+            </button>
+        </div>
+    </div>
+    <div class="printings-grid">
+        <div class="active-printings">
+            <div class="section-header">
+                <h3>Активные печати</h3>
+                <div class="table-search">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="active-printings-search" placeholder="Поиск активных печатей...">
+                </div>
+                <div class="table-filters">
+                    <select id="active-printings-status-filter">
+                        <option value="all">Все статусы</option>
+                        <option value="printing">Печатает</option>
+                        <option value="paused">Приостановлен</option>
+                    </select>
+                </div>
+            </div>
+            <div class="printing-cards" id="active-printing-cards">
+                <!-- Карточки активных печатей -->
+            </div>
+        </div>
+        <div class="printing-history">
+            <h3>История печати</h3>
+            <div class="table-container floating-card">
+                <div class="table-header">
+                    <div class="table-search">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="printings-table-search" placeholder="Поиск печатей...">
+                    </div>
+                    <div class="table-filters">
+                        <select id="printings-table-status-filter">
+                            <option value="all">Все статусы</option>
+                            <option value="completed">Завершено</option>
+                            <option value="aborted">Прервано</option>
+                        </select>
+                    </div>
+                </div>
+                <table id="printings-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="id">ID</th>
+                            <th data-sort="printer_id">Принтер</th>
+                            <th data-sort="model_id">Модель</th>
+                            <th data-sort="start_time">Время начала</th>
+                            <th data-sort="real_time_stop">Время окончания</th>
+                            <th data-sort="printing_time">Длительность</th>
+                            <th data-sort="status">Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Данные будут добавлены через JavaScript -->
+                    </tbody>
+                </table>
+                <div class="table-footer">
+                    <div class="pagination">
+                        <button class="btn btn-icon" id="printings-table-prev-page">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span id="printings-table-pagination-info">Страница 1 из 1</span>
+                        <button class="btn btn-icon" id="printings-table-next-page">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section> 

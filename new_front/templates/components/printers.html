@@ -1,0 +1,54 @@
+<section class="content-section" id="printers">
+    <div class="section-header">
+        <h2 class="section-title">Управление принтерами</h2>
+        <div class="section-actions">
+            <button class="btn btn-primary floating" id="add-printer-btn">
+                <i class="fas fa-plus"></i> Добавить принтер
+            </button>
+        </div>
+    </div>
+    <div class="table-container floating-card">
+        <div class="table-header">
+            <div class="table-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="printers-table-search" placeholder="Поиск принтеров...">
+            </div>
+            <div class="table-filters">
+                <select id="printers-table-status-filter">
+                    <option value="all">Все статусы</option>
+                    <option value="idle">Простаивает</option>
+                    <option value="printing">Печатает</option>
+                    <option value="waiting">Ожидает</option>
+                    <option value="paused">Приостановлен</option>
+                    <option value="error">Ошибка</option>
+                </select>
+            </div>
+        </div>
+        <table id="printers-table">
+            <thead>
+                <tr>
+                    <th data-sort="id">ID</th>
+                    <th data-sort="name">Название</th>
+                    <th data-sort="status">Статус</th>
+                    <th data-sort="total_print_time">Общее время печати</th>
+                    <th data-sort="total_downtime">Общее время простоя</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Данные будут добавлены через JavaScript -->
+            </tbody>
+        </table>
+        <div class="table-footer">
+            <div class="pagination">
+                <button class="btn btn-icon" id="printers-table-prev-page">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span id="printers-table-pagination-info">Страница 1 из 1</span>
+                <button class="btn btn-icon" id="printers-table-next-page">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</section> 
