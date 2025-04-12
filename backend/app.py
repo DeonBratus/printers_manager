@@ -20,18 +20,15 @@ app = FastAPI(
     version="1.0.0"
 )
 
-origins = [
-    "http://localhost",
-    "http://127.0.0.1",
-    "http://localhost:3000",  # для Live Server в VSCode
-]
-
+# Убрать список origins и напрямую разрешить всем
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*", "https://cabinet.xtunnel.ru"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*", "GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*", "Content-Type", "Authorization"],
+    expose_headers=["*", "Content-Type"],
+    max_age=86400,
 )
 
 # Инициализация базы данных

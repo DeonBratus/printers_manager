@@ -277,8 +277,11 @@ p {
 /* Main content */
 .main-content {
     flex: 1;
-    padding: 24px;
-    overflow-y: auto;
+    padding: var(--space-lg) var(--space-xl);
+    max-width: 1440px;
+    width: 95%;
+    margin: 0 auto;
+    background-color: var(--bg-secondary);
 }
 
 .dashboard-container {
@@ -338,4 +341,99 @@ h2 {
     font-size: var(--text-xxl);
     font-weight: 600;
     color: var(--dark-color);
+}
+
+/* Table styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--space-lg) 0;
+    background-color: var(--lighter-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow-card);
+}
+
+th, td {
+    padding: var(--space-md) var(--space-lg);
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+th {
+    background-color: var(--bg-secondary);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:hover {
+    background-color: var(--gray-10);
+}
+
+/* Search and filter styles */
+.table-controls {
+    display: flex;
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.search-box {
+    flex: 1;
+    min-width: 250px;
+    max-width: 400px;
+    position: relative;
+}
+
+.search-box input {
+    width: 100%;
+    padding: var(--space-sm) var(--space-lg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: var(--text-base);
+    transition: var(--transition-fast);
+}
+
+.search-box input:focus {
+    border-color: var(--border-active);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+}
+
+.filter-controls {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: center;
+}
+
+.filter-select {
+    padding: var(--space-sm) var(--space-lg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--lighter-color);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.filter-select:hover {
+    border-color: var(--border-active);
+}
+
+/* Button spacing */
+.button-group {
+    margin: var(--space-lg) 0;
+    display: flex;
+    gap: var(--space-md);
+    align-items: center;
+}
+
+/* Content section spacing */
+.content-section {
+    margin-bottom: var(--space-xxl);
 } 
