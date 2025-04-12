@@ -9,3 +9,10 @@ venv
 **/tmp/**
 **/cache/**
 
+*.pack
+*.whl
+*.egg-info
+*.dist-info
+*.egg
+*.pyc
+*.pyo

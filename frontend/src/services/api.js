@@ -90,5 +90,14 @@ export const deletePrinting = (id) => api.delete(`/printings/${id}`);
 export const getReports = () => api.get('/reports/');
 export const getPrinterStatusReport = () => api.get('/reports/printer-status');
 export const getPrintingEfficiencyReport = () => api.get('/reports/printing-efficiency');
+export const getDailyReport = (date) => api.get('/reports/daily/', { params: { date } });
+export const getPrinterReport = (printerId) => api.get(`/reports/printers/${printerId}`);
+export const getModelReport = (modelId) => api.get(`/reports/models/${modelId}`);
+export const exportPrintersReport = () => api.get('/reports/printers/export/', { 
+  responseType: 'blob',
+  headers: {
+    'Accept': 'text/csv'
+  }
+});
 
 export default api; 
