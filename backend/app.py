@@ -24,6 +24,7 @@ origins = [
     "http://localhost",
     "http://127.0.0.1",
     "http://localhost:3000",  # для Live Server в VSCode
+    "http://localhost:3001"
 ]
 
 app.add_middleware(
