@@ -9,6 +9,7 @@ import ModelDetail from './pages/ModelDetail';
 import PrintingsList from './pages/PrintingsList';
 import PrintingDetail from './pages/PrintingDetail';
 import Reports from './pages/Reports';
+import ApiDebug from './pages/ApiDebug';
 import './index.css';
 
 const App = () => {
@@ -24,6 +25,7 @@ const App = () => {
           <Route path="/printings" element={<PrintingsList />} />
           <Route path="/printings/:id" element={<PrintingDetail />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/debug" element={<ApiDebug />} />
         </Routes>
       </Layout>
     </Router>

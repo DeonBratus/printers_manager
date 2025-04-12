@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 const Layout = ({ children }) => {
-  const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
 
   const navigation = [
     { name: 'Dashboard', href: '/' },
@@ -11,6 +11,7 @@ const Layout = ({ children }) => {
     { name: 'Models', href: '/models' },
     { name: 'Print Jobs', href: '/printings' },
     { name: 'Reports', href: '/reports' },
+    { name: 'Debug', href: '/debug' },
   ];
 
   return (

@@ -38,9 +38,6 @@ app.add_middleware(
 # Инициализация базы данных
 Base.metadata.create_all(bind=engine)
 
-# Настройка статических файлов и шаблонов
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
 
 # Подключаем роутеры
 app.include_router(printers.router)
@@ -53,10 +50,6 @@ app.include_router(reports.router)
 async def startup_event():
     start_scheduler()
 
-# Обновленный корневой маршрут для отображения фронтенда
-@app.get("/", response_class=HTMLResponse)
-async def root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
