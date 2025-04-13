@@ -20,8 +20,9 @@ def update_printer_downtimes():
                 current_downtime = calculate_printer_downtime(db, printer.id, current_time)
                 # Вычисляем разницу между текущим простоем и прошлым
                 downtime_difference = current_downtime - printer.total_downtime
+                print(f"[{current_time}] Printer {printer.id} downtime difference: {downtime_difference}")
                 # Обновляем через DAL только разницу
-                printer_dal.update(db, printer.id, {"total_downtime": printer.total_downtime + downtime_difference})
+                printer_dal.update(db, printer.id, {"total_downtime": downtime_difference})
                 formatted_time = format_hours_to_hhmm(downtime_difference)        
         db.commit()
     except Exception as e:
