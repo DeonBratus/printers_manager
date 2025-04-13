@@ -37,8 +37,11 @@ class PrintingBase(BaseModel):
     start_time: Optional[datetime] = None
     calculated_time_stop: Optional[datetime] = None
 
-class PrintingCreate(PrintingBase):
-    pass
+class PrintingCreate(BaseModel):
+    printer_id: int  # Required
+    model_id: int    # Required
+    printing_time: Optional[float] = None  # Optional
+    # Remove id from here
 
 class Printing(PrintingBase):
     id: int
@@ -49,6 +52,7 @@ class Printing(PrintingBase):
     progress: Optional[float] = 0.0
     status: Optional[str] = "printing"
     pause_time: Optional[datetime] = None
+    stop_reason: Optional[str] = None
 
     class Config:
         orm_mode = True

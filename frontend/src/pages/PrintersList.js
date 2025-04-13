@@ -194,6 +194,20 @@ const PrintersList = () => {
   // Handle page change
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+  // Function to format time in hours and minutes
+  const formatTime = (seconds) => {
+    if (seconds === null || seconds === undefined) return 'N/A';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.round((seconds % 3600) / 60);
+    
+    if (hours === 0) {
+      return `${minutes}m`;
+    }
+    
+    return `${hours}h ${minutes}m`;
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-full p-10">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
@@ -391,8 +405,8 @@ const PrintersList = () => {
                         <StatusBadge status={printer.status} />
                       </div>
                       <div className="mt-4 space-y-1 text-sm text-gray-500 dark:text-gray-400">
-                        <p>Total Print Time: {Math.round(printer.total_print_time / 60)} hours</p>
-                        <p>Total Downtime: {Math.round(printer.total_downtime / 60)} hours</p>
+                        <p>Total Print Time: {formatTime(printer.total_print_time)}</p>
+                        <p>Total Downtime: {formatTime(printer.total_downtime)}</p>
                       </div>
                     </div>
                   </div>
@@ -486,8 +500,8 @@ const PrintersList = () => {
                     <td className="py-3 px-4">
                       <StatusBadge status={printer.status} />
                     </td>
-                    <td className="py-3 px-4 dark:text-gray-300">{Math.round(printer.total_print_time / 60)} hours</td>
-                    <td className="py-3 px-4 dark:text-gray-300">{Math.round(printer.total_downtime / 60)} hours</td>
+                    <td className="py-3 px-4 dark:text-gray-300">{formatTime(printer.total_print_time)}</td>
+                    <td className="py-3 px-4 dark:text-gray-300">{formatTime(printer.total_downtime)}</td>
                     <td className="py-3 px-4 space-x-2">
                       <Link to={`/printers/${printer.id}`}>
                         <Button variant="outline" size="xs">View</Button>

@@ -177,7 +177,7 @@ const ModelsList = () => {
                       </h3>
                       <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400">
                         <ClockIcon className="h-4 w-4 mr-1 text-gray-400" aria-hidden="true" />
-                        <span>Printing Time: {Math.round(model.printing_time / 60 * 10) / 10} hours</span>
+                        <span>Printing Time: {model.printing_time > 60 ? `${Math.floor(model.printing_time / 60)}h ${Math.round(model.printing_time % 60)}m` : `${Math.round(model.printing_time)}m`}</span>
                       </div>
                       {model.filament_type && (
                         <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -255,7 +255,7 @@ const ModelsList = () => {
                           {model.name}
                         </Link>
                       </td>
-                      <td className="py-3 px-4 dark:text-gray-300">{Math.round(model.printing_time / 60 * 10) / 10} hours</td>
+                      <td className="py-3 px-4 dark:text-gray-300">{model.printing_time > 60 ? `${Math.floor(model.printing_time / 60)}h ${Math.round(model.printing_time % 60)}m` : `${Math.round(model.printing_time)}m`}</td>
                       {models.some(m => m.filament_type) && (
                         <td className="py-3 px-4 dark:text-gray-300">{model.filament_type || '-'}</td>
                       )}

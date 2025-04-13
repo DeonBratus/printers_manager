@@ -11,6 +11,7 @@ import PrintingDetail from './pages/PrintingDetail';
 import Reports from './pages/Reports';
 import ApiDebug from './pages/ApiDebug';
 import UserSettings from './pages/UserSettings';
+import HelpSupport from './pages/HelpSupport';
 import './index.css';
 
 const App = () => {
@@ -28,6 +29,7 @@ const App = () => {
           <Route path="/reports" element={<Reports />} />
           <Route path="/debug" element={<ApiDebug />} />
           <Route path="/settings" element={<UserSettings />} />
+          <Route path="/help" element={<HelpSupport />} />
         </Routes>
       </Layout>
     </Router>

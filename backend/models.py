@@ -41,6 +41,7 @@ class Printing(Base):
     downtime = Column(Float, default=0.0)
     status = Column(String, default="printing")  # printing, paused, completed, cancelled, pending_completion
     pause_time = Column(DateTime, nullable=True)
+    stop_reason = Column(String, nullable=True)
     
     printer_id = Column(Integer, ForeignKey("td_printers.id"))
     model_id = Column(Integer, ForeignKey("td_models.id"))

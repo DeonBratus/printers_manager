@@ -70,7 +70,8 @@ export const deletePrinter = (id) => api.delete(`/printers/${id}`);
 export const startPrinter = (id, printingData) => api.post(`/printers/${id}/start`, printingData);
 export const pausePrinter = (id) => api.post(`/printers/${id}/pause`);
 export const resumePrinter = (id) => api.post(`/printers/${id}/resume`);
-export const stopPrinter = (id) => api.post(`/printers/${id}/stop`);
+export const stopPrinter = (id, data = {}) => api.post(`/printers/${id}/stop`, data);
+export const confirmPrinting = (id) => api.post(`/printers/${id}/confirm`);
 
 // Models API
 export const getModels = () => api.get('/models/');

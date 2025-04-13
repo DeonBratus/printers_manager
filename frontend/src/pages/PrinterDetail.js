@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getPrinter, updatePrinter, getPrintings, getModels, startPrinter, pausePrinter, resumePrinter, stopPrinter } from '../services/api';
+import { getPrinter, updatePrinter, getPrintings, getModels, startPrinter, pausePrinter, resumePrinter, stopPrinter, confirmPrinting } from '../services/api';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -20,7 +20,8 @@ import {
   ArrowPathIcon,
   CheckIcon,
   XMarkIcon,
-  EyeIcon
+  EyeIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const PrinterDetail = () => {
@@ -30,6 +31,7 @@ const PrinterDetail = () => {
   const [printings, setPrintings] = useState([]);
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: '' });
   const [startForm, setStartForm] = useState({ model_id: '' });
@@ -40,11 +42,17 @@ const PrinterDetail = () => {
   const [showStartForm, setShowStartForm] = useState(false);
   const [isStopReasonModalOpen, setIsStopReasonModalOpen] = useState(false);
   const [stopReason, setStopReason] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const fetchPrinterData = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
+      if (loading) {
+        // Full loading state
+        setError(null);
+      } else {
+        // Just refreshing data
+        setRefreshing(true);
+      }
       
       const [printerRes, printingsRes, modelsRes] = await Promise.all([
         getPrinter(id),
@@ -52,14 +60,50 @@ const PrinterDetail = () => {
         getModels()
       ]);
       
-      setPrinter(printerRes.data);
-      setEditForm({ name: printerRes.data.name });
+      // Smart update of printer to prevent jumping
+      setPrinter(prevPrinter => {
+        // If first load or significant change, replace completely
+        if (!prevPrinter || prevPrinter.status !== printerRes.data.status) {
+          return printerRes.data;
+        }
+        
+        // Otherwise just update specific fields without causing re-renders
+        return {
+          ...prevPrinter,
+          status: printerRes.data.status,
+          total_print_time: printerRes.data.total_print_time,
+          total_downtime: printerRes.data.total_downtime
+        };
+      });
       
-      // Filter printings for this printer
-      const printerPrintings = printingsRes.data.filter(
-        printing => printing.printer_id === parseInt(id)
-      );
-      setPrintings(printerPrintings);
+      if (!editing) {
+        setEditForm({ name: printerRes.data.name });
+      }
+      
+      // Smart update of printings to prevent unnecessary re-renders
+      setPrintings(prevPrintings => {
+        const printerPrintings = printingsRes.data.filter(
+          printing => printing.printer_id === parseInt(id)
+        );
+        
+        // If counts are different or first load, replace completely
+        if (!prevPrintings.length || prevPrintings.length !== printerPrintings.length) {
+          return printerPrintings;
+        }
+        
+        // Otherwise just update statuses and progress
+        return printerPrintings.map(newPrinting => {
+          const oldPrinting = prevPrintings.find(p => p.id === newPrinting.id);
+          if (!oldPrinting) return newPrinting;
+          
+          return {
+            ...oldPrinting,
+            status: newPrinting.status,
+            progress: newPrinting.progress,
+            real_time_stop: newPrinting.real_time_stop
+          };
+        });
+      });
       
       setModels(modelsRes.data);
     } catch (error) {
@@ -67,8 +111,9 @@ const PrinterDetail = () => {
       setError('Failed to load printer data. Please try refreshing the page.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [id]);
+  }, [id, loading, editing]);
 
   useEffect(() => {
     fetchPrinterData();
@@ -120,6 +165,7 @@ const PrinterDetail = () => {
         model_id: parseInt(startForm.model_id)
       });
       setShowStartForm(false);
+      setStartForm({ model_id: '' });
       await fetchPrinterData();
     } catch (error) {
       console.error('Error starting print job:', error);
@@ -152,6 +198,7 @@ const PrinterDetail = () => {
   };
 
   const handleStop = async () => {
+    setStopReason('');
     setIsStopReasonModalOpen(true);
   };
   
@@ -160,14 +207,30 @@ const PrinterDetail = () => {
       setError(null);
       setIsSubmitting(true);
       
-      // First stop the printer
-      await stopPrinter(id);
+      // First stop the printer with the reason
+      await stopPrinter(id, { reason: stopReason });
       
       setIsStopReasonModalOpen(false);
       await fetchPrinterData();
     } catch (error) {
       console.error('Error stopping printer:', error);
       setError('Failed to stop printer. ' + (error.response?.data?.detail || 'Please try again.'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleConfirmPrinting = async () => {
+    try {
+      setIsSubmitting(true);
+      setError(null);
+      
+      await confirmPrinting(id);
+      setShowConfirmModal(false);
+      await fetchPrinterData();
+    } catch (error) {
+      console.error('Error confirming print job completion:', error);
+      setError('Failed to confirm print job. ' + (error.response?.data?.detail || 'Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -194,6 +257,12 @@ const PrinterDetail = () => {
   // Find current printing job if exists
   const currentPrinting = printings.find(p => 
     (p.status === 'printing' || p.status === 'paused') && 
+    p.printer_id === parseInt(id)
+  );
+
+  // Find completed but unconfirmed printing
+  const unconfirmedPrinting = printings.find(p => 
+    p.progress === 100 && !p.real_time_stop && 
     p.printer_id === parseInt(id)
   );
 
@@ -280,9 +349,9 @@ const PrinterDetail = () => {
           </div>
         </div>
         <div className="flex space-x-2">
-          <Button onClick={fetchPrinterData}>
-            <ArrowPathIcon className="h-5 w-5 mr-2" />
-            Refresh
+          <Button onClick={fetchPrinterData} disabled={refreshing}>
+            <ArrowPathIcon className={`h-5 w-5 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
           {printer.status === 'idle' && (
             <Button
@@ -291,6 +360,15 @@ const PrinterDetail = () => {
             >
               <PrinterIcon className="h-5 w-5 mr-2" />
               Start Print
+            </Button>
+          )}
+          {printer.status === 'waiting' && (
+            <Button
+              variant="success"
+              onClick={() => setShowConfirmModal(true)}
+            >
+              <CheckIcon className="h-5 w-5 mr-2" />
+              Confirm Print Complete
             </Button>
           )}
         </div>
@@ -316,7 +394,7 @@ const PrinterDetail = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left Column - Printer Info */}
         <div className="md:col-span-1">
-          <Card className="h-full">
+          <Card className="p-6 h-full">
             <h2 className="text-xl font-semibold mb-4 dark:text-white">Printer Information</h2>
             
             <div className="space-y-4">
@@ -352,7 +430,7 @@ const PrinterDetail = () => {
               </div>
             </div>
             
-            {printer.status !== 'idle' && (
+            {(printer.status === 'printing' || printer.status === 'paused') && (
               <div className="mt-6">
                 <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Actions</h3>
                 <div className="flex flex-wrap gap-2">
@@ -396,41 +474,43 @@ const PrinterDetail = () => {
         
         {/* Middle Column - Current Printing */}
         <div className="md:col-span-1">
-          <Card className="h-full">
+          <Card className="p-6 h-full">
             <h2 className="text-xl font-semibold mb-4 dark:text-white">Current Print Job</h2>
             
             {currentPrinting ? (
               <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Model</h3>
-                  <p className="mt-1 text-sm font-medium dark:text-white">
-                    <Link to={`/models/${currentPrinting.model_id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                      {currentPrinting.model_name}
-                    </Link>
-                  </p>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <div className="flex items-center">
+                    <CubeIcon className="h-5 w-5 text-blue-500 mr-2" />
+                    <h3 className="text-blue-800 dark:text-blue-300 font-medium">{currentPrinting.model_name}</h3>
+                  </div>
+                  
+                  <div className="mt-2">
+                    <div className="flex justify-between mb-1 text-xs text-blue-800 dark:text-blue-300">
+                      <span>Progress</span>
+                      <span>{Math.round(currentPrinting.progress || 0)}%</span>
+                    </div>
+                    <div className="w-full bg-blue-200 dark:bg-blue-700 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full" 
+                        style={{ width: `${currentPrinting.progress || 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
                 </div>
                 
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</h3>
-                  <p className="mt-1 text-sm">
+                  <p className="mt-1 text-sm dark:text-white">
                     <StatusBadge status={currentPrinting.status} />
                   </p>
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Progress</h3>
-                  <div className="mt-2">
-                    <div className="flex justify-between mb-1 text-xs">
-                      <span className="text-gray-600 dark:text-gray-300">Completion</span>
-                      <span className="text-gray-900 dark:text-white font-medium">{Math.round(currentPrinting.progress || 0)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full" 
-                        style={{ width: `${currentPrinting.progress || 0}%` }}
-                      ></div>
-                    </div>
-                  </div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Printing Time</h3>
+                  <p className="mt-1 text-sm dark:text-white">
+                    {formatTime(currentPrinting.printing_time / 3600)}
+                  </p>
                 </div>
                 
                 <div>
@@ -457,6 +537,72 @@ const PrinterDetail = () => {
                       View Details
                     </Button>
                   </Link>
+                </div>
+
+                {currentPrinting.progress >= 100 && (
+                  <div className="pt-2 flex justify-center">
+                    <Button 
+                      size="sm" 
+                      variant="success"
+                      onClick={() => setShowConfirmModal(true)}
+                    >
+                      <CheckIcon className="h-4 w-4 mr-1" />
+                      Confirm Completion
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : unconfirmedPrinting ? (
+              <div className="space-y-4">
+                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                  <div className="flex items-center">
+                    <CubeIcon className="h-5 w-5 text-green-500 mr-2" />
+                    <h3 className="text-green-800 dark:text-green-300 font-medium">{unconfirmedPrinting.model_name}</h3>
+                  </div>
+                  
+                  <div className="mt-2">
+                    <div className="flex justify-between mb-1 text-xs text-green-800 dark:text-green-300">
+                      <span>Progress</span>
+                      <span>100%</span>
+                    </div>
+                    <div className="w-full bg-green-200 dark:bg-green-700 rounded-full h-2">
+                      <div 
+                        className="bg-green-600 dark:bg-green-400 h-2 rounded-full w-full"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</h3>
+                  <p className="mt-1 text-sm dark:text-white">
+                    <StatusBadge status="completed" />
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Printing Time</h3>
+                  <p className="mt-1 text-sm dark:text-white">
+                    {formatTime(unconfirmedPrinting.printing_time / 3600)}
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Started At</h3>
+                  <p className="mt-1 text-sm dark:text-white">
+                    {formatDate(unconfirmedPrinting.start_time)}
+                  </p>
+                </div>
+                
+                <div className="pt-4 flex justify-center">
+                  <Button 
+                    size="sm" 
+                    variant="success"
+                    onClick={() => setShowConfirmModal(true)}
+                  >
+                    <CheckIcon className="h-4 w-4 mr-1" />
+                    Confirm Completion
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -490,7 +636,7 @@ const PrinterDetail = () => {
         
         {/* Right Column - Recent Printings History */}
         <div className="md:col-span-1">
-          <Card className="h-full">
+          <Card className="p-6 h-full">
             <h2 className="text-xl font-semibold mb-4 dark:text-white">Recent Print History</h2>
             
             {recentPrintings.length > 0 ? (
@@ -535,12 +681,31 @@ const PrinterDetail = () => {
       </div>
 
       {/* Modal for starting a new print */}
-      <Modal 
-        isOpen={showStartForm} 
+      <Modal
+        isOpen={showStartForm}
         onClose={() => setShowStartForm(false)}
-        title="Start New Print Job"
+        title="Start New Print"
+        footer={
+          <div className="flex justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => setShowStartForm(false)}
+              className="mr-2"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleStart}
+              isLoading={isSubmitting}
+              disabled={!startForm.model_id || isSubmitting}
+            >
+              Start Print
+            </Button>
+          </div>
+        }
       >
-        <form onSubmit={handleStart} className="space-y-4 p-4">
+        <form onSubmit={handleStart} className="space-y-4">
           <div>
             <label htmlFor="model_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Select Model
@@ -556,7 +721,7 @@ const PrinterDetail = () => {
               <option value="">Select a model</option>
               {models.map(model => (
                 <option key={model.id} value={model.id}>
-                  {model.name} ({model.printing_time.toFixed(1)} hours)
+                  {model.name} ({model.printing_time ? `${(model.printing_time / 3600).toFixed(1)} hrs` : 'Unknown time'})
                 </option>
               ))}
             </select>
@@ -578,112 +743,64 @@ const PrinterDetail = () => {
                       Model: {models.find(m => m.id === parseInt(startForm.model_id))?.name}
                     </p>
                     <p>
-                      Estimated time: {models.find(m => m.id === parseInt(startForm.model_id))?.printing_time.toFixed(1)} hours
+                      Estimated time: {models.find(m => m.id === parseInt(startForm.model_id))?.printing_time ? 
+                        `${(models.find(m => m.id === parseInt(startForm.model_id))?.printing_time / 3600).toFixed(1)} hours` : 
+                        'Unknown'}
                     </p>
                   </div>
                 </div>
               </div>
             </div>
           )}
-          
-          <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+        </form>
+      </Modal>
+
+      {/* Modal for confirming print completion */}
+      <Modal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        title="Confirm Print Completion"
+        footer={
+          <div className="flex justify-end">
             <Button
-              type="submit"
-              disabled={isSubmitting || !startForm.model_id}
-              className="w-full sm:col-start-2"
-            >
-              {isSubmitting ? 'Starting...' : 'Start Printing'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowStartForm(false)}
-              className="mt-3 sm:mt-0 w-full sm:col-start-1"
+              variant="secondary"
+              onClick={() => setShowConfirmModal(false)}
+              className="mr-2"
             >
               Cancel
             </Button>
+            <Button
+              variant="success"
+              onClick={handleConfirmPrinting}
+              isLoading={isSubmitting}
+              disabled={isSubmitting}
+            >
+              Confirm Complete
+            </Button>
           </div>
-        </form>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700 dark:text-gray-300">
+            Are you sure the print job is complete and you want to mark it as successful?
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            This will set the printer status to idle and record the print job as completed successfully.
+          </p>
+        </div>
       </Modal>
-      
-      {/* Modal for stop reason */}
+
+      {/* Stop Reason Modal */}
       <Modal
         isOpen={isStopReasonModalOpen}
         onClose={() => setIsStopReasonModalOpen(false)}
-        title="Stop Current Print Job"
-      >
-        <div className="p-4">
-          <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
-            Are you sure you want to stop the current print job? This action cannot be undone.
-          </p>
-          
-          <div className="space-y-3">
-            <label className="flex items-center space-x-3">
-              <input
-                type="radio"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600"
-                name="stopReason"
-                value="completed_early"
-                checked={stopReason === 'completed_early'}
-                onChange={() => setStopReason('completed_early')}
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-200">Completed earlier than expected</span>
-            </label>
-            
-            <label className="flex items-center space-x-3">
-              <input
-                type="radio"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600"
-                name="stopReason"
-                value="printer_malfunction"
-                checked={stopReason === 'printer_malfunction'}
-                onChange={() => setStopReason('printer_malfunction')}
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-200">Printer malfunction</span>
-            </label>
-            
-            <label className="flex items-center space-x-3">
-              <input
-                type="radio"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600"
-                name="stopReason"
-                value="print_failure"
-                checked={stopReason === 'print_failure'}
-                onChange={() => setStopReason('print_failure')}
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-200">Print quality issues / failure</span>
-            </label>
-            
-            <label className="flex items-center space-x-3">
-              <input
-                type="radio"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600"
-                name="stopReason"
-                value="user_cancelled"
-                checked={stopReason === 'user_cancelled'}
-                onChange={() => setStopReason('user_cancelled')}
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-200">User cancelled</span>
-            </label>
-            
-            <label className="flex items-center space-x-3">
-              <input
-                type="radio"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600"
-                name="stopReason"
-                value="other"
-                checked={stopReason === 'other'}
-                onChange={() => setStopReason('other')}
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-200">Other</span>
-            </label>
-          </div>
-          
-          <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3">
+        title="Why are you stopping the print?"
+        footer={
+          <div className="flex justify-end">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setIsStopReasonModalOpen(false)}
-              className="w-full"
+              className="mr-2"
             >
               Cancel
             </Button>
@@ -691,10 +808,75 @@ const PrinterDetail = () => {
               variant="danger"
               disabled={!stopReason || isSubmitting}
               onClick={confirmStop}
-              className="w-full mt-3 sm:mt-0"
             >
               {isSubmitting ? 'Processing...' : 'Confirm Stop'}
             </Button>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+          <div className="flex items-start space-x-4">
+            <ExclamationTriangleIcon className="h-6 w-6 text-yellow-500 mt-1" />
+            <div>
+              <p className="text-sm text-gray-700 dark:text-gray-200">
+                Please select a reason for stopping this print job:
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center">
+              <input
+                id="success-early"
+                name="stop-reason"
+                type="radio"
+                checked={stopReason === 'finished-early'}
+                onChange={() => setStopReason('finished-early')}
+                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+              />
+              <label htmlFor="success-early" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Print finished early (success)
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                id="emergency"
+                name="stop-reason"
+                type="radio"
+                checked={stopReason === 'emergency'}
+                onChange={() => setStopReason('emergency')}
+                className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
+              />
+              <label htmlFor="emergency" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Emergency stop (failure)
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                id="changed-mind"
+                name="stop-reason"
+                type="radio"
+                checked={stopReason === 'changed-mind'}
+                onChange={() => setStopReason('changed-mind')}
+                className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300"
+              />
+              <label htmlFor="changed-mind" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Changed mind (cancelled)
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                id="other"
+                name="stop-reason"
+                type="radio"
+                checked={stopReason === 'other'}
+                onChange={() => setStopReason('other')}
+                className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300"
+              />
+              <label htmlFor="other" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Other reason (cancelled)
+              </label>
+            </div>
           </div>
         </div>
       </Modal>

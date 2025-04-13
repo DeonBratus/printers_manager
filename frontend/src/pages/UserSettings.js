@@ -23,7 +23,15 @@ const UserSettings = () => {
     darkMode: localStorage.getItem('theme') === 'dark',
     language: 'russian',
     notifications: true,
-    profileImage: 'default1'
+    profileImage: 'default1',
+    defaultPrinterView: 'grid',
+    autoRefresh: true,
+    refreshInterval: 30,
+    emailNotifications: true,
+    pushNotifications: false, 
+    slackNotifications: false,
+    apiAccess: false,
+    apiKey: 'xxxx-xxxx-xxxx-xxxx'
   });
   
   const profileImages = [
@@ -233,6 +241,152 @@ const UserSettings = () => {
                     </div>
                   </label>
                 </div>
+
+                <div>
+                  <label htmlFor="defaultPrinterView" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Default Printer View
+                  </label>
+                  <select
+                    id="defaultPrinterView"
+                    name="defaultPrinterView"
+                    value={userSettings.defaultPrinterView}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  >
+                    <option value="grid">Grid View</option>
+                    <option value="list">List View</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    id="autoRefresh"
+                    name="autoRefresh"
+                    type="checkbox"
+                    checked={userSettings.autoRefresh}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="autoRefresh" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    Auto-refresh data
+                  </label>
+                </div>
+
+                {userSettings.autoRefresh && (
+                  <div>
+                    <label htmlFor="refreshInterval" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Refresh Interval (seconds)
+                    </label>
+                    <input
+                      type="number"
+                      id="refreshInterval"
+                      name="refreshInterval"
+                      value={userSettings.refreshInterval}
+                      onChange={handleInputChange}
+                      min="10"
+                      max="300"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Notification Settings */}
+            <div>
+              <h3 className="text-md font-medium mb-3 dark:text-white">Notification Settings</h3>
+              
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    id="emailNotifications"
+                    name="emailNotifications"
+                    type="checkbox"
+                    checked={userSettings.emailNotifications}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="emailNotifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    Email Notifications
+                  </label>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    id="pushNotifications"
+                    name="pushNotifications"
+                    type="checkbox"
+                    checked={userSettings.pushNotifications}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="pushNotifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    Push Notifications
+                  </label>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    id="slackNotifications"
+                    name="slackNotifications"
+                    type="checkbox"
+                    checked={userSettings.slackNotifications}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="slackNotifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    Slack Notifications
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* API Access */}
+            <div>
+              <h3 className="text-md font-medium mb-3 dark:text-white">API Access</h3>
+              
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    id="apiAccess"
+                    name="apiAccess"
+                    type="checkbox"
+                    checked={userSettings.apiAccess}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="apiAccess" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    Enable API Access
+                  </label>
+                </div>
+
+                {userSettings.apiAccess && (
+                  <div>
+                    <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      API Key
+                    </label>
+                    <div className="mt-1 flex rounded-md shadow-sm">
+                      <input
+                        type="text"
+                        id="apiKey"
+                        name="apiKey"
+                        value={userSettings.apiKey}
+                        readOnly
+                        className="block w-full flex-1 rounded-none rounded-l-md border-gray-300 bg-gray-100 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="inline-flex items-center rounded-none rounded-r-md"
+                      >
+                        Regenerate
+                      </Button>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      Use this key to access the API programmatically.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
             

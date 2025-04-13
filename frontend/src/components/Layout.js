@@ -109,12 +109,13 @@ const Layout = ({ children }) => {
                     >
                       User Settings
                     </Link>
-                    <a
-                      href="#"
+                    <Link
+                      to="/help"
                       className={`block px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                      onClick={() => setIsProfileMenuOpen(false)}
                     >
                       Help & Support
-                    </a>
+                    </Link>
                     <a
                       href="#"
                       className={`block px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
@@ -187,6 +188,23 @@ const Layout = ({ children }) => {
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 User Settings
+              </Link>
+              
+              {/* Add help & support link to mobile menu */}
+              <Link
+                to="/help"
+                className={`block px-3 py-2 text-base font-medium ${
+                  location.pathname === '/help' 
+                    ? isDarkMode 
+                      ? 'bg-gray-900 text-blue-400 border-l-4 border-blue-400' 
+                      : 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
+                    : isDarkMode
+                      ? 'text-gray-300 hover:bg-gray-700 hover:text-white border-l-4 border-transparent'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
+                }`}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Help & Support
               </Link>
             </div>
           </div>

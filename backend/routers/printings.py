@@ -10,6 +10,7 @@ from services import (
     model as model_service
 )
 from printer_control import complete_printing, pause_printing, resume_printing, cancel_printing
+from models import Printing as PrintingModel
 
 router = APIRouter(
     prefix="/printings",
@@ -140,3 +141,17 @@ def cancel_existing_printing(printing_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"Error canceling printing: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{printing_id}/confirm", response_model=Printing)
+def confirm_printing(printing_id: int, db: Session = Depends(get_db)):
+    # Use the model class for database operations
+    printing = db.query(PrintingModel).filter(PrintingModel.id == printing_id).first()
+    if not printing:
+        raise HTTPException(status_code=404, detail="Printing not found")
+    
+    # Logic to confirm the print job
+    printing.status = "confirmed"  # Example status change
+    db.commit()
+    db.refresh(printing)
+    
+    return printing
