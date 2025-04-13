@@ -1,15 +1,8 @@
 import axios from 'axios';
-
-const API_URL = 'http://localhost:8000';
+import { API_CONFIG } from '../config/api';
 
 // Create axios instance with interceptors for error handling
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 10000, // 10 seconds timeout
-});
+const api = axios.create(API_CONFIG);
 
 // Add a request interceptor
 api.interceptors.request.use(
@@ -37,24 +30,39 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
+    console.error('API Error:', {
+      url: originalRequest?.url,
+      method: originalRequest?.method,
+      error: error.message
+    });
+
     // Don't retry if we've already retried or certain status codes
     if (
-      originalRequest._retry || 
-      !error.response || 
-      error.response.status === 401 || 
+      originalRequest?._retry || 
+      (error.response && (error.response.status === 401 || 
       error.response.status === 403 || 
-      error.response.status === 404
+      error.response.status === 404))
     ) {
       return Promise.reject(error);
     }
     
     // Handle network errors or 500 errors with a retry
     if (!error.response || error.response.status >= 500) {
+      // Если originalRequest может быть undefined после предыдущих проверок
+      if (!originalRequest) {
+        return Promise.reject(error);
+      }
+
       originalRequest._retry = true;
       // Wait 1 second before retrying
       await new Promise(resolve => setTimeout(resolve, 1000));
       console.log('Retrying request:', originalRequest.url);
-      return api(originalRequest);
+      try {
+        return await api(originalRequest);
+      } catch (retryError) {
+        console.error('Retry failed:', retryError.message);
+        return Promise.reject(retryError);
+      }
     }
     
     return Promise.reject(error);
