@@ -11,7 +11,11 @@ def create(db: Session, printer: PrinterCreate):
     return db_printer
 
 def get(db: Session, printer_id: int):
-    return db.query(models.Printer).filter(models.Printer.id == printer_id).first()
+    try:
+        return db.query(models.Printer).filter(models.Printer.id == printer_id).first()
+    except Exception as e:
+        print(f"Database error in printer.get: {str(e)}")
+        return None
 
 def get_all(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False):
     query = db.query(models.Printer)

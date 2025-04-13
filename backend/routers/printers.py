@@ -28,15 +28,29 @@ def read_printers(
     sort_desc: bool = False,
     db: Session = Depends(get_db)
 ):
-    printers = get_printers(db, skip=skip, limit=limit, sort_by=sort_by, sort_desc=sort_desc)
-    return printers
+    try:
+        printers = get_printers(db, skip=skip, limit=limit, sort_by=sort_by, sort_desc=sort_desc)
+        return printers
+    except Exception as e:
+        print(f"Error in read_printers: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.get("/{printer_id}", response_model=Printer)
 def read_printer(printer_id: int, db: Session = Depends(get_db)):
-    db_printer = get_printer(db, printer_id=printer_id)
-    if db_printer is None:
-        raise HTTPException(status_code=404, detail="Printer not found")
-    return db_printer
+    try:
+        # Convert printer_id to int in case it's coming as a string
+        printer_id = int(printer_id)
+        db_printer = get_printer(db, printer_id=printer_id)
+        if db_printer is None:
+            raise HTTPException(status_code=404, detail="Printer not found")
+        return db_printer
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid printer ID format")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in read_printer: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.put("/{printer_id}", response_model=Printer)
 def update_existing_printer(printer_id: int, printer: PrinterCreate, db: Session = Depends(get_db)):

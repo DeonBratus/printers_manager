@@ -15,25 +15,34 @@ def calculate_printer_downtime(db: Session, printer_id: int, current_time: datet
         current_time = datetime.now()
         
     printer = get_printer(db, printer_id)
-    if not printer or (printer.status != "idle" and printer.status != "waiting"):
+    if not printer:
         return 0.0
+        
+    # Если принтер активен (printing, paused), то нет простоя
+    if printer.status not in ["idle", "waiting", "error"]:
+        return printer.total_downtime
         
     # Получаем время последней активности принтера
     last_printing = db.query(models.Printing).filter(
-        models.Printing.printer_id == printer_id,
-        models.Printing.real_time_stop != None
+        models.Printing.printer_id == printer_id
     ).order_by(models.Printing.real_time_stop.desc()).first()
     
-    if last_printing:
+    current_downtime = 0.0
+    
+    if last_printing and last_printing.real_time_stop:
         # Время простоя от завершения последней печати до текущего момента
-        idle_time = (current_time - last_printing.real_time_stop).total_seconds() / 3600
-        print(f"Printer {printer_id} idle time since last print: {format_hours_to_hhmm(idle_time)}")
-        return idle_time
+        current_downtime = (current_time - last_printing.real_time_stop).total_seconds() / 3600
+        print(f"Printer {printer_id} idle time since last print: {format_hours_to_hhmm(current_downtime)}")
     else:
-        # Если печатей не было, считаем с момента добавления принтера в систему
-        idle_time = (current_time - printer.created_at).total_seconds() / 3600
-        print(f"Printer {printer_id} idle time since creation: {format_hours_to_hhmm(idle_time)}")
-        return idle_time
+        # Если печатей не было или нет завершенных, считаем с момента добавления принтера в систему
+        current_downtime = (current_time - printer.created_at).total_seconds() / 3600
+        print(f"Printer {printer_id} idle time since creation: {format_hours_to_hhmm(current_downtime)}")
+    
+    # Обновляем общее время простоя в БД
+    total_downtime = (printer.total_downtime or 0) + current_downtime
+    printer_dal.update(db, printer_id, {"total_downtime": total_downtime})
+    
+    return total_downtime
 
 def complete_printing(db: Session, printing_id: int, auto_complete: bool = False):
     printing = get_printing(db, printing_id)
@@ -44,15 +53,32 @@ def complete_printing(db: Session, printing_id: int, auto_complete: bool = False
     if not printer:
         return None
     
+    current_time = datetime.now()
+    printing.real_time_stop = current_time
+    
+    # Обновляем статус печати
     if auto_complete:
+        printing.status = "completed"
         printer_dal.update(db, printer.id, {"status": "waiting"})
     else:
-        current_time = datetime.now()
+        printing.status = "completed"
+        # Вычисляем фактическое время печати без учета простоев
         actual_printing_time = (current_time - printing.start_time).total_seconds() / 3600
+        
+        if printing.downtime:
+            actual_printing_time -= printing.downtime
+        
+        # Обновляем общее время работы принтера
+        total_print_time = (printer.total_print_time or 0) + actual_printing_time
         printer_dal.update(db, printer.id, {
             "status": "idle",
-            "total_print_time": printer.total_print_time + actual_printing_time
+            "total_print_time": total_print_time
         })
+    
+    # Сохраняем изменения в печати
+    db.add(printing)
+    db.commit()
+    db.refresh(printing)
         
     return printing
 
@@ -66,6 +92,7 @@ def pause_printing(db: Session, printing_id: int):
         return None
     
     printer.status = "paused"
+    printing.status = "paused"
     printing.pause_time = datetime.now()
     
     db.add(printer)
@@ -89,10 +116,12 @@ def resume_printing(db: Session, printing_id: int):
         pause_duration = (current_time - printing.pause_time).total_seconds() / 3600
         printing.downtime = (printing.downtime or 0) + pause_duration
         # Корректируем ожидаемое время завершения
-        printing.calculated_time_stop = printing.calculated_time_stop + \
-            (current_time - printing.pause_time)
+        if printing.calculated_time_stop:
+            printing.calculated_time_stop = printing.calculated_time_stop + \
+                (current_time - printing.pause_time)
     
     printer.status = "printing"
+    printing.status = "printing"
     printing.pause_time = None
     
     db.add(printer)
@@ -112,14 +141,19 @@ def cancel_printing(db: Session, printing_id: int):
     
     current_time = datetime.now()
     printing.real_time_stop = current_time
-    printing.status = "aborted"  # Устанавливаем статус aborted
+    printing.status = "cancelled"  # Изменено с "aborted" на "cancelled" для соответствия с фронтендом
     
     # Вычисляем фактическое время печати
-    actual_printing_time = (printing.real_time_stop - printing.start_time).total_seconds() / 3600
+    actual_printing_time = (current_time - printing.start_time).total_seconds() / 3600
+    
+    # Вычитаем время простоя
+    if printing.downtime:
+        actual_printing_time -= printing.downtime
     
     # Обновляем статистику принтера
+    total_print_time = (printer.total_print_time or 0) + actual_printing_time
     printer.status = "idle"
-    printer.total_print_time += actual_printing_time
+    printer.total_print_time = total_print_time
     
     # Сохраняем изменения
     db.add(printing)

@@ -20,20 +20,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-origins = [
-    "http://localhost",
-    "http://127.0.0.1",
-    "http://localhost:3000",  # для Live Server в VSCode
-    "http://localhost:3001"
-]
-
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["http://localhost:3000"],  # Frontend URL
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 # Инициализация базы данных

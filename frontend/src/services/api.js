@@ -85,6 +85,10 @@ export const getPrinting = (id) => api.get(`/printings/${id}`);
 export const createPrinting = (printingData) => api.post('/printings/', printingData);
 export const updatePrinting = (id, printingData) => api.put(`/printings/${id}`, printingData);
 export const deletePrinting = (id) => api.delete(`/printings/${id}`);
+export const pauseExistingPrinting = (id) => api.post(`/printings/${id}/pause`);
+export const resumeExistingPrinting = (id) => api.post(`/printings/${id}/resume`);
+export const cancelExistingPrinting = (id) => api.post(`/printings/${id}/cancel`);
+export const completeExistingPrinting = (id) => api.post(`/printings/${id}/complete`);
 
 // Reports API
 export const getReports = () => api.get('/reports/');

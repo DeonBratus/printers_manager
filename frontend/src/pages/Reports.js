@@ -790,7 +790,7 @@ const Reports = () => {
 
       <Card className="p-4">
         <h3 className="text-lg font-semibold mb-4 dark:text-white">Analytics Overview</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md">
             <div className="text-sm text-blue-500 dark:text-blue-300 font-medium">Total Printers</div>
             <div className="mt-1 text-2xl font-semibold dark:text-white">{statusReport?.total_printers || 0}</div>
@@ -802,6 +802,14 @@ const Reports = () => {
           <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-md">
             <div className="text-sm text-amber-500 dark:text-amber-300 font-medium">Total Print Jobs</div>
             <div className="mt-1 text-2xl font-semibold dark:text-white">{efficiencyReport?.total_printings || 0}</div>
+          </div>
+          <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-md">
+            <div className="text-sm text-indigo-500 dark:text-indigo-300 font-medium">Total Print Time</div>
+            <div className="mt-1 text-2xl font-semibold dark:text-white">
+              {efficiencyReport?.total_print_time 
+                ? `${Math.round(efficiencyReport.total_print_time)} hrs` 
+                : '0 hrs'}
+            </div>
           </div>
           <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-md">
             <div className="text-sm text-purple-500 dark:text-purple-300 font-medium">Avg. Efficiency</div>
