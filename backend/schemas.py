@@ -43,13 +43,12 @@ class PrintingCreate(PrintingBase):
 class Printing(PrintingBase):
     id: int
     real_time_stop: Optional[datetime] = None
-    downtime: Optional[float] = 0.0
+    downtime: float = 0.0
     printer_name: Optional[str] = None
     model_name: Optional[str] = None
     progress: Optional[float] = 0.0
     status: Optional[str] = "printing"
     pause_time: Optional[datetime] = None
-    downtime: float = 0
 
     class Config:
         orm_mode = True
