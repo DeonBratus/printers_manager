@@ -2,13 +2,28 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 import models
 from schemas import PrinterCreate
+from sqlalchemy.exc import IntegrityError
 
 def create(db: Session, printer: PrinterCreate):
+    # Check if printer with this name already exists
+    existing_printer = db.query(models.Printer).filter(models.Printer.name == printer.name).first()
+    if existing_printer:
+        return existing_printer
+        
+    # If not exists, create new printer
     db_printer = models.Printer(**printer.dict())
     db.add(db_printer)
-    db.commit()
-    db.refresh(db_printer)
-    return db_printer
+    try:
+        db.commit()
+        db.refresh(db_printer)
+        return db_printer
+    except IntegrityError:
+        db.rollback()
+        # Handle race condition where printer was created between our check and insert
+        existing_printer = db.query(models.Printer).filter(models.Printer.name == printer.name).first()
+        if existing_printer:
+            return existing_printer
+        raise
 
 def get(db: Session, printer_id: int):
     try:

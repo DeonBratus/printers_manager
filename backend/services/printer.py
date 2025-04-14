@@ -10,7 +10,15 @@ def format_hours_to_hhmm(hours: float) -> str:
     return f"{hours:02d}:{minutes:02d}"
 
 def create_printer(db: Session, printer: PrinterCreate):
-    return printer_dal.create(db, printer)
+    try:
+        result = printer_dal.create(db, printer)
+        # If result is a list (from old code), take the first item
+        if isinstance(result, list) and len(result) > 0:
+            return result[0]
+        return result
+    except Exception as e:
+        print(f"Error in create_printer: {str(e)}")
+        raise
 
 def get_printer(db: Session, printer_id: int):
     try:

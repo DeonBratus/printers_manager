@@ -17,24 +17,15 @@ router = APIRouter(
     tags=["printers"]
 )
 
-@router.post("/", response_model=List[Printer])
+@router.post("/", response_model=Printer)
 def create_new_printer(printer: PrinterCreate, db: Session = Depends(get_db)):
     try:
-        # Check if printer with this name already exists
-        existing_printer = db.query(PrinterModel).filter(PrinterModel.name == printer.name).first()
-        if existing_printer:
-            # If exists, return the existing printer
-            return [existing_printer]
-        
-        # If not exists, create new printer
-        return create_printer(db, printer)
-    except IntegrityError as e:
-        # Handle race condition where printer was created between our check and insert
-        db.rollback()
-        existing_printer = db.query(PrinterModel).filter(PrinterModel.name == printer.name).first()
-        if existing_printer:
-            return [existing_printer]
-        raise HTTPException(status_code=400, detail="Failed to create printer")
+        # Create or get existing printer
+        result = create_printer(db, printer)
+        # If result is a list (from old code), take the first item
+        if isinstance(result, list) and len(result) > 0:
+            return result[0]
+        return result
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
