@@ -11,7 +11,12 @@ def create(db: Session, printer: PrinterCreate):
         return existing_printer
         
     # If not exists, create new printer
-    db_printer = models.Printer(**printer.dict())
+    db_printer = models.Printer(
+        name=printer.name,
+        status=printer.status,
+        total_print_time=printer.total_print_time,
+        total_downtime=printer.total_downtime
+    )
     db.add(db_printer)
     try:
         db.commit()

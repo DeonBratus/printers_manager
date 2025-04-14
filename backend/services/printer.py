@@ -22,22 +22,14 @@ def create_printer(db: Session, printer: PrinterCreate):
 
 def get_printer(db: Session, printer_id: int):
     try:
-        printer = printer_dal.get(db, printer_id)
-        if printer:
-            # Convert ID to string for consistency
-            printer.id = str(printer.id)
-        return printer
+        return printer_dal.get(db, printer_id)
     except Exception as e:
         print(f"Error in get_printer: {str(e)}")
         return None
 
 def get_printers(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False):
     try:
-        printers = printer_dal.get_all(db, skip, limit, sort_by, sort_desc)
-        # Конвертируем ID в строку для совместимости
-        for printer in printers:
-            printer.id = str(printer.id)
-        return printers
+        return printer_dal.get_all(db, skip, limit, sort_by, sort_desc)
     except Exception as e:
         print(f"Error in get_printers: {str(e)}")
         return []
