@@ -8,7 +8,7 @@ services:
     ports:
       - "0.0.0.0:8000:8000"
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/3d_printer_db
+      - DATABASE_URL=postgresql://postgres:postgres:5432/3d_printer_db
       - ALLOWED_HOSTS=*
       - ALLOW_CORS=true
       - CORS_ALLOW_ORIGINS=*
@@ -57,10 +57,3 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-volumes:
-  postgres_data:
-
-networks:
-  app-network:
-    driver: bridge
