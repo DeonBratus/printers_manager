@@ -248,26 +248,23 @@ def stop_printer(printer_id: int, data: dict = {}, db: Session = Depends(get_db)
         
         # Calculate actual print time for statistics if successful
         if is_success:
-            actual_printing_time = (current_time - current_printing.start_time).total_seconds()
+            actual_printing_time = (current_time - current_printing.start_time).total_seconds() / 60  # в минутах
             # Subtract any pause time
             if current_printing.downtime:
-                actual_printing_time -= current_printing.downtime * 3600
-            printer.total_print_time = (printer.total_print_time or 0) + actual_printing_time / 3600
+                actual_printing_time -= current_printing.downtime
+            printer.total_print_time = (printer.total_print_time or 0) + actual_printing_time
         
         # If print was successful, mark as waiting for confirmation
         # Otherwise mark as idle
         printer.status = "waiting" if is_success else "idle"
         
+        # Save changes
         db.add(printer)
         db.add(current_printing)
         db.commit()
         db.refresh(printer)
         
         return printer
-    except HTTPException:
-        db.rollback()
-        raise
     except Exception as e:
-        print(f"Error in stop_printer: {str(e)}")
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

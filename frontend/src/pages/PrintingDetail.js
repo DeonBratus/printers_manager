@@ -19,6 +19,8 @@ import {
   ExclamationTriangleIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
+import { format } from 'date-fns';
+import { formatDuration, formatMinutesToHHMM } from '../utils/timeFormat';
 
 const PrintingDetail = () => {
   const { id } = useParams();
@@ -132,11 +134,10 @@ const PrintingDetail = () => {
     
     if (calculatedStop <= now) return 'Completed';
     
+    // Разница в минутах
     const diffMs = calculatedStop - now;
-    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    
-    return `${diffHrs}h ${diffMins}m`;
+    const diffMinutes = diffMs / (1000 * 60);
+    return formatDuration(diffMinutes);
   };
 
   const getCompletionPercentage = (printing) => {
@@ -285,7 +286,9 @@ const PrintingDetail = () => {
                 Printing Time
               </dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                {printing.printing_time ? `${printing.printing_time.toFixed(1)} hours` : 'Unknown'}
+                {printing.printing_time ? 
+                  `${formatMinutesToHHMM(printing.printing_time)} (${formatDuration(printing.printing_time)})` 
+                  : 'Unknown'}
               </dd>
             </div>
             <div className="sm:col-span-1">

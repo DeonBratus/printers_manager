@@ -13,6 +13,7 @@ import {
   ExclamationCircleIcon,
   ChartBarIcon
 } from '@heroicons/react/24/outline';
+import { formatDuration, formatMinutesToHHMM, parseHHMMToMinutes } from '../utils/timeFormat';
 
 const ModelDetail = () => {
   const { id } = useParams();
@@ -38,10 +39,10 @@ const ModelDetail = () => {
       ]);
       
       setModel(modelRes.data);
-      // Convert minutes to hours for the form
+      // Конвертируем минуты в формат HH:MM для формы редактирования
       setEditForm({ 
         name: modelRes.data.name, 
-        printing_time: (modelRes.data.printing_time / 60).toFixed(1) 
+        printing_time: formatMinutesToHHMM(modelRes.data.printing_time)
       });
       
       // Filter printings for this model
@@ -72,10 +73,10 @@ const ModelDetail = () => {
       setIsSubmitting(true);
       setError(null);
       
-      // Convert hours back to minutes for API
+      // Parse HH:MM format to minutes for API
       const modelData = {
         ...editForm,
-        printing_time: parseFloat(editForm.printing_time) * 60
+        printing_time: parseHHMMToMinutes(editForm.printing_time)
       };
       
       await updateModel(id, modelData);
@@ -116,7 +117,7 @@ const ModelDetail = () => {
       return sum + (end - start);
     }, 0);
     
-    // Convert to hours
+    // Convert to hours and round to 1 decimal place
     return Math.round((totalDuration / completedPrints.length) / (1000 * 60 * 60) * 10) / 10;
   };
 
@@ -188,17 +189,17 @@ const ModelDetail = () => {
             </div>
             <div>
               <label htmlFor="printing_time" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Printing Time (hours)
+                Printing Time (HH:MM)
               </label>
               <input
-                type="number"
+                type="text"
                 id="printing_time"
                 name="printing_time"
                 value={editForm.printing_time}
                 onChange={handleEditChange}
                 required
-                min="0.1"
-                step="0.1"
+                pattern="[0-9]{1,2}:[0-9]{2}"
+                placeholder="e.g. 01:30"
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 disabled={isSubmitting}
               />
@@ -220,12 +221,9 @@ const ModelDetail = () => {
               
               <h2 className="text-lg font-semibold mb-3 dark:text-white">Model Details</h2>
               <div className="space-y-3 flex-grow">
-                <div className="flex items-center">
-                  <ClockIcon className="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
-                  <div>
-                    <span className="font-medium dark:text-gray-300">Printing Time:</span>
-                    <span className="ml-2 dark:text-gray-300">{Math.round(model.printing_time / 60 * 10) / 10} hours</span>
-                  </div>
+                <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400">
+                  <ClockIcon className="h-4 w-4 mr-1 text-gray-400" aria-hidden="true" />
+                  <span>Printing Time: {formatDuration(model.printing_time)}</span>
                 </div>
                 
                 <div className="flex items-center">
@@ -248,7 +246,7 @@ const ModelDetail = () => {
                   <ClockIcon className="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
                   <div>
                     <span className="font-medium dark:text-gray-300">Avg. Print Time:</span>
-                    <span className="ml-2 dark:text-gray-300">{averagePrintTime} hours</span>
+                    <span className="ml-2 dark:text-gray-300">{formatDuration(averagePrintTime)}</span>
                   </div>
                 </div>
                 

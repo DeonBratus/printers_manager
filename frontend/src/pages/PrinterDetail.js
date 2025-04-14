@@ -5,7 +5,7 @@ import Button from '../components/Button';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
-import { format } from 'date-fns';
+import { formatDuration, formatMinutesToHHMM } from '../utils/timeFormat';
 import { 
   ClockIcon, 
   CalendarIcon, 
@@ -236,17 +236,9 @@ const PrinterDetail = () => {
     }
   };
 
-  const formatTime = (hours) => {
-    if (hours === null || hours === undefined) return 'N/A';
-    
-    const totalHours = Math.floor(hours);
-    const minutes = Math.round((hours - totalHours) * 60);
-    
-    if (totalHours === 0) {
-      return `${minutes}m`;
-    }
-    
-    return `${totalHours}h ${minutes}m`;
+  const formatTime = (minutes) => {
+    if (minutes === null || minutes === undefined) return 'N/A';
+    return formatDuration(minutes);
   };
 
   const formatDate = (dateString) => {
@@ -721,7 +713,7 @@ const PrinterDetail = () => {
               <option value="">Select a model</option>
               {models.map(model => (
                 <option key={model.id} value={model.id}>
-                  {model.name} ({model.printing_time ? `${(model.printing_time / 3600).toFixed(1)} hrs` : 'Unknown time'})
+                  {model.name} ({formatMinutesToHHMM(model.printing_time)})
                 </option>
               ))}
             </select>
@@ -744,7 +736,7 @@ const PrinterDetail = () => {
                     </p>
                     <p>
                       Estimated time: {models.find(m => m.id === parseInt(startForm.model_id))?.printing_time ? 
-                        `${(models.find(m => m.id === parseInt(startForm.model_id))?.printing_time / 3600).toFixed(1)} hours` : 
+                        `${formatMinutesToHHMM(models.find(m => m.id === parseInt(startForm.model_id))?.printing_time)} (${formatDuration(models.find(m => m.id === parseInt(startForm.model_id))?.printing_time)})` : 
                         'Unknown'}
                     </p>
                   </div>

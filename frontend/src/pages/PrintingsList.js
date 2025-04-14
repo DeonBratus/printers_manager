@@ -535,7 +535,7 @@ const PrintingsList = () => {
               <option value="">Select a model</option>
               {models.map(model => (
                 <option key={model.id} value={model.id}>
-                  {model.name} ({model.printing_time.toFixed(1)} hours)
+                  {model.name} ({model.printing_time.toFixed(1)} min)
                 </option>
               ))}
             </select>

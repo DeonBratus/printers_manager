@@ -35,10 +35,10 @@ class Printing(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     start_time = Column(DateTime, server_default=func.now())
-    printing_time = Column(Float)
+    printing_time = Column(Float)  # Stored in minutes
     calculated_time_stop = Column(DateTime)
     real_time_stop = Column(DateTime, nullable=True)
-    downtime = Column(Float, default=0.0)
+    downtime = Column(Float, default=0.0)  # Stored in minutes
     status = Column(String, default="printing")  # printing, paused, completed, cancelled, pending_completion
     pause_time = Column(DateTime, nullable=True)
     stop_reason = Column(String, nullable=True)
@@ -48,6 +48,13 @@ class Printing(Base):
     
     printer = relationship("Printer", back_populates="printings")
     model = relationship("Model", back_populates="printings")
+
+    def __init__(self, **kwargs):
+        # Ensure printing_time is stored in minutes
+        if 'printing_time' in kwargs and kwargs['printing_time'] is not None:
+            if kwargs['printing_time'] < 10:  # If value is in hours (unlikely to have printing < 10 min)
+                kwargs['printing_time'] = kwargs['printing_time'] * 60
+        super().__init__(**kwargs)
 
 class PrintQueue(Base):
     __tablename__ = "print_queue"

@@ -13,12 +13,13 @@ import {
   ExclamationCircleIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
+import { formatMinutesToHHMM, parseHHMMToMinutes, formatDuration } from '../utils/timeFormat';
 
 const ModelsList = () => {
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [newModel, setNewModel] = useState({ name: '', printing_time: '' });
+  const [newModel, setNewModel] = useState({ name: '', printing_time: '01:00' });
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   
   // Modal states
@@ -65,14 +66,16 @@ const ModelsList = () => {
     
     try {
       setIsSubmitting(true);
-      // Convert printing_time to minutes for API
+      // Преобразуем время из формата HH:MM в минуты
+      const minutes = parseHHMMToMinutes(newModel.printing_time);
+      
       const modelData = {
         ...newModel,
-        printing_time: parseFloat(newModel.printing_time) * 60 // Convert hours to minutes
+        printing_time: minutes  // время в минутах для API
       };
       
       await createModel(modelData);
-      setNewModel({ name: '', printing_time: '' });
+      setNewModel({ name: '', printing_time: '01:00' });
       setIsAddModalOpen(false);
       fetchModels();
     } catch (error) {
@@ -177,7 +180,7 @@ const ModelsList = () => {
                       </h3>
                       <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400">
                         <ClockIcon className="h-4 w-4 mr-1 text-gray-400" aria-hidden="true" />
-                        <span>Printing Time: {model.printing_time > 60 ? `${Math.floor(model.printing_time / 60)}h ${Math.round(model.printing_time % 60)}m` : `${Math.round(model.printing_time)}m`}</span>
+                        <span>Printing Time: {formatMinutesToHHMM(model.printing_time)} ({formatDuration(model.printing_time)})</span>
                       </div>
                       {model.filament_type && (
                         <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -255,7 +258,7 @@ const ModelsList = () => {
                           {model.name}
                         </Link>
                       </td>
-                      <td className="py-3 px-4 dark:text-gray-300">{model.printing_time > 60 ? `${Math.floor(model.printing_time / 60)}h ${Math.round(model.printing_time % 60)}m` : `${Math.round(model.printing_time)}m`}</td>
+                      <td className="py-3 px-4 dark:text-gray-300">{formatMinutesToHHMM(model.printing_time)} ({formatDuration(model.printing_time)})</td>
                       {models.some(m => m.filament_type) && (
                         <td className="py-3 px-4 dark:text-gray-300">{model.filament_type || '-'}</td>
                       )}
@@ -315,7 +318,8 @@ const ModelsList = () => {
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title="Add New 3D Model"
+        title="Add New Model"
+        size="md"
         footer={
           <div className="flex justify-end">
             <Button
@@ -354,22 +358,21 @@ const ModelsList = () => {
           </div>
           <div>
             <label htmlFor="printing_time" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Printing Time (hours)
+              Printing Time (HH:MM)
             </label>
             <input
-              type="number"
+              type="text"
               id="printing_time"
               name="printing_time"
               value={newModel.printing_time}
               onChange={handleInputChange}
               required
-              min="0.1"
-              step="0.1"
+              pattern="[0-9]{1,2}:[0-9]{2}"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              placeholder="e.g. 2.5"
+              placeholder="e.g. 01:30"
             />
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Enter the estimated time it takes to print this model in hours
+              Enter the estimated time it takes to print this model in format HH:MM
             </p>
           </div>
         </form>

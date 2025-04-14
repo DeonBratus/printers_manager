@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timedelta
 from dal import printing as printing_dal
 from dal import printer as printer_dal
 from schemas import PrintingCreate
@@ -15,6 +15,21 @@ def create_printing(db: Session, printing: PrintingCreate):
             return None
             
         printing_data = printing.dict()
+        
+        # Если время печати не указано, берем из модели
+        if not printing_data.get('printing_time'):
+            printing_data['printing_time'] = model.printing_time
+            
+        # Устанавливаем время начала печати, если не задано
+        if not printing_data.get('start_time'):
+            printing_data['start_time'] = datetime.now()
+            
+        # Рассчитываем предполагаемое время завершения в минутах
+        if printing_data.get('printing_time'):
+            # Конвертируем минуты в секунды для timedelta
+            seconds = printing_data['printing_time'] * 60
+            printing_data['calculated_time_stop'] = printing_data['start_time'] + timedelta(seconds=seconds)
+        
         db_printing = printing_dal.create(db, printing_data)
         
         # Обновляем статус принтера
@@ -73,8 +88,8 @@ def get_printing_with_details(db: Session, printing_id: int):
                     else:
                         printing.progress = 100
                 elif printing.printing_time:
-                    # Если нет calculated_time_stop, но есть printing_time
-                    total_seconds = printing.printing_time * 3600  # переводим часы в секунды
+                    # Если нет calculated_time_stop, но есть printing_time (в минутах)
+                    total_seconds = printing.printing_time * 60  # переводим минуты в секунды
                     elapsed_time = (current_time - printing.start_time).total_seconds()
                     
                     if total_seconds > 0:
