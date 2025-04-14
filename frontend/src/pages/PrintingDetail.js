@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getPrinting, pauseExistingPrinting, resumeExistingPrinting, cancelExistingPrinting, completeExistingPrinting } from '../services/api';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
@@ -23,6 +24,7 @@ import { format } from 'date-fns';
 import { formatDuration, formatMinutesToHHMM } from '../utils/timeFormat';
 
 const PrintingDetail = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [printing, setPrinting] = useState(null);
@@ -43,7 +45,7 @@ const PrintingDetail = () => {
       setPrinting(response.data);
     } catch (error) {
       console.error('Error fetching printing:', error);
-      setError("Failed to fetch printing details. Please try refreshing the page.");
+      setError(t('printingDetail.error'));
     } finally {
       setLoading(false);
     }
@@ -67,7 +69,7 @@ const PrintingDetail = () => {
       fetchPrinting();
     } catch (error) {
       console.error('Error pausing printing:', error);
-      setError("Failed to pause printing. Please try again.");
+      setError(t('printingsList.pauseError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -80,7 +82,7 @@ const PrintingDetail = () => {
       fetchPrinting();
     } catch (error) {
       console.error('Error resuming printing:', error);
-      setError("Failed to resume printing. Please try again.");
+      setError(t('printingsList.resumeError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -92,7 +94,7 @@ const PrintingDetail = () => {
 
   const handleConfirmCancel = async () => {
     if (!stopReason) {
-      setError("Please select a reason for cancellation");
+      setError(t('printingDetail.selectCancelReason'));
       return;
     }
 
@@ -106,7 +108,7 @@ const PrintingDetail = () => {
       // await updatePrinting(id, { cancel_reason: stopReason });
     } catch (error) {
       console.error('Error canceling printing:', error);
-      setError("Failed to cancel printing. Please try again.");
+      setError(t('printingsList.cancelError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -119,7 +121,7 @@ const PrintingDetail = () => {
       fetchPrinting();
     } catch (error) {
       console.error('Error completing printing:', error);
-      setError("Failed to complete printing. Please try again.");
+      setError(t('printingDetail.error'));
     } finally {
       setIsSubmitting(false);
     }
@@ -127,12 +129,12 @@ const PrintingDetail = () => {
 
   // Calculate remaining time for a printing job
   const getRemainingTime = (printing) => {
-    if (!printing.calculated_time_stop) return 'Unknown';
+    if (!printing.calculated_time_stop) return t('common.unknown');
     
     const calculatedStop = new Date(printing.calculated_time_stop);
     const now = new Date();
     
-    if (calculatedStop <= now) return 'Completed';
+    if (calculatedStop <= now) return t('printings.status.completed');
     
     // Разница в минутах
     const diffMs = calculatedStop - now;
@@ -161,21 +163,21 @@ const PrintingDetail = () => {
   if (loading) {
     return <div className="flex justify-center items-center h-full p-10">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
-      <p className="ml-3 text-gray-700 dark:text-gray-300">Loading...</p>
+      <p className="ml-3 text-gray-700 dark:text-gray-300">{t('common.loading')}</p>
     </div>;
   }
 
   if (!printing) {
     return <div className="text-center py-10">
       <ExclamationCircleIcon className="h-12 w-12 mx-auto text-red-500" />
-      <h3 className="mt-2 text-base font-medium text-gray-900 dark:text-gray-100">Printing not found</h3>
+      <h3 className="mt-2 text-base font-medium text-gray-900 dark:text-gray-100">{t('printingDetail.printingNotFound')}</h3>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        The printing job you are looking for does not exist or has been deleted.
+        {t('printingDetail.printingNotFoundDesc')}
       </p>
       <div className="mt-6">
         <Button onClick={() => navigate('/printings')}>
           <ArrowLeftIcon className="h-5 w-5 mr-2" />
-          Back to Printings
+          {t('printingDetail.backToPrintings')}
         </Button>
       </div>
     </div>;
@@ -188,11 +190,11 @@ const PrintingDetail = () => {
           <Button variant="outline" size="sm" onClick={() => navigate('/printings')} className="mr-4">
             <ArrowLeftIcon className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold dark:text-white">Printing Details: {printing.model_name}</h1>
+          <h1 className="text-2xl font-bold dark:text-white">{t('printingDetail.title')} {printing.model_name}</h1>
         </div>
         <Button onClick={fetchPrinting}>
           <ArrowPathIcon className="h-5 w-5 mr-2" />
-          Refresh
+          {t('printingDetail.refresh')}
         </Button>
       </div>
 
@@ -201,11 +203,11 @@ const PrintingDetail = () => {
           <div className="flex">
             <ExclamationCircleIcon className="h-5 w-5 text-red-400" aria-hidden="true" />
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800 dark:text-red-300">Error</h3>
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-300">{t('common.error')}</h3>
               <div className="text-sm text-red-700 dark:text-red-300">{error}</div>
               <div className="mt-2">
                 <Button variant="danger" size="sm" onClick={fetchPrinting}>
-                  Retry
+                  {t('printingDetail.retry')}
                 </Button>
               </div>
             </div>
@@ -216,9 +218,9 @@ const PrintingDetail = () => {
       <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
           <div>
-            <h3 className="text-lg leading-6 font-medium dark:text-white">Print Job Information</h3>
+            <h3 className="text-lg leading-6 font-medium dark:text-white">{t('printingDetail.printInfoTitle')}</h3>
             <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-              Details about the current printing job.
+              {t('printingDetail.printInfoDescription')}
             </p>
           </div>
           <StatusBadge status={printing.status} size="lg" />
@@ -226,7 +228,7 @@ const PrintingDetail = () => {
         <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:px-6">
           <div className="mt-4">
             <div className="flex justify-between mb-1 text-sm">
-              <span className="text-gray-600 dark:text-gray-300">Progress</span>
+              <span className="text-gray-600 dark:text-gray-300">{t('printingDetail.progress')}</span>
               <span className="text-gray-900 dark:text-white font-medium">
                 {Math.round(printing.progress !== undefined ? printing.progress : getCompletionPercentage(printing))}%
               </span>
@@ -243,7 +245,7 @@ const PrintingDetail = () => {
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                 <CubeIcon className="h-5 w-5 mr-2 text-gray-400" />
-                Model
+                {t('printingDetail.model')}
               </dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white">
                 <Link to={`/models/${printing.model_id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
@@ -254,7 +256,7 @@ const PrintingDetail = () => {
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                 <PrinterIcon className="h-5 w-5 mr-2 text-gray-400" />
-                Printer
+                {t('printingDetail.printer')}
               </dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white">
                 <Link to={`/printers/${printing.printer_id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
@@ -265,36 +267,36 @@ const PrintingDetail = () => {
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                 <CalendarIcon className="h-5 w-5 mr-2 text-gray-400" />
-                Start Time
+                {t('printingDetail.startTime')}
               </dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                {printing.start_time ? new Date(printing.start_time).toLocaleString() : 'Not started'}
+                {printing.start_time ? new Date(printing.start_time).toLocaleString() : t('printingDetail.notStarted')}
               </dd>
             </div>
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                 <CalendarIcon className="h-5 w-5 mr-2 text-gray-400" />
-                Expected Completion
+                {t('printingDetail.expectedCompletion')}
               </dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                {printing.calculated_time_stop ? new Date(printing.calculated_time_stop).toLocaleString() : 'Unknown'}
+                {printing.calculated_time_stop ? new Date(printing.calculated_time_stop).toLocaleString() : t('common.unknown')}
               </dd>
             </div>
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                 <ClockIcon className="h-5 w-5 mr-2 text-gray-400" />
-                Printing Time
+                {t('printings.printingTime')}
               </dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white">
                 {printing.printing_time ? 
                   `${formatMinutesToHHMM(printing.printing_time)} (${formatDuration(printing.printing_time)})` 
-                  : 'Unknown'}
+                  : t('common.unknown')}
               </dd>
             </div>
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                 <ClockIcon className="h-5 w-5 mr-2 text-gray-400" />
-                Time Remaining
+                {t('printings.timeRemaining')}
               </dt>
               <dd className="mt-1 text-sm text-gray-900 dark:text-white">
                 {getRemainingTime(printing)}
@@ -304,7 +306,7 @@ const PrintingDetail = () => {
               <div className="sm:col-span-1">
                 <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                   <PauseIcon className="h-5 w-5 mr-2 text-gray-400" />
-                  Paused Since
+                  {t('printingDetail.pausedSince')}
                 </dt>
                 <dd className="mt-1 text-sm text-gray-900 dark:text-white">
                   {new Date(printing.pause_time).toLocaleString()}
@@ -315,10 +317,10 @@ const PrintingDetail = () => {
               <div className="sm:col-span-1">
                 <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                   <ClockIcon className="h-5 w-5 mr-2 text-gray-400" />
-                  Total Downtime
+                  {t('printingDetail.totalDowntime')}
                 </dt>
                 <dd className="mt-1 text-sm text-gray-900 dark:text-white">
-                  {`${printing.downtime.toFixed(2)} hours`}
+                  {`${printing.downtime.toFixed(2)} ${t('printingDetail.hours')}`}
                 </dd>
               </div>
             )}
@@ -326,7 +328,7 @@ const PrintingDetail = () => {
               <div className="sm:col-span-1">
                 <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
                   <CalendarIcon className="h-5 w-5 mr-2 text-gray-400" />
-                  Actual Completion
+                  {t('printingDetail.actualCompletion')}
                 </dt>
                 <dd className="mt-1 text-sm text-gray-900 dark:text-white">
                   {new Date(printing.real_time_stop).toLocaleString()}
@@ -348,7 +350,7 @@ const PrintingDetail = () => {
                   onClick={handlePausePrinting}
                 >
                   <PauseIcon className="h-5 w-5 mr-2" />
-                  Pause Printing
+                  {t('printingDetail.pausePrinting')}
                 </Button>
               ) : (
                 <Button 
@@ -358,7 +360,7 @@ const PrintingDetail = () => {
                   onClick={handleResumePrinting}
                 >
                   <PlayIcon className="h-5 w-5 mr-2" />
-                  Resume Printing
+                  {t('printingDetail.resumePrinting')}
                 </Button>
               )}
               <Button 
@@ -368,7 +370,7 @@ const PrintingDetail = () => {
                 onClick={handleCancel}
               >
                 <StopIcon className="h-5 w-5 mr-2" />
-                Cancel Printing
+                {t('printingDetail.cancelPrinting')}
               </Button>
             </div>
           </div>
@@ -381,7 +383,7 @@ const PrintingDetail = () => {
               <div className="mb-4 text-yellow-600 dark:text-yellow-500">
                 <ExclamationTriangleIcon className="mx-auto h-12 w-12" />
                 <p className="mt-2 text-sm">
-                  The print appears to be complete. Please confirm to finalize the job.
+                  {t('printingDetail.completeConfirmMessage')}
                 </p>
               </div>
               <Button 
@@ -392,7 +394,7 @@ const PrintingDetail = () => {
                 className="px-8"
               >
                 <CheckCircleIcon className="h-5 w-5 mr-2" />
-                Confirm Completion
+                {t('printingDetail.confirmCompletion')}
               </Button>
             </div>
           </div>
@@ -403,11 +405,11 @@ const PrintingDetail = () => {
       <Modal
         isOpen={isStopModalOpen}
         onClose={() => setIsStopModalOpen(false)}
-        title="Cancel Print Job"
+        title={t('printingDetail.cancelPrintJob')}
       >
         <div className="p-4">
           <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
-            Please select a reason for canceling this print job:
+            {t('printingDetail.selectCancelReason')}
           </p>
           
           <div className="space-y-3">
@@ -420,7 +422,7 @@ const PrintingDetail = () => {
                 checked={stopReason === 'completed_early'}
                 onChange={() => setStopReason('completed_early')}
               />
-              <span className="text-sm text-gray-700 dark:text-gray-200">Completed earlier than expected</span>
+              <span className="text-sm text-gray-700 dark:text-gray-200">{t('printingDetail.cancelReasonCompletedEarly')}</span>
             </label>
             
             <label className="flex items-center space-x-3">
@@ -432,7 +434,7 @@ const PrintingDetail = () => {
                 checked={stopReason === 'printer_malfunction'}
                 onChange={() => setStopReason('printer_malfunction')}
               />
-              <span className="text-sm text-gray-700 dark:text-gray-200">Printer malfunction</span>
+              <span className="text-sm text-gray-700 dark:text-gray-200">{t('printingDetail.cancelReasonPrinterMalfunction')}</span>
             </label>
             
             <label className="flex items-center space-x-3">
@@ -444,7 +446,7 @@ const PrintingDetail = () => {
                 checked={stopReason === 'print_failure'}
                 onChange={() => setStopReason('print_failure')}
               />
-              <span className="text-sm text-gray-700 dark:text-gray-200">Print quality issues / failure</span>
+              <span className="text-sm text-gray-700 dark:text-gray-200">{t('printingDetail.cancelReasonPrintFailure')}</span>
             </label>
             
             <label className="flex items-center space-x-3">
@@ -456,7 +458,7 @@ const PrintingDetail = () => {
                 checked={stopReason === 'user_cancelled'}
                 onChange={() => setStopReason('user_cancelled')}
               />
-              <span className="text-sm text-gray-700 dark:text-gray-200">User cancelled</span>
+              <span className="text-sm text-gray-700 dark:text-gray-200">{t('printingDetail.cancelReasonUserCancelled')}</span>
             </label>
             
             <label className="flex items-center space-x-3">
@@ -468,7 +470,7 @@ const PrintingDetail = () => {
                 checked={stopReason === 'other'}
                 onChange={() => setStopReason('other')}
               />
-              <span className="text-sm text-gray-700 dark:text-gray-200">Other</span>
+              <span className="text-sm text-gray-700 dark:text-gray-200">{t('printingDetail.cancelReasonOther')}</span>
             </label>
           </div>
           
@@ -478,7 +480,7 @@ const PrintingDetail = () => {
               onClick={() => setIsStopModalOpen(false)}
               className="w-full"
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="danger"
@@ -486,7 +488,7 @@ const PrintingDetail = () => {
               onClick={handleConfirmCancel}
               className="w-full mt-3 sm:mt-0"
             >
-              {isSubmitting ? 'Processing...' : 'Confirm Cancel'}
+              {isSubmitting ? t('printingDetail.processing') : t('printingDetail.confirmCancel')}
             </Button>
           </div>
         </div>

@@ -1,8 +1,11 @@
 import React from 'react';
 import PrinterForm from './PrinterForm';
 import Modal from './Modal';
+import { useTranslation } from 'react-i18next';
 
 const PrinterModal = ({ isOpen, onClose, printer, onSubmit, title }) => {
+  const { t } = useTranslation();
+  
   if (!isOpen) return null;
 
   const handleSubmit = (formData) => {
@@ -20,7 +23,7 @@ const PrinterModal = ({ isOpen, onClose, printer, onSubmit, title }) => {
     <Modal 
       isOpen={isOpen} 
       onClose={onClose} 
-      title={title || (printer ? 'Редактирование принтера' : 'Добавление принтера')}
+      title={title || (printer ? t('printersList.editPrinter', { name: printer.name }) : t('printersList.addNewPrinter'))}
       size="lg"
     >
       <PrinterForm 

@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { SunIcon, MoonIcon, UserCircleIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import { SunIcon, MoonIcon, UserCircleIcon, Bars3Icon, XMarkIcon, LanguageIcon } from '@heroicons/react/24/outline';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const Layout = ({ children }) => {
+  const { t } = useTranslation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -35,12 +38,12 @@ const Layout = ({ children }) => {
   };
 
   const navigation = [
-    { name: 'Dashboard', href: '/' },
-    { name: 'Printers', href: '/printers' },
-    { name: 'Models', href: '/models' },
-    { name: 'Print Jobs', href: '/printings' },
-    { name: 'Reports', href: '/reports' },
-    { name: 'Debug', href: '/debug' },
+    { name: t('navigation.dashboard'), href: '/' },
+    { name: t('navigation.printers'), href: '/printers' },
+    { name: t('navigation.models'), href: '/models' },
+    { name: t('navigation.printings'), href: '/printings' },
+    { name: t('navigation.reports'), href: '/reports' },
+    { name: t('navigation.debug'), href: '/debug' },
   ];
 
   return (
@@ -107,20 +110,26 @@ const Layout = ({ children }) => {
                       className={`block px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
                       onClick={() => setIsProfileMenuOpen(false)}
                     >
-                      User Settings
+                      {t('user.profile')}
                     </Link>
+                    
+                    {/* Language Switcher */}
+                    <LanguageSwitcher 
+                      className={`block w-full text-left ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                    />
+                    
                     <Link
                       to="/help"
                       className={`block px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
                       onClick={() => setIsProfileMenuOpen(false)}
                     >
-                      Help & Support
+                      {t('common.helpSupport')}
                     </Link>
                     <a
                       href="#"
                       className={`block px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
                     >
-                      Sign out
+                      {t('user.logout')}
                     </a>
                   </div>
                 )}
@@ -173,6 +182,15 @@ const Layout = ({ children }) => {
                 </Link>
               ))}
               
+              {/* Language switcher in mobile menu */}
+              <div className={`block px-3 py-2 text-base font-medium ${
+                isDarkMode
+                  ? 'text-gray-300 hover:bg-gray-700 hover:text-white border-l-4 border-transparent'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
+              }`}>
+                <LanguageSwitcher />
+              </div>
+              
               {/* Add settings link to mobile menu */}
               <Link
                 to="/settings"
@@ -187,7 +205,7 @@ const Layout = ({ children }) => {
                 }`}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                User Settings
+                {t('user.profile')}
               </Link>
               
               {/* Add help & support link to mobile menu */}
@@ -204,19 +222,19 @@ const Layout = ({ children }) => {
                 }`}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Help & Support
+                {t('common.helpSupport')}
               </Link>
             </div>
           </div>
         )}
       </header>
-
+      
       {/* Main content */}
-      <div className="pt-16">
-        <main className={`py-6 px-4 sm:px-6 md:px-8 ${isDarkMode ? 'text-white' : ''}`}>
+      <main className="pt-20 pb-8 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-8xl">
           {children}
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 };

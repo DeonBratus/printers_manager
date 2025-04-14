@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import { useTranslation } from 'react-i18next';
 import { 
   UserCircleIcon, 
   MoonIcon, 
@@ -14,6 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const UserSettings = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -99,9 +101,9 @@ const UserSettings = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold dark:text-white">User Settings</h1>
+        <h1 className="text-2xl font-bold dark:text-white">{t('userSettings.title')}</h1>
         <Button onClick={() => navigate(-1)} variant="secondary">
-          Back
+          {t('common.back')}
         </Button>
       </div>
       
@@ -111,7 +113,7 @@ const UserSettings = () => {
             <CheckCircleIcon className="h-5 w-5 text-green-400" aria-hidden="true" />
             <div className="ml-3">
               <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                Settings saved successfully!
+                {t('userSettings.settingsSaved')}
               </p>
             </div>
           </div>
@@ -149,12 +151,12 @@ const UserSettings = () => {
                 {userSettings.darkMode ? (
                   <>
                     <SunIcon className="h-5 w-5 mr-2" />
-                    Switch to Light Mode
+                    {t('userSettings.lightMode')}
                   </>
                 ) : (
                   <>
                     <MoonIcon className="h-5 w-5 mr-2" />
-                    Switch to Dark Mode
+                    {t('userSettings.darkMode')}
                   </>
                 )}
               </Button>
@@ -164,14 +166,14 @@ const UserSettings = () => {
         
         {/* Settings Form */}
         <Card className="p-4 lg:col-span-2">
-          <h2 className="text-lg font-semibold mb-4 dark:text-white">Account Settings</h2>
+          <h2 className="text-lg font-semibold mb-4 dark:text-white">{t('userSettings.accountSettings')}</h2>
           
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Information */}
             <div className="space-y-4">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Display Name
+                  {t('common.name')}
                 </label>
                 <input
                   type="text"
@@ -185,7 +187,7 @@ const UserSettings = () => {
               
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Email Address
+                  {t('common.email')}
                 </label>
                 <input
                   type="email"
@@ -200,14 +202,14 @@ const UserSettings = () => {
             
             {/* Preferences */}
             <div>
-              <h3 className="text-md font-medium mb-3 dark:text-white">Preferences</h3>
+              <h3 className="text-md font-medium mb-3 dark:text-white">{t('userSettings.preferences')}</h3>
               
               <div className="space-y-4">
                 <div>
                   <label htmlFor="language" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     <div className="flex items-center">
                       <LanguageIcon className="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
-                      Language
+                      {t('user.language')}
                     </div>
                   </label>
                   <select
@@ -237,14 +239,14 @@ const UserSettings = () => {
                   <label htmlFor="notifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
                     <div className="flex items-center">
                       <BellIcon className="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
-                      Enable Notifications
+                      {t('userSettings.enableNotifications')}
                     </div>
                   </label>
                 </div>
 
                 <div>
                   <label htmlFor="defaultPrinterView" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Default Printer View
+                    {t('userSettings.defaultPrinterView')}
                   </label>
                   <select
                     id="defaultPrinterView"
@@ -253,8 +255,8 @@ const UserSettings = () => {
                     onChange={handleInputChange}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   >
-                    <option value="grid">Grid View</option>
-                    <option value="list">List View</option>
+                    <option value="grid">{t('userSettings.gridView')}</option>
+                    <option value="list">{t('userSettings.listView')}</option>
                   </select>
                 </div>
 
@@ -268,14 +270,14 @@ const UserSettings = () => {
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label htmlFor="autoRefresh" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                    Auto-refresh data
+                    {t('userSettings.autoRefresh')}
                   </label>
                 </div>
 
                 {userSettings.autoRefresh && (
                   <div>
                     <label htmlFor="refreshInterval" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Refresh Interval (seconds)
+                      {t('userSettings.refreshInterval')}
                     </label>
                     <input
                       type="number"
@@ -294,7 +296,7 @@ const UserSettings = () => {
 
             {/* Notification Settings */}
             <div>
-              <h3 className="text-md font-medium mb-3 dark:text-white">Notification Settings</h3>
+              <h3 className="text-md font-medium mb-3 dark:text-white">{t('userSettings.notificationSettings')}</h3>
               
               <div className="space-y-4">
                 <div className="flex items-center">
@@ -307,7 +309,7 @@ const UserSettings = () => {
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label htmlFor="emailNotifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                    Email Notifications
+                    {t('userSettings.emailNotifications')}
                   </label>
                 </div>
 
@@ -321,7 +323,7 @@ const UserSettings = () => {
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label htmlFor="pushNotifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                    Push Notifications
+                    {t('userSettings.pushNotifications')}
                   </label>
                 </div>
 
@@ -335,7 +337,7 @@ const UserSettings = () => {
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label htmlFor="slackNotifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                    Slack Notifications
+                    {t('userSettings.slackNotifications')}
                   </label>
                 </div>
               </div>
@@ -343,7 +345,7 @@ const UserSettings = () => {
 
             {/* API Access */}
             <div>
-              <h3 className="text-md font-medium mb-3 dark:text-white">API Access</h3>
+              <h3 className="text-md font-medium mb-3 dark:text-white">{t('userSettings.apiAccess')}</h3>
               
               <div className="space-y-4">
                 <div className="flex items-center">
@@ -356,14 +358,14 @@ const UserSettings = () => {
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label htmlFor="apiAccess" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                    Enable API Access
+                    {t('userSettings.enableApiAccess')}
                   </label>
                 </div>
 
                 {userSettings.apiAccess && (
                   <div>
                     <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      API Key
+                      {t('userSettings.apiKey')}
                     </label>
                     <div className="mt-1 flex rounded-md shadow-sm">
                       <input
@@ -379,11 +381,11 @@ const UserSettings = () => {
                         variant="secondary"
                         className="inline-flex items-center rounded-none rounded-r-md"
                       >
-                        Regenerate
+                        {t('userSettings.regenerate')}
                       </Button>
                     </div>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      Use this key to access the API programmatically.
+                      {t('userSettings.apiKeyDescription')}
                     </p>
                   </div>
                 )}
@@ -392,7 +394,7 @@ const UserSettings = () => {
             
             {/* Avatar Selection */}
             <div>
-              <h3 className="text-md font-medium mb-3 dark:text-white">Default Avatar</h3>
+              <h3 className="text-md font-medium mb-3 dark:text-white">{t('userSettings.defaultAvatar')}</h3>
               
               <div className="grid grid-cols-4 gap-4">
                 {profileImages.map(image => (
@@ -418,7 +420,7 @@ const UserSettings = () => {
                 ))}
               </div>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                You can also upload a custom avatar using the camera button.
+                {t('userSettings.customAvatar')}
               </p>
             </div>
             
@@ -428,10 +430,10 @@ const UserSettings = () => {
                 variant="secondary" 
                 onClick={() => navigate(-1)}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" isLoading={loading}>
-                Save Changes
+                {t('userSettings.saveChanges')}
               </Button>
             </div>
           </form>

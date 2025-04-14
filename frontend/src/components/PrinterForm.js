@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Button from './Button';
+import { useTranslation } from 'react-i18next';
 
 const PrinterForm = ({ printer, onSubmit }) => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     name: '',
     ipAddress: '',
@@ -55,21 +57,21 @@ const PrinterForm = ({ printer, onSubmit }) => {
     
     // Проверка обязательных полей
     if (!formData.name.trim()) {
-      newErrors.name = 'Имя принтера обязательно';
+      newErrors.name = t('printerForm.nameRequired');
     }
     
     if (!formData.ipAddress.trim()) {
-      newErrors.ipAddress = 'IP адрес обязателен';
+      newErrors.ipAddress = t('printerForm.ipRequired');
     } else {
       // Простая проверка формата IP-адреса
       const ipRegex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
       if (!ipRegex.test(formData.ipAddress)) {
-        newErrors.ipAddress = 'Введите корректный IP адрес';
+        newErrors.ipAddress = t('printerForm.invalidIP');
       }
     }
     
     if (!formData.location.trim()) {
-      newErrors.location = 'Расположение обязательно';
+      newErrors.location = t('printerForm.locationRequired');
     }
     
     setErrors(newErrors);
@@ -99,7 +101,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
       
       await onSubmit(apiFormData);
     } catch (error) {
-      console.error('Ошибка отправки формы:', error);
+      console.error(t('printerForm.submitError'), error);
     } finally {
       setIsSubmitting(false);
     }
@@ -107,17 +109,17 @@ const PrinterForm = ({ printer, onSubmit }) => {
 
   // Форматирование времени в часах в формат "XX ч. XX мин."
   const formatPrintTime = (hours) => {
-    if (!hours) return "0 ч. 0 мин.";
+    if (!hours) return `0 ${t('models.hours')} 0 ${t('models.minutes')}`;
     const fullHours = Math.floor(hours);
     const minutes = Math.round((hours - fullHours) * 60);
-    return `${fullHours} ч. ${minutes} мин.`;
+    return `${fullHours} ${t('models.hours')} ${minutes} ${t('models.minutes')}`;
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 p-6">
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Имя принтера *
+          {t('printers.name')} *
         </label>
         <input
           type="text"
@@ -135,7 +137,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
       
       <div>
         <label htmlFor="ipAddress" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          IP адрес *
+          {t('printers.ipAddress')} *
         </label>
         <input
           type="text"
@@ -154,7 +156,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
       
       <div>
         <label htmlFor="model" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Модель
+          {t('printers.model')}
         </label>
         <input
           type="text"
@@ -171,7 +173,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
       
       <div>
         <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Расположение *
+          {t('printers.location')} *
         </label>
         <input
           type="text"
@@ -179,7 +181,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
           name="location"
           value={formData.location}
           onChange={handleChange}
-          placeholder="Кабинет 101"
+          placeholder={t('printerForm.locationPlaceholder')}
           className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 
             focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm
             dark:bg-gray-700 dark:text-white dark:border-gray-600
@@ -190,7 +192,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
       
       <div>
         <label htmlFor="serialNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Серийный номер
+          {t('printers.serialNumber')}
         </label>
         <input
           type="text"
@@ -207,7 +209,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
       {printer && (
         <div>
           <label htmlFor="total_print_time" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Общее время печати
+            {t('printers.totalPrintTime')}
           </label>
           <div className="mt-1 flex items-center">
             <input
@@ -223,7 +225,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
                 dark:bg-gray-700 dark:text-white dark:border-gray-600"
             />
             <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-              часов ({formatPrintTime(formData.total_print_time)})
+              {t('printerForm.hours')} ({formatPrintTime(formData.total_print_time)})
             </span>
           </div>
         </div>
@@ -235,7 +237,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
           variant="outline"
           onClick={() => onSubmit(null)}
         >
-          Отмена
+          {t('common.cancel')}
         </Button>
         <Button
           type="submit"
@@ -243,7 +245,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
           isLoading={isSubmitting}
           disabled={isSubmitting}
         >
-          {printer ? 'Обновить' : 'Добавить'}
+          {t('common.save')}
         </Button>
       </div>
     </form>

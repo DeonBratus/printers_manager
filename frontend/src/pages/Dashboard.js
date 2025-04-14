@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { getPrinters, getPrintings, getPrinterStatusReport, createPrinter, createModel } from '../services/api';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -12,6 +13,7 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearSca
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
 const Dashboard = () => {
+  const { t } = useTranslation();
   const [printers, setPrinters] = useState([]);
   const [printings, setPrintings] = useState([]);
   const [statusReport, setStatusReport] = useState(null);
@@ -156,7 +158,12 @@ const Dashboard = () => {
     }
     
     return {
-      labels: ['Idle', 'Printing', 'Paused', 'Error'],
+      labels: [
+        t('printers.status.idle'), 
+        t('printers.status.printing'), 
+        t('printers.status.paused'), 
+        t('printers.status.error')
+      ],
       datasets: [
         {
           data: [
@@ -174,9 +181,9 @@ const Dashboard = () => {
   const generatePrinterEfficiencyData = () => {
     if (!statusReport || !statusReport.printers || statusReport.printers.length === 0) {
       return {
-        labels: ['No Data'],
+        labels: [t('common.noData')],
         datasets: [{
-          label: 'Efficiency (%)',
+          label: t('common.efficiency') + ' (%)',
           data: [0],
           backgroundColor: '#3B82F6',
         }]
@@ -186,7 +193,7 @@ const Dashboard = () => {
     return {
       labels: statusReport.printers.map(p => p.name),
       datasets: [{
-        label: 'Efficiency (%)',
+        label: t('common.efficiency') + ' (%)',
         data: statusReport.printers.map(p => p.efficiency),
         backgroundColor: '#3B82F6',
       }]
@@ -199,17 +206,17 @@ const Dashboard = () => {
         <div className="spinner-border text-primary" role="status">
           <div className="spinner"></div>
         </div>
-        <span className="ml-2">Loading dashboard data...</span>
+        <span className="ml-3">{t('common.loading')}</span>
       </div>
     );
   }
   
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-md text-red-800 dark:text-red-200">
+      <div className="p-4 bg-red-100 dark:bg-red-900 rounded-md mb-4">
         <div className="flex items-center">
-          <ExclamationCircleIcon className="h-5 w-5 mr-2" />
-          <span>{error}</span>
+          <ExclamationCircleIcon className="h-5 w-5 text-red-500 dark:text-red-300 mr-2" />
+          <span className="text-red-700 dark:text-red-300">{error}</span>
         </div>
       </div>
     );
@@ -221,7 +228,7 @@ const Dashboard = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold dark:text-white">Dashboard</h1>
+        <h1 className="text-2xl font-bold dark:text-white">{t('navigation.dashboard')}</h1>
         <div className="flex space-x-3">
           <Button 
             variant="primary" 
@@ -229,7 +236,7 @@ const Dashboard = () => {
             onClick={() => setIsAddModelModalOpen(true)}
           >
             <PlusCircleIcon className="h-5 w-5 mr-1" />
-            Add Model
+            {t('models.addNew')}
           </Button>
           <Button 
             variant="primary" 
@@ -237,21 +244,21 @@ const Dashboard = () => {
             onClick={() => setIsAddPrinterModalOpen(true)}
           >
             <PlusCircleIcon className="h-5 w-5 mr-1" />
-            Add Printer
+            {t('printers.addNew')}
           </Button>
         </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4">
-          <h2 className="text-lg font-semibold mb-2 dark:text-white">Printers Status</h2>
+          <h2 className="text-lg font-semibold mb-2 dark:text-white">{t('printers.title')}</h2>
           <div className="h-64">
             <Pie data={printerStatusData} options={{ maintainAspectRatio: false }} />
           </div>
         </Card>
         
         <Card className="p-4">
-          <h2 className="text-lg font-semibold mb-2 dark:text-white">Printer Efficiency</h2>
+          <h2 className="text-lg font-semibold mb-2 dark:text-white">{t('dashboard.printerEfficiency')}</h2>
           <div className="h-64">
             <Bar 
               data={printerEfficiencyData} 
@@ -264,31 +271,31 @@ const Dashboard = () => {
         </Card>
         
         <Card className="p-4">
-          <h2 className="text-lg font-semibold mb-2 dark:text-white">Printers Overview</h2>
+          <h2 className="text-lg font-semibold mb-2 dark:text-white">{t('dashboard.printersOverview')}</h2>
           <div className="space-y-2 dark:text-gray-300">
-            <p>Total Printers: {printers.length}</p>
-            <p>Active Printers: {printers.filter(p => p.status === 'printing').length}</p>
-            <p>Total Print Jobs: {printings.length}</p>
+            <p>{t('dashboard.totalPrinters')}: {printers.length}</p>
+            <p>{t('dashboard.activePrinters')}: {printers.filter(p => p.status === 'printing').length}</p>
+            <p>{t('dashboard.totalPrintJobs')}: {printings.length}</p>
           </div>
           <div className="mt-4">
             <Link to="/printers">
-              <Button variant="outline" size="sm">View All Printers</Button>
+              <Button variant="outline" size="sm">{t('dashboard.viewAllPrinters')}</Button>
             </Link>
           </div>
         </Card>
       </div>
 
       <Card className="p-4">
-        <h2 className="text-lg font-semibold mb-2 dark:text-white">Recent Print Jobs</h2>
+        <h2 className="text-lg font-semibold mb-2 dark:text-white">{t('dashboard.recentPrintJobs')}</h2>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Printer</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Model</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Start Time</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Progress</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('printings.printer')}</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('printings.model')}</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('printings.startTime')}</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('common.status')}</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('printings.progress')}</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -317,7 +324,7 @@ const Dashboard = () => {
               ) : (
                 <tr>
                   <td colSpan="5" className="px-4 py-4 text-center text-gray-500 dark:text-gray-400">
-                    No print jobs found
+                    {t('dashboard.noPrintings')}
                   </td>
                 </tr>
               )}
@@ -326,7 +333,7 @@ const Dashboard = () => {
         </div>
         <div className="mt-4">
           <Link to="/printings">
-            <Button variant="outline" size="sm">View All Print Jobs</Button>
+            <Button variant="outline" size="sm">{t('dashboard.viewAllPrintJobs')}</Button>
           </Link>
         </div>
       </Card>
@@ -335,31 +342,12 @@ const Dashboard = () => {
       <Modal
         isOpen={isAddPrinterModalOpen}
         onClose={() => setIsAddPrinterModalOpen(false)}
-        title="Add New Printer"
-        footer={
-          <div className="flex justify-end">
-            <Button
-              variant="secondary"
-              onClick={() => setIsAddPrinterModalOpen(false)}
-              className="mr-2"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleAddPrinter}
-              isLoading={isAddingPrinter}
-              disabled={!newPrinterData.name || !newPrinterData.ip_address}
-            >
-              Add Printer
-            </Button>
-          </div>
-        }
+        title={t('printers.addNew')}
       >
         <form onSubmit={handleAddPrinter} className="space-y-4">
           <div className="form-group">
             <label htmlFor="printer-name" className="form-label">
-              Printer Name
+              {t('printers.name')}
             </label>
             <input
               type="text"
@@ -372,7 +360,7 @@ const Dashboard = () => {
           </div>
           <div className="form-group">
             <label htmlFor="printer-ip" className="form-label">
-              IP Address
+              {t('printers.ipAddress')}
             </label>
             <input
               type="text"
@@ -385,7 +373,7 @@ const Dashboard = () => {
           </div>
           <div className="form-group">
             <label htmlFor="printer-model" className="form-label">
-              Printer Model
+              {t('printers.model')}
             </label>
             <input
               type="text"
@@ -402,31 +390,12 @@ const Dashboard = () => {
       <Modal
         isOpen={isAddModelModalOpen}
         onClose={() => setIsAddModelModalOpen(false)}
-        title="Add New 3D Model"
-        footer={
-          <div className="flex justify-end">
-            <Button
-              variant="secondary"
-              onClick={() => setIsAddModelModalOpen(false)}
-              className="mr-2"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleAddModel}
-              isLoading={isAddingModel}
-              disabled={!newModelData.name}
-            >
-              Add Model
-            </Button>
-          </div>
-        }
+        title={t('models.addNew')}
       >
         <form onSubmit={handleAddModel} className="space-y-4">
           <div className="form-group">
             <label htmlFor="model-name" className="form-label">
-              Model Name
+              {t('models.name')}
             </label>
             <input
               type="text"
@@ -439,7 +408,7 @@ const Dashboard = () => {
           </div>
           <div className="form-group">
             <label htmlFor="model-description" className="form-label">
-              Description
+              {t('common.description')}
             </label>
             <textarea
               id="model-description"
@@ -452,10 +421,10 @@ const Dashboard = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="form-group">
               <label htmlFor="model-time" className="form-label">
-                Printing Time (hours)
+                {t('models.printingTime')} (HH:MM)
               </label>
               <input
-                type="number"
+                type="text"
                 id="model-time"
                 min="0"
                 step="0.1"
@@ -466,7 +435,7 @@ const Dashboard = () => {
             </div>
             <div className="form-group">
               <label htmlFor="model-filament-length" className="form-label">
-                Filament Length (mm)
+                {t('models.filament')} {t('models.length')} (m)
               </label>
               <input
                 type="number"
@@ -480,7 +449,7 @@ const Dashboard = () => {
           </div>
           <div className="form-group">
             <label htmlFor="model-filament-type" className="form-label">
-              Filament Type
+              {t('models.filamentType')}
             </label>
             <select
               id="model-filament-type"

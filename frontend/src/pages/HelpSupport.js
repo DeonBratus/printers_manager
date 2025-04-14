@@ -12,8 +12,10 @@ import {
   ChevronDownIcon,
   ChevronUpIcon
 } from '@heroicons/react/24/outline';
+import { useTranslation } from 'react-i18next';
 
 const HelpSupport = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [expandedFaq, setExpandedFaq] = useState(null);
   
@@ -56,9 +58,9 @@ const HelpSupport = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold dark:text-white">Help & Support</h1>
+        <h1 className="text-2xl font-bold dark:text-white">{t('help.title')}</h1>
         <Button onClick={() => navigate(-1)} variant="secondary">
-          Back
+          {t('help.back')}
         </Button>
       </div>
       
@@ -67,35 +69,33 @@ const HelpSupport = () => {
         <Card className="p-6 lg:col-span-2">
           <div className="flex items-center mb-4">
             <BookOpenIcon className="h-6 w-6 text-blue-500 mr-2" />
-            <h2 className="text-xl font-semibold dark:text-white">About 3D Print Manager</h2>
+            <h2 className="text-xl font-semibold dark:text-white">{t('help.about')}</h2>
           </div>
           
           <div className="prose dark:prose-invert max-w-none">
             <p>
-              3D Print Manager is a comprehensive solution for managing and monitoring your 3D printers. 
-              It allows you to track print jobs, monitor printer status, and generate reports on printer efficiency and usage.
+              {t('help.aboutText')}
             </p>
             
-            <h3>Key Features</h3>
+            <h3>{t('help.keyFeatures')}</h3>
             <ul>
-              <li>Real-time printer status monitoring</li>
-              <li>Print job tracking and history</li>
-              <li>3D model management</li>
-              <li>Printer efficiency metrics and reporting</li>
-              <li>User-friendly interface with light and dark mode</li>
+              <li>{t('help.feature1')}</li>
+              <li>{t('help.feature2')}</li>
+              <li>{t('help.feature3')}</li>
+              <li>{t('help.feature4')}</li>
+              <li>{t('help.feature5')}</li>
             </ul>
             
-            <h3>System Requirements</h3>
+            <h3>{t('help.systemRequirements')}</h3>
             <p>
-              3D Print Manager is a web-based application that works on modern browsers including Chrome, Firefox, Safari, and Edge.
-              For optimal performance, we recommend using the latest version of your preferred browser.
+              {t('help.systemText')}
             </p>
             
-            <h3>Version Information</h3>
+            <h3>{t('help.versionInfo')}</h3>
             <p>
-              <strong>Current Version:</strong> 1.2.3<br />
-              <strong>Last Updated:</strong> June 15, 2023<br />
-              <strong>Release Notes:</strong> Added printer efficiency reports, improved UI, and fixed various bugs.
+              <strong>{t('help.currentVersion')}:</strong> 1.2.3<br />
+              <strong>{t('help.lastUpdated')}:</strong> June 15, 2023<br />
+              <strong>{t('help.releaseNotes')}:</strong> {t('help.releaseText')}
             </p>
           </div>
         </Card>
@@ -104,17 +104,17 @@ const HelpSupport = () => {
         <Card className="p-6">
           <div className="flex items-center mb-4">
             <EnvelopeIcon className="h-6 w-6 text-blue-500 mr-2" />
-            <h2 className="text-xl font-semibold dark:text-white">Contact Us</h2>
+            <h2 className="text-xl font-semibold dark:text-white">{t('help.contactUs')}</h2>
           </div>
           
           <div className="space-y-4">
             <div className="flex items-start">
               <EnvelopeIcon className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
               <div>
-                <h3 className="text-sm font-medium dark:text-white">Email Support</h3>
+                <h3 className="text-sm font-medium dark:text-white">{t('help.emailSupport')}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">support@3dprintmanager.com</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Response time: 24-48 hours
+                  {t('help.responseTime')}
                 </p>
               </div>
             </div>
@@ -122,10 +122,10 @@ const HelpSupport = () => {
             <div className="flex items-start">
               <PhoneIcon className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
               <div>
-                <h3 className="text-sm font-medium dark:text-white">Phone Support</h3>
+                <h3 className="text-sm font-medium dark:text-white">{t('help.phoneSupport')}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">+1 (555) 123-4567</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Available Monday-Friday, 9AM-5PM EST
+                  {t('help.phoneAvailability')}
                 </p>
               </div>
             </div>
@@ -133,12 +133,12 @@ const HelpSupport = () => {
             <div className="flex items-start">
               <ChatBubbleLeftRightIcon className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
               <div>
-                <h3 className="text-sm font-medium dark:text-white">Live Chat</h3>
+                <h3 className="text-sm font-medium dark:text-white">{t('help.liveChat')}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Available during business hours
+                  {t('help.chatAvailability')}
                 </p>
                 <Button size="sm" className="mt-2" variant="outline">
-                  Start Chat
+                  {t('help.startChat')}
                 </Button>
               </div>
             </div>
@@ -146,12 +146,12 @@ const HelpSupport = () => {
             <div className="flex items-start">
               <DocumentTextIcon className="h-5 w-5 text-gray-400 mt-0.5 mr-3" />
               <div>
-                <h3 className="text-sm font-medium dark:text-white">Documentation</h3>
+                <h3 className="text-sm font-medium dark:text-white">{t('help.documentation')}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Access our complete documentation
+                  {t('help.accessDocs')}
                 </p>
                 <Button size="sm" className="mt-2" variant="outline">
-                  View Docs
+                  {t('help.viewDocs')}
                 </Button>
               </div>
             </div>
@@ -163,7 +163,7 @@ const HelpSupport = () => {
       <Card className="p-6">
         <div className="flex items-center mb-4">
           <QuestionMarkCircleIcon className="h-6 w-6 text-blue-500 mr-2" />
-          <h2 className="text-xl font-semibold dark:text-white">Frequently Asked Questions</h2>
+          <h2 className="text-xl font-semibold dark:text-white">{t('help.faq')}</h2>
         </div>
         
         <div className="space-y-4">

@@ -1,7 +1,9 @@
 import React, { Fragment, useEffect, useRef } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useTranslation } from 'react-i18next';
 
 const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
+  const { t } = useTranslation();
   const modalRef = useRef(null);
 
   // Handle Escape key press
@@ -73,7 +75,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
                 className="rounded-md bg-white dark:bg-transparent text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onClick={onClose}
               >
-                <span className="sr-only">Close</span>
+                <span className="sr-only">{t('common.close')}</span>
                 <XMarkIcon className="h-6 w-6" aria-hidden="true" />
               </button>
             </div>

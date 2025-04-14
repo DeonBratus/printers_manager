@@ -4,8 +4,10 @@ import PrinterModal from './PrinterModal';
 import Button from './Button';
 import StatusBadge from './StatusBadge';
 import { FaEdit, FaTrash, FaPlus, FaSearch, FaPrint, FaSort, FaSortUp, FaSortDown, FaFilter } from 'react-icons/fa';
+import { useTranslation } from 'react-i18next';
 
 const PrintersList = () => {
+  const { t } = useTranslation();
   const [printers, setPrinters] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPrinter, setCurrentPrinter] = useState(null);
@@ -69,7 +71,7 @@ const PrintersList = () => {
   };
 
   const handleDeletePrinter = async (id) => {
-    if (window.confirm('Вы уверены, что хотите удалить этот принтер?')) {
+    if (window.confirm(t('printersList.confirmDelete'))) {
       try {
         const response = await fetch(`/api/printers/${id}`, {
           method: 'DELETE',
@@ -118,9 +120,10 @@ const PrintersList = () => {
       // Перезагрузка списка принтеров после изменений
       fetchPrinters();
       
-    } catch (err) {
-      setError(err.message);
-      console.error('Ошибка сохранения данных:', err);
+    } catch (error) {
+      console.error(error);
+      setError(error.message || t('printersList.saveError'));
+      throw new Error(t('printersList.saveError'));
     }
   };
 
@@ -191,8 +194,9 @@ const PrintersList = () => {
 
   // Форматирование времени
   const formatTime = (hours) => {
-    if (!hours) return "0 ч";
-    return `${Math.round(hours)} ч`;
+    if (!hours) return '0 ' + t('models.hours');
+    const fullHours = Math.floor(hours);
+    return `${fullHours} ${t('models.hours')}`;
   };
 
   const openWebInterface = (ipAddress) => {
@@ -202,13 +206,13 @@ const PrintersList = () => {
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">Управление принтерами</h2>
+        <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">{t('printersList.title')}</h2>
         <Button
           onClick={handleAddPrinter}
           variant="primary"
         >
           <FaPlus className="mr-2" />
-          Добавить принтер
+          {t('printers.addNew')}
         </Button>
       </div>
 
@@ -221,7 +225,7 @@ const PrintersList = () => {
           <input
             type="text"
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white dark:bg-gray-700 dark:text-white dark:border-gray-600 placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            placeholder="Поиск по имени, IP, модели..."
+            placeholder={t('printersList.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -231,26 +235,26 @@ const PrintersList = () => {
         <div className="flex items-center">
           <FaFilter className="mr-2 text-gray-400" />
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">
-            Статус:
+            {t('common.status')}:
           </label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           >
-            <option value="all">Все статусы</option>
-            <option value="idle">Свободен</option>
-            <option value="printing">Печатает</option>
-            <option value="paused">На паузе</option>
-            <option value="error">Ошибка</option>
-            <option value="waiting">Ожидание</option>
+            <option value="all">{t('printersList.allStatuses')}</option>
+            <option value="idle">{t('printers.status.idle')}</option>
+            <option value="printing">{t('printers.status.printing')}</option>
+            <option value="paused">{t('printers.status.paused')}</option>
+            <option value="error">{t('printers.status.error')}</option>
+            <option value="waiting">{t('printers.status.waiting')}</option>
           </select>
         </div>
 
         {/* Количество элементов на странице */}
         <div className="flex items-center justify-end">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">
-            Элементов на странице:
+            {t('printersList.itemsPerPage')}:
           </label>
           <select
             value={itemsPerPage}
@@ -271,20 +275,20 @@ const PrintersList = () => {
       {isLoading ? (
         <div className="text-center py-10">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-3 text-gray-600 dark:text-gray-400">Загрузка принтеров...</p>
+          <p className="mt-3 text-gray-600 dark:text-gray-400">{t('printersList.loading')}</p>
         </div>
       ) : error ? (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Ошибка!</strong>
+          <strong className="font-bold">{t('common.error')}!</strong>
           <span className="block sm:inline"> {error}</span>
           <Button variant="danger" size="sm" className="mt-2" onClick={fetchPrinters}>
-            Повторить
+            {t('common.retry')}
           </Button>
         </div>
       ) : filteredPrinters.length === 0 ? (
         <div className="text-center py-10">
           <p className="text-gray-600 dark:text-gray-400">
-            {searchTerm || statusFilter !== 'all' ? "Принтеры не найдены" : "Принтеры не добавлены"}
+            {searchTerm || statusFilter !== 'all' ? t('printersList.noResults') : t('printersList.noPrinters')}
           </p>
         </div>
       ) : (
@@ -298,7 +302,7 @@ const PrintersList = () => {
                     onClick={() => handleSort('name')}
                   >
                     <div className="flex items-center space-x-1">
-                      <span>Имя</span>
+                      <span>{t('common.name')}</span>
                       {getSortIcon('name')}
                     </div>
                   </th>
@@ -307,7 +311,7 @@ const PrintersList = () => {
                     onClick={() => handleSort('ipAddress')}
                   >
                     <div className="flex items-center space-x-1">
-                      <span>IP адрес</span>
+                      <span>{t('printers.ipAddress')}</span>
                       {getSortIcon('ipAddress')}
                     </div>
                   </th>
@@ -316,7 +320,7 @@ const PrintersList = () => {
                     onClick={() => handleSort('model')}
                   >
                     <div className="flex items-center space-x-1">
-                      <span>Модель</span>
+                      <span>{t('printers.model')}</span>
                       {getSortIcon('model')}
                     </div>
                   </th>
@@ -325,7 +329,7 @@ const PrintersList = () => {
                     onClick={() => handleSort('status')}
                   >
                     <div className="flex items-center space-x-1">
-                      <span>Статус</span>
+                      <span>{t('common.status')}</span>
                       {getSortIcon('status')}
                     </div>
                   </th>
@@ -334,7 +338,7 @@ const PrintersList = () => {
                     onClick={() => handleSort('total_print_time')}
                   >
                     <div className="flex items-center space-x-1">
-                      <span>Время печати</span>
+                      <span>{t('printers.totalPrintTime')}</span>
                       {getSortIcon('total_print_time')}
                     </div>
                   </th>
@@ -343,12 +347,12 @@ const PrintersList = () => {
                     onClick={() => handleSort('location')}
                   >
                     <div className="flex items-center space-x-1">
-                      <span>Расположение</span>
+                      <span>{t('printers.location')}</span>
                       {getSortIcon('location')}
                     </div>
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Действия
+                    {t('common.actions')}
                   </th>
                 </tr>
               </thead>
@@ -373,21 +377,21 @@ const PrintersList = () => {
                       <button
                         onClick={() => openWebInterface(printer.ipAddress)}
                         className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-200 p-1"
-                        title="Открыть веб-интерфейс"
+                        title={t('printersList.openWebInterface')}
                       >
                         <FaPrint />
                       </button>
                       <button
                         onClick={() => handleEditPrinter(printer)}
                         className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-200 p-1"
-                        title="Редактировать"
+                        title={t('common.edit')}
                       >
                         <FaEdit />
                       </button>
                       <button
                         onClick={() => handleDeletePrinter(printer.id)}
                         className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-200 p-1"
-                        title="Удалить"
+                        title={t('common.delete')}
                       >
                         <FaTrash />
                       </button>
@@ -402,9 +406,9 @@ const PrintersList = () => {
           {totalPages > 1 && (
             <div className="flex justify-between items-center my-4">
               <div className="text-sm text-gray-700 dark:text-gray-300">
-                Показаны <span className="font-medium">{indexOfFirstItem + 1}</span>-
-                <span className="font-medium">{Math.min(indexOfLastItem, filteredPrinters.length)}</span> из{" "}
-                <span className="font-medium">{filteredPrinters.length}</span> принтеров
+                {t('printersList.showing')} <span className="font-medium">{indexOfFirstItem + 1}</span>-
+                <span className="font-medium">{Math.min(indexOfLastItem, filteredPrinters.length)}</span> {t('common.of')}{" "}
+                <span className="font-medium">{filteredPrinters.length}</span> {t('printersList.printersCount')}
               </div>
               <div className="flex space-x-2">
                 <Button
@@ -475,7 +479,7 @@ const PrintersList = () => {
         onClose={() => setIsModalOpen(false)}
         printer={currentPrinter}
         onSubmit={handleSubmit}
-        title={currentPrinter ? `Редактирование принтера: ${currentPrinter.name}` : 'Добавление нового принтера'}
+        title={currentPrinter ? t('printersList.editPrinter', { name: currentPrinter.name }) : t('printersList.addNewPrinter')}
       />
     </div>
   );
