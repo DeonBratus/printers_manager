@@ -23,7 +23,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://dgd22g40-3000.euw.devtunnels.ms", "http://83.222.17.92:3000"],  # Allow all origins
+    allow_origins=["http://localhost:3000", "https://dgd22g40-3000.euw.devtunnels.ms", "http://83.222.17.92:3000", "http://83.222.17.92:8000"],  # Allow all origins
     allow_credentials=True,
     allow_methods=["*"],  # Allow all methods
     allow_headers=["*"],  # Allow all headers

@@ -9,7 +9,8 @@ from crud import (
     update_printer, delete_printer
 )
 from printer_control import calculate_printer_downtime
-from models import Model
+from models import Model, Printer as PrinterModel
+from sqlalchemy.exc import IntegrityError
 
 router = APIRouter(
     prefix="/printers",
@@ -18,7 +19,25 @@ router = APIRouter(
 
 @router.post("/", response_model=List[Printer])
 def create_new_printer(printer: PrinterCreate, db: Session = Depends(get_db)):
-    return create_printer(db, printer)
+    try:
+        # Check if printer with this name already exists
+        existing_printer = db.query(PrinterModel).filter(PrinterModel.name == printer.name).first()
+        if existing_printer:
+            # If exists, return the existing printer
+            return [existing_printer]
+        
+        # If not exists, create new printer
+        return create_printer(db, printer)
+    except IntegrityError as e:
+        # Handle race condition where printer was created between our check and insert
+        db.rollback()
+        existing_printer = db.query(PrinterModel).filter(PrinterModel.name == printer.name).first()
+        if existing_printer:
+            return [existing_printer]
+        raise HTTPException(status_code=400, detail="Failed to create printer")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/", response_model=List[Printer])
 def read_printers(
