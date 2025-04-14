@@ -15,7 +15,7 @@ class Printer(PrinterBase):
     id: Optional[str]
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ModelBase(BaseModel):
     name: str
@@ -28,7 +28,7 @@ class Model(ModelBase):
     id: int
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class PrintingBase(BaseModel):
     printer_id: Optional[int] = None  # Make optional
@@ -55,4 +55,4 @@ class Printing(PrintingBase):
     stop_reason: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True

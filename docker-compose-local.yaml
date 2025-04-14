@@ -17,7 +17,8 @@ services:
       - CORS_ALLOW_HEADERS=*
     restart: unless-stopped
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - app-network
     healthcheck:
@@ -26,6 +27,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+      version: "3.8"
 
   frontend:
     build:
@@ -48,6 +50,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: 3d_printer_db
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -59,6 +62,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      version: "3.8"
 
 volumes:
   postgres_data:

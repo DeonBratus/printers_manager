@@ -4,6 +4,11 @@ FROM python:3.9-slim
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
+# Устанавливаем необходимые системные зависимости
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Копируем файлы зависимостей
 COPY requirements.txt .
 
@@ -19,6 +24,7 @@ ENV CORS_ALLOW_ORIGINS="*"
 ENV CORS_ALLOW_CREDENTIALS=true
 ENV CORS_ALLOW_METHODS="GET,POST,PUT,DELETE,OPTIONS"
 ENV CORS_ALLOW_HEADERS="*"
+ENV PYTHONIOENCODING=utf-8
 
 # Экспонируем порт
 EXPOSE 8000
