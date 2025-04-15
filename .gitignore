@@ -1,9 +1,5 @@
 **/__pycache__/**
 venv
-node_modules/*
-
-**/__pycache__/**
-venv
 .env
 **/node_modules/**
 **/dist/**

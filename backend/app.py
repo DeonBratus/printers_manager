@@ -12,7 +12,7 @@ from background_tasks import start_scheduler
 from database import get_db, engine
 from models import Base
 from sqlalchemy.orm import Session
-from routers import printers, printings, models, reports
+from routers import printers, printings, models, reports, printer_parameters
 
 app = FastAPI(
     title="3D Printer Management API",
@@ -20,39 +20,32 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Убрать список origins и напрямую разрешить всем
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*", "https://cabinet.xtunnel.ru"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://83.222.17.92:3000", "http://83.222.17.92:8000"],  # Allow all origins
     allow_credentials=True,
-    allow_methods=["*", "GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*", "Content-Type", "Authorization"],
-    expose_headers=["*", "Content-Type"],
-    max_age=86400,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],  # Expose all headers
 )
 
 # Инициализация базы данных
 Base.metadata.create_all(bind=engine)
 
-# Настройка статических файлов и шаблонов
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
 
 # Подключаем роутеры
 app.include_router(printers.router)
 app.include_router(printings.router)
 app.include_router(models.router)
 app.include_router(reports.router)
+app.include_router(printer_parameters.router)
 
 # Запускаем планировщик при старте приложения
 @app.on_event("startup")
 async def startup_event():
     start_scheduler()
 
-# Обновленный корневой маршрут для отображения фронтенда
-@app.get("/", response_class=HTMLResponse)
-async def root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
