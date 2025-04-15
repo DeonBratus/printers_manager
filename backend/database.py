@@ -1,14 +1,17 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import os
 
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/3d_printer_db"
+# Get database URL from environment variable or use default
+SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@db:5432/3d_printer_db")
 
+# Create engine with proper encoding
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    pool_pre_ping=True,
-    client_encoding='utf8'
+    connect_args={"client_encoding": "utf8"}
 )
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
