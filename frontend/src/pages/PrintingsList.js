@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getPrintings, getPrinters, getModels, createPrinting, pauseExistingPrinting, resumeExistingPrinting, cancelExistingPrinting } from '../services/api';
+import { getPrintings, getPrinters, getModels, createPrinting, pauseExistingPrinting, resumeExistingPrinting, cancelExistingPrinting, confirmPrinting, stopPrinter } from '../services/api';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -16,7 +16,10 @@ import {
   Squares2X2Icon,
   PlusCircleIcon,
   CubeIcon,
-  EyeIcon
+  EyeIcon,
+  CheckIcon,
+  XMarkIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const PrintingsList = () => {
@@ -33,6 +36,11 @@ const PrintingsList = () => {
     printer_id: '',
     model_id: ''
   });
+  const [isStopReasonModalOpen, setIsStopReasonModalOpen] = useState(false);
+  const [stopReason, setStopReason] = useState('');
+  const [currentPrintingId, setCurrentPrintingId] = useState(null);
+  const [currentPrinterId, setCurrentPrinterId] = useState(null);
+  const [showAllPrints, setShowAllPrints] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -56,21 +64,41 @@ const PrintingsList = () => {
   };
 
   useEffect(() => {
+    // Initial fetch
     fetchData();
     
     // Set up periodic refresh
-    const refreshInterval = setInterval(() => {
+    let refreshInterval = setInterval(() => {
       fetchData().catch(err => console.error("Error in periodic refresh:", err));
     }, 10000); // refresh every 10 seconds
     
     return () => clearInterval(refreshInterval);
   }, []);
+  
+  // Add a second useEffect to update whenever the print status changes
+  useEffect(() => {
+    // Track printers in waiting state or completed prints without real_time_stop
+    const waitingPrinters = printers.filter(p => p.status === 'waiting').length;
+    const pendingPrints = printings.filter(p => 
+      (p.status === 'completed' && !p.real_time_stop) || 
+      p.status === 'waiting'
+    ).length;
+    
+    // If there are waiting prints or printers, refresh more often
+    if (waitingPrinters > 0 || pendingPrints > 0) {
+      const timer = setTimeout(() => {
+        forceRefreshData().catch(err => console.error("Error in status refresh:", err));
+      }, 2000); // Quick refresh for waiting prints
+      
+      return () => clearTimeout(timer);
+    }
+  }, [printings, printers]);
 
   const handlePausePrinting = async (printingId) => {
     try {
       setIsSubmitting(true);
       await pauseExistingPrinting(printingId);
-      fetchData();
+      await forceRefreshData();
     } catch (error) {
       console.error('Error pausing printing:', error);
       setError("Failed to pause printing. Please try again.");
@@ -83,7 +111,7 @@ const PrintingsList = () => {
     try {
       setIsSubmitting(true);
       await resumeExistingPrinting(printingId);
-      fetchData();
+      await forceRefreshData();
     } catch (error) {
       console.error('Error resuming printing:', error);
       setError("Failed to resume printing. Please try again.");
@@ -96,10 +124,73 @@ const PrintingsList = () => {
     try {
       setIsSubmitting(true);
       await cancelExistingPrinting(printingId);
-      fetchData();
+      await forceRefreshData();
     } catch (error) {
       console.error('Error canceling printing:', error);
       setError("Failed to cancel printing. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStop = (printingId, printerId) => {
+    setStopReason('');
+    setCurrentPrintingId(printingId);
+    setCurrentPrinterId(printerId);
+    setIsStopReasonModalOpen(true);
+  };
+  
+  const forceRefreshData = async () => {
+    try {
+      setLoading(true);
+      // Get fresh data directly from server
+      const [printingsResponse, printersResponse, modelsResponse] = await Promise.all([
+        getPrintings(),
+        getPrinters(),
+        getModels()
+      ]);
+      setPrintings(printingsResponse.data);
+      setAllPrintings(printingsResponse.data);
+      setPrinters(printersResponse.data);
+      setModels(modelsResponse.data);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      setError("Failed to refresh data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleConfirmPrinting = async (printerId) => {
+    try {
+      setIsSubmitting(true);
+      setError(null);
+      
+      await confirmPrinting(printerId);
+      // Force a complete refresh to ensure the cards disappear
+      await forceRefreshData();
+    } catch (error) {
+      console.error('Error confirming print job completion:', error);
+      setError('Failed to confirm print job. ' + (error.response?.data?.detail || 'Please try again.'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const confirmStop = async () => {
+    try {
+      setIsSubmitting(true);
+      setError(null);
+      
+      // Stop printer with reason
+      await stopPrinter(currentPrinterId, { reason: stopReason });
+      
+      setIsStopReasonModalOpen(false);
+      // Force a complete refresh to ensure cards disappear
+      await forceRefreshData();
+    } catch (error) {
+      console.error('Error stopping printer:', error);
+      setError('Failed to stop printer. ' + (error.response?.data?.detail || 'Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -137,7 +228,7 @@ const PrintingsList = () => {
       await createPrinting(data);
       setIsAddModalOpen(false);
       setNewPrinting({ printer_id: '', model_id: '' });
-      fetchData();
+      await forceRefreshData();
     } catch (error) {
       console.error('Error creating printing:', error);
       setError(`Failed to create printing: ${error.response?.data?.detail || error.message}`);
@@ -175,14 +266,26 @@ const PrintingsList = () => {
 
   // Filter active printings
   const activePrintings = printings.filter(printing => 
-    printing.status === 'printing' || printing.status === 'paused' || printing.status === 'waiting'
+    printing.status === 'printing' || 
+    printing.status === 'paused' || 
+    printing.status === 'waiting' || 
+    // Show all completed prints that haven't been confirmed yet
+    (printing.status === 'completed' && !printing.real_time_stop) ||
+    // Also show completed prints waiting for confirmation
+    (printing.status === 'completed' && printing.printer_id && 
+      printers.find(p => p.id === printing.printer_id)?.status === 'waiting')
   );
 
   // Filter completed/cancelled printings for history
   const completedPrintings = allPrintings.filter(printing => 
     printing.status === 'completed' || printing.status === 'cancelled'
-  ).slice(0, 10); // Limit to 10 latest entries
-
+  );
+  
+  // Get recent completed printings
+  const recentCompletedPrintings = completedPrintings
+    .sort((a, b) => new Date(b.real_time_stop || b.start_time) - new Date(a.real_time_stop || a.start_time))
+    .slice(0, 10); // Limit to 10 latest entries
+    
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -324,16 +427,38 @@ const PrintingsList = () => {
                           <PlayIcon className="h-4 w-4 mr-1" />
                           Resume
                         </Button>
+                      ) : (printing.status === 'waiting' || printing.status === 'completed') && 
+                           (printers.find(p => p.id === printing.printer_id)?.status === 'waiting' || !printing.real_time_stop) ? (
+                        <div className="flex space-x-2">
+                          <Button 
+                            size="sm" 
+                            variant="success" 
+                            disabled={isSubmitting}
+                            onClick={() => handleConfirmPrinting(printing.printer_id)}
+                          >
+                            <CheckIcon className="h-4 w-4 mr-1" />
+                            Confirm
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="danger" 
+                            disabled={isSubmitting}
+                            onClick={() => handleStop(printing.id, printing.printer_id)}
+                          >
+                            <XMarkIcon className="h-4 w-4 mr-1" />
+                            Failure
+                          </Button>
+                        </div>
                       ) : null}
                       {(printing.status === 'printing' || printing.status === 'paused') && (
                         <Button 
                           size="sm" 
                           variant="danger" 
                           disabled={isSubmitting}
-                          onClick={() => handleCancelPrinting(printing.id)}
+                          onClick={() => handleStop(printing.id, printing.printer_id)}
                         >
                           <StopIcon className="h-4 w-4 mr-1" />
-                          Cancel
+                          Stop
                         </Button>
                       )}
                     </div>
@@ -421,13 +546,36 @@ const PrintingsList = () => {
                             >
                               <PlayIcon className="h-4 w-4" />
                             </Button>
+                          ) : (printing.status === 'waiting' || printing.status === 'completed') && 
+                               (printers.find(p => p.id === printing.printer_id)?.status === 'waiting' || !printing.real_time_stop) ? (
+                            <div className="flex space-x-2">
+                              <Button 
+                                size="xs" 
+                                variant="success" 
+                                disabled={isSubmitting}
+                                onClick={() => handleConfirmPrinting(printing.printer_id)}
+                                title="Confirm"
+                              >
+                                <CheckIcon className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                size="xs" 
+                                variant="danger" 
+                                disabled={isSubmitting}
+                                onClick={() => handleStop(printing.id, printing.printer_id)}
+                                title="Failure"
+                              >
+                                <XMarkIcon className="h-4 w-4" />
+                              </Button>
+                            </div>
                           ) : null}
                           {(printing.status === 'printing' || printing.status === 'paused') && (
                             <Button 
                               size="xs" 
                               variant="danger" 
                               disabled={isSubmitting}
-                              onClick={() => handleCancelPrinting(printing.id)}
+                              onClick={() => handleStop(printing.id, printing.printer_id)}
+                              title="Stop"
                             >
                               <StopIcon className="h-4 w-4" />
                             </Button>
@@ -442,14 +590,14 @@ const PrintingsList = () => {
           )}
         </div>
         
-        {/* Print Jobs History (Right Side) */}
+        {/* Recent Print Jobs History (Right Side) */}
         <div className="md:w-1/3">
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
             <div className="px-4 py-5 sm:px-6 border-b dark:border-gray-700">
               <h3 className="text-lg leading-6 font-medium dark:text-white">Recent Print Jobs</h3>
             </div>
             <ul className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[600px] overflow-y-auto">
-              {completedPrintings.length > 0 ? completedPrintings.map((printing) => (
+              {recentCompletedPrintings.length > 0 ? recentCompletedPrintings.map((printing) => (
                 <li key={printing.id}>
                   <Link 
                     to={`/printings/${printing.id}`}
@@ -484,6 +632,95 @@ const PrintingsList = () => {
             </ul>
           </div>
         </div>
+      </div>
+      
+      {/* All Print Jobs Section (Bottom) */}
+      <div className="mt-8">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold dark:text-white">All Print Jobs</h2>
+          <Button 
+            variant="outline"
+            onClick={() => setShowAllPrints(!showAllPrints)}
+          >
+            {showAllPrints ? 'Hide' : 'Show'} Print History
+          </Button>
+        </div>
+        
+        {showAllPrints && completedPrintings.length > 0 ? (
+          <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+            <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Model
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Printer
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Started
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Completed
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Duration
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                {completedPrintings.map((printing) => (
+                  <tr key={printing.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <td className="px-3 py-4 whitespace-nowrap text-sm font-medium dark:text-white">
+                      {printing.model_name}
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <Link to={`/printers/${printing.printer_id}`} className="text-blue-600 hover:underline dark:text-blue-400">
+                        {printing.printer_name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm">
+                      <StatusBadge status={printing.status} />
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {printing.start_time ? new Date(printing.start_time).toLocaleString() : 'N/A'}
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {printing.real_time_stop ? new Date(printing.real_time_stop).toLocaleString() : 'N/A'}
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {printing.start_time && printing.real_time_stop ? 
+                        `${Math.round((new Date(printing.real_time_stop) - new Date(printing.start_time)) / 60000)} min` : 
+                        'N/A'}
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-center">
+                        <Link to={`/printings/${printing.id}`}>
+                          <Button 
+                            size="xs" 
+                            variant="outline"
+                          >
+                            <EyeIcon className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : showAllPrints ? (
+          <div className="text-center py-10 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <p className="text-gray-500 dark:text-gray-400">No print history available.</p>
+          </div>
+        ) : null}
       </div>
 
       {/* Modal for adding a new printing */}
@@ -583,6 +820,122 @@ const PrintingsList = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal for choosing stop reason */}
+      <Modal
+        isOpen={isStopReasonModalOpen}
+        onClose={() => setIsStopReasonModalOpen(false)}
+        title="Почему вы останавливаете печать?"
+        size="md"
+        footer={
+          <div className="flex justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => setIsStopReasonModalOpen(false)}
+              className="mr-2"
+            >
+              Отмена
+            </Button>
+            <Button
+              variant="danger"
+              disabled={!stopReason || isSubmitting}
+              onClick={confirmStop}
+              isLoading={isSubmitting}
+            >
+              Остановить печать
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+          <div className="flex items-start space-x-4">
+            <ExclamationTriangleIcon className="h-6 w-6 text-yellow-500 mt-1 flex-shrink-0" />
+            <div>
+              <p className="text-gray-700 dark:text-gray-200">
+                Пожалуйста, выберите причину остановки задания печати:
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3 pl-2">
+            <div className="flex items-center rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <input
+                id="success-early"
+                name="stop-reason"
+                type="radio"
+                checked={stopReason === 'finished-early'}
+                onChange={() => setStopReason('finished-early')}
+                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+              />
+              <label htmlFor="success-early" className="ml-3 flex flex-col cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Печать завершилась раньше (успех)
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Задание будет отмечено как успешное
+                </span>
+              </label>
+            </div>
+            
+            <div className="flex items-center rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <input
+                id="emergency"
+                name="stop-reason"
+                type="radio"
+                checked={stopReason === 'emergency'}
+                onChange={() => setStopReason('emergency')}
+                className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
+              />
+              <label htmlFor="emergency" className="ml-3 flex flex-col cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Экстренная остановка
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Возникла критическая проблема с принтером
+                </span>
+              </label>
+            </div>
+            
+            <div className="flex items-center rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <input
+                id="defect"
+                name="stop-reason"
+                type="radio"
+                checked={stopReason === 'defect'}
+                onChange={() => setStopReason('defect')}
+                className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300"
+              />
+              <label htmlFor="defect" className="ml-3 flex flex-col cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Дефект печати
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Модель печатается с проблемами качества
+                </span>
+              </label>
+            </div>
+            
+            <div className="flex items-center rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <input
+                id="other"
+                name="stop-reason"
+                type="radio"
+                checked={stopReason === 'other'}
+                onChange={() => setStopReason('other')}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+              />
+              <label htmlFor="other" className="ml-3 flex flex-col cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Другая причина
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Остановка по другой причине
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
       </Modal>
     </div>
   );

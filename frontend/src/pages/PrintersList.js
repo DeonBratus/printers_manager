@@ -24,7 +24,7 @@ const PrintersList = () => {
   const [filteredPrinters, setFilteredPrinters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [newPrinter, setNewPrinter] = useState({ name: '' });
+  const [newPrinter, setNewPrinter] = useState({ name: '', model: '' });
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   
   // Filtering, sorting and pagination
@@ -114,7 +114,7 @@ const PrintersList = () => {
     try {
       setIsSubmitting(true);
       await createPrinter(newPrinter);
-      setNewPrinter({ name: '' });
+      setNewPrinter({ name: '', model: '' });
       setIsAddModalOpen(false);
       fetchPrinters();
     } catch (error) {
@@ -206,6 +206,126 @@ const PrintersList = () => {
     }
     
     return `${hours}h ${minutes}m`;
+  };
+
+  // Grid view display
+  const renderGridItems = () => {
+    return currentItems.map(printer => (
+      <Card key={printer.id} className="overflow-hidden shadow-md transition-shadow hover:shadow-lg">
+        <Link to={`/printers/${printer.id}`} className="block hover:no-underline">
+          <div className="p-6 text-center">
+            {getStatusIcon(printer.status)}
+            <h3 className="mt-4 text-lg font-medium dark:text-white">{printer.name}</h3>
+            {printer.model && (
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Model: {printer.model}
+              </p>
+            )}
+            <StatusBadge status={printer.status} className="mt-3" />
+          </div>
+        </Link>
+        <div className="bg-gray-50 dark:bg-gray-800 p-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-2 gap-4 text-center text-sm">
+            <div>
+              <div className="text-gray-500 dark:text-gray-400">Print Time</div>
+              <div className="font-medium dark:text-white">{formatTime(printer.total_print_time || 0)}</div>
+            </div>
+            <div>
+              <div className="text-gray-500 dark:text-gray-400">Downtime</div>
+              <div className="font-medium dark:text-white">{formatTime(printer.total_downtime || 0)}</div>
+            </div>
+          </div>
+        </div>
+      </Card>
+    ));
+  };
+
+  // List view display 
+  const renderListItems = () => {
+    return (
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-800">
+            <tr>
+              <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                <button 
+                  onClick={() => handleSort('name')}
+                  className="group inline-flex items-center"
+                >
+                  Printer Name {getSortIcon('name')}
+                </button>
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                <button 
+                  onClick={() => handleSort('model')}
+                  className="group inline-flex items-center"
+                >
+                  Model {getSortIcon('model')}
+                </button>
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                <button 
+                  onClick={() => handleSort('status')}
+                  className="group inline-flex items-center"
+                >
+                  Status {getSortIcon('status')}
+                </button>
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                <button 
+                  onClick={() => handleSort('total_print_time')}
+                  className="group inline-flex items-center"
+                >
+                  Print Time {getSortIcon('total_print_time')}
+                </button>
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                <button 
+                  onClick={() => handleSort('total_downtime')}
+                  className="group inline-flex items-center"
+                >
+                  Downtime {getSortIcon('total_downtime')}
+                </button>
+              </th>
+              <th scope="col" className="relative py-3.5 pl-3 pr-4">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            {currentItems.map(printer => (
+              <tr key={printer.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium dark:text-white">
+                  <Link to={`/printers/${printer.id}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                    {printer.name}
+                  </Link>
+                </td>
+                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  {printer.model || "N/A"}
+                </td>
+                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  <StatusBadge status={printer.status} />
+                </td>
+                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  {formatTime(printer.total_print_time || 0)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  {formatTime(printer.total_downtime || 0)}
+                </td>
+                <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm">
+                  <button 
+                    className="text-red-600 hover:text-red-900"
+                    onClick={() => openDeleteModal(printer)}
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
   };
 
   if (loading) {
@@ -365,160 +485,13 @@ const PrintersList = () => {
 
       {viewMode === 'grid' && currentItems.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {currentItems.map((printer) => (
-            <Card key={printer.id} className="p-0 overflow-hidden hover:shadow-lg transition-shadow duration-200">
-              <div className="flex flex-col h-full">
-                {/* Status Icon and Color Band */}
-                <div className={`p-4 flex justify-center items-center h-40 
-                  ${printer.status === 'idle' ? 'bg-green-50 dark:bg-green-900/20' : 
-                    printer.status === 'printing' ? 'bg-blue-50 dark:bg-blue-900/20' : 
-                    printer.status === 'paused' ? 'bg-yellow-50 dark:bg-yellow-900/20' : 
-                    'bg-red-50 dark:bg-red-900/20'}`}>
-                  {getStatusIcon(printer.status)}
-                  
-                  {/* Only show progress bar for printing status */}
-                  {printer.status === 'printing' && printer.current_printing && (
-                    <div className="w-full mt-4">
-                      <div className="text-center mb-1 text-sm text-gray-600 dark:text-gray-300">
-                        {Math.round(printer.current_printing.progress || 0)}%
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div 
-                          className="bg-blue-600 dark:bg-blue-500 h-2.5 rounded-full" 
-                          style={{ width: `${printer.current_printing.progress || 0}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Printer Info */}
-                <div className="p-4 flex-grow">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-lg font-semibold dark:text-white">
-                        <Link to={`/printers/${printer.id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                          {printer.name}
-                        </Link>
-                      </h3>
-                      <div className="mt-2">
-                        <StatusBadge status={printer.status} />
-                      </div>
-                      <div className="mt-4 space-y-1 text-sm text-gray-500 dark:text-gray-400">
-                        <p>Total Print Time: {formatTime(printer.total_print_time)}</p>
-                        <p>Total Downtime: {formatTime(printer.total_downtime)}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Action Buttons */}
-                <div className="px-4 pb-4 flex justify-between space-x-2">
-                  <Link to={`/printers/${printer.id}`} className="flex-1">
-                    <Button variant="secondary" size="sm" fullWidth>
-                      View
-                    </Button>
-                  </Link>
-                  <Button 
-                    variant="danger" 
-                    size="sm" 
-                    onClick={() => openDeleteModal(printer)}
-                    className="flex-1"
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
+          {renderGridItems()}
         </div>
       )}
 
       {viewMode === 'list' && currentItems.length > 0 && (
         <Card>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th 
-                    className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('id')}
-                  >
-                    <div className="flex items-center">
-                      <span>ID</span>
-                      {getSortIcon('id')}
-                    </div>
-                  </th>
-                  <th 
-                    className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('name')}
-                  >
-                    <div className="flex items-center">
-                      <span>Name</span>
-                      {getSortIcon('name')}
-                    </div>
-                  </th>
-                  <th 
-                    className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('status')}
-                  >
-                    <div className="flex items-center">
-                      <span>Status</span>
-                      {getSortIcon('status')}
-                    </div>
-                  </th>
-                  <th 
-                    className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('total_print_time')}
-                  >
-                    <div className="flex items-center">
-                      <span>Total Print Time</span>
-                      {getSortIcon('total_print_time')}
-                    </div>
-                  </th>
-                  <th 
-                    className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('total_downtime')}
-                  >
-                    <div className="flex items-center">
-                      <span>Total Downtime</span>
-                      {getSortIcon('total_downtime')}
-                    </div>
-                  </th>
-                  <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {currentItems.map(printer => (
-                  <tr key={printer.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="py-3 px-4 dark:text-gray-300">{printer.id}</td>
-                    <td className="py-3 px-4">
-                      <Link to={`/printers/${printer.id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                        {printer.name}
-                      </Link>
-                    </td>
-                    <td className="py-3 px-4">
-                      <StatusBadge status={printer.status} />
-                    </td>
-                    <td className="py-3 px-4 dark:text-gray-300">{formatTime(printer.total_print_time)}</td>
-                    <td className="py-3 px-4 dark:text-gray-300">{formatTime(printer.total_downtime)}</td>
-                    <td className="py-3 px-4 space-x-2">
-                      <Link to={`/printers/${printer.id}`}>
-                        <Button variant="outline" size="xs">View</Button>
-                      </Link>
-                      <Button 
-                        variant="danger" 
-                        size="xs"
-                        onClick={() => openDeleteModal(printer)}
-                      >
-                        Delete
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {renderListItems()}
         </Card>
       )}
 
@@ -581,7 +554,7 @@ const PrintersList = () => {
               variant="primary"
               onClick={handleSubmit}
               isLoading={isSubmitting}
-              disabled={!newPrinter.name.trim() || isSubmitting}
+              disabled={!newPrinter.name.trim() || !newPrinter.model.trim() || isSubmitting}
             >
               Add Printer
             </Button>
@@ -613,7 +586,7 @@ const PrintersList = () => {
               type="text"
               id="model"
               name="model"
-              value={newPrinter.model || ''}
+              value={newPrinter.model}
               onChange={handleInputChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               placeholder="Enter printer model (optional)"

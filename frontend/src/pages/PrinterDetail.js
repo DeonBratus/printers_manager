@@ -1,6 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getPrinter, updatePrinter, getPrintings, getModels, startPrinter, pausePrinter, resumePrinter, stopPrinter, confirmPrinting } from '../services/api';
+import { 
+  getPrinter, 
+  updatePrinter, 
+  getPrintings, 
+  getModels, 
+  startPrinter, 
+  pausePrinter, 
+  resumePrinter, 
+  stopPrinter, 
+  confirmPrinting,
+  getPrinterParameters,
+  addPrinterParameter,
+  deletePrinterParameter
+} from '../services/api';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -21,7 +34,12 @@ import {
   CheckIcon,
   XMarkIcon,
   EyeIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  ChartBarIcon,
+  WrenchScrewdriverIcon,
+  TagIcon,
+  DocumentTextIcon,
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline';
 
 const PrinterDetail = () => {
@@ -33,82 +51,100 @@ const PrinterDetail = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '' });
+  const [editForm, setEditForm] = useState({ name: '', model: '' });
   const [startForm, setStartForm] = useState({ model_id: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Parameters state
+  const [parameters, setParameters] = useState([]);
+  const [newParameter, setNewParameter] = useState({ name: '', value: '' });
+  const [showParamForm, setShowParamForm] = useState(false);
   
   // Modals
   const [showStartForm, setShowStartForm] = useState(false);
   const [isStopReasonModalOpen, setIsStopReasonModalOpen] = useState(false);
   const [stopReason, setStopReason] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  
+  // Активная вкладка для навигации в секции истории печати
+  const [activeHistoryTab, setActiveHistoryTab] = useState('recent');
 
   const fetchPrinterData = useCallback(async () => {
     try {
       if (loading) {
-        // Full loading state
         setError(null);
       } else {
-        // Just refreshing data
         setRefreshing(true);
       }
       
-      const [printerRes, printingsRes, modelsRes] = await Promise.all([
-        getPrinter(id),
-        getPrintings(),
-        getModels()
-      ]);
-      
-      // Smart update of printer to prevent jumping
-      setPrinter(prevPrinter => {
-        // If first load or significant change, replace completely
-        if (!prevPrinter || prevPrinter.status !== printerRes.data.status) {
-          return printerRes.data;
-        }
+      // Сначала загрузим основные данные принтера, printings и models
+      try {
+        const [printerRes, printingsRes, modelsRes] = await Promise.all([
+          getPrinter(id),
+          getPrintings(),
+          getModels()
+        ]);
         
-        // Otherwise just update specific fields without causing re-renders
-        return {
-          ...prevPrinter,
-          status: printerRes.data.status,
-          total_print_time: printerRes.data.total_print_time,
-          total_downtime: printerRes.data.total_downtime
-        };
-      });
-      
-      if (!editing) {
-        setEditForm({ name: printerRes.data.name });
-      }
-      
-      // Smart update of printings to prevent unnecessary re-renders
-      setPrintings(prevPrintings => {
-        const printerPrintings = printingsRes.data.filter(
-          printing => printing.printer_id === parseInt(id)
-        );
-        
-        // If counts are different or first load, replace completely
-        if (!prevPrintings.length || prevPrintings.length !== printerPrintings.length) {
-          return printerPrintings;
-        }
-        
-        // Otherwise just update statuses and progress
-        return printerPrintings.map(newPrinting => {
-          const oldPrinting = prevPrintings.find(p => p.id === newPrinting.id);
-          if (!oldPrinting) return newPrinting;
-          
+        // Обновление данных принтера
+        setPrinter(prevPrinter => {
+          if (!prevPrinter || prevPrinter.status !== printerRes.data.status) {
+            return printerRes.data;
+          }
           return {
-            ...oldPrinting,
-            status: newPrinting.status,
-            progress: newPrinting.progress,
-            real_time_stop: newPrinting.real_time_stop
+            ...prevPrinter,
+            status: printerRes.data.status,
+            total_print_time: printerRes.data.total_print_time,
+            total_downtime: printerRes.data.total_downtime
           };
         });
-      });
-      
-      setModels(modelsRes.data);
-    } catch (error) {
-      console.error('Error fetching printer data:', error);
-      setError('Failed to load printer data. Please try refreshing the page.');
+        
+        if (!editing) {
+          setEditForm({ 
+            name: printerRes.data.name,
+            model: printerRes.data.model || ''
+          });
+        }
+        
+        // Обновление истории печати
+        setPrintings(prevPrintings => {
+          const printerPrintings = printingsRes.data.filter(
+            printing => printing.printer_id === parseInt(id)
+          );
+          
+          if (!prevPrintings.length || prevPrintings.length !== printerPrintings.length) {
+            return printerPrintings;
+          }
+          
+          return printerPrintings.map(newPrinting => {
+            const oldPrinting = prevPrintings.find(p => p.id === newPrinting.id);
+            if (!oldPrinting) return newPrinting;
+            
+            return {
+              ...oldPrinting,
+              status: newPrinting.status,
+              progress: newPrinting.progress,
+              real_time_stop: newPrinting.real_time_stop
+            };
+          });
+        });
+        
+        setModels(modelsRes.data);
+        
+        // Отдельный запрос для параметров
+        try {
+          const paramsRes = await getPrinterParameters(id);
+          setParameters(paramsRes.data || []);
+        } catch (paramsError) {
+          console.error("Error fetching printer parameters:", paramsError);
+          // Ошибка получения параметров не блокирует отображение страницы
+          setParameters([]);
+        }
+        
+      } catch (error) {
+        console.error('Error fetching printer data:', error);
+        setError('Failed to load printer data. Please try refreshing the page.');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -118,14 +154,15 @@ const PrinterDetail = () => {
   useEffect(() => {
     fetchPrinterData();
     
-    // Set up periodic refresh
+    // Периодическое обновление данных
     const refreshInterval = setInterval(() => {
       fetchPrinterData().catch(err => console.error("Error in periodic refresh:", err));
-    }, 10000); // refresh every 10 seconds
+    }, 10000); // каждые 10 секунд
     
     return () => clearInterval(refreshInterval);
   }, [fetchPrinterData]);
 
+  // Обработчики для редактирования имени принтера
   const handleEditChange = (e) => {
     setEditForm({ ...editForm, [e.target.name]: e.target.value });
   };
@@ -148,6 +185,7 @@ const PrinterDetail = () => {
     }
   };
 
+  // Обработчики для запуска печати
   const handleStartChange = (e) => {
     setStartForm({ ...startForm, [e.target.name]: e.target.value });
   };
@@ -175,6 +213,7 @@ const PrinterDetail = () => {
     }
   };
 
+  // Обработчики для управления печатью
   const handlePause = async () => {
     try {
       setError(null);
@@ -207,7 +246,6 @@ const PrinterDetail = () => {
       setError(null);
       setIsSubmitting(true);
       
-      // First stop the printer with the reason
       await stopPrinter(id, { reason: stopReason });
       
       setIsStopReasonModalOpen(false);
@@ -236,6 +274,44 @@ const PrinterDetail = () => {
     }
   };
 
+  // Обработчики для параметров принтера
+  const handleParameterChange = (e) => {
+    setNewParameter({ ...newParameter, [e.target.name]: e.target.value });
+  };
+
+  const handleAddParameter = async (e) => {
+    e.preventDefault();
+    
+    if (!newParameter.name.trim()) return;
+    
+    try {
+      setIsSubmitting(true);
+      setError(null);
+      
+      await addPrinterParameter(id, newParameter);
+      setNewParameter({ name: '', value: '' });
+      setShowParamForm(false);
+      await fetchPrinterData();
+    } catch (error) {
+      console.error('Error adding parameter:', error);
+      setError('Failed to add parameter. ' + (error.response?.data?.detail || 'Please try again.'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteParameter = async (paramId) => {
+    try {
+      setError(null);
+      await deletePrinterParameter(id, paramId);
+      await fetchPrinterData();
+    } catch (error) {
+      console.error('Error deleting parameter:', error);
+      setError('Failed to delete parameter. ' + (error.response?.data?.detail || 'Please try again.'));
+    }
+  };
+
+  // Вспомогательные функции форматирования
   const formatTime = (minutes) => {
     if (minutes === null || minutes === undefined) return 'N/A';
     return formatDuration(minutes);
@@ -246,126 +322,166 @@ const PrinterDetail = () => {
     return new Date(dateString).toLocaleString();
   };
 
-  // Find current printing job if exists
+  // Расчет данных для отображения
   const currentPrinting = printings.find(p => 
     (p.status === 'printing' || p.status === 'paused') && 
     p.printer_id === parseInt(id)
   );
 
-  // Find completed but unconfirmed printing
+  // Найти завершенную но не подтвержденную печать
   const unconfirmedPrinting = printings.find(p => 
     p.progress === 100 && !p.real_time_stop && 
     p.printer_id === parseInt(id)
   );
 
-  // Get most recent printings
+  // Получить последние печати для истории
   const recentPrintings = printings
     .filter(p => p.status === 'completed' || p.status === 'cancelled')
     .sort((a, b) => new Date(b.real_time_stop) - new Date(a.real_time_stop))
     .slice(0, 5);
 
-  // Calculate statistics
+  // Все печати для полной истории
+  const allPrintings = printings
+    .filter(p => p.real_time_stop) // только завершенные
+    .sort((a, b) => new Date(b.real_time_stop) - new Date(a.real_time_stop));
+
+  // Расчет статистики
   const totalPrintJobs = printings.length;
   const completedPrintJobs = printings.filter(p => p.status === 'completed').length;
   const cancelledPrintJobs = printings.filter(p => p.status === 'cancelled').length;
   
-  // Calculate efficiency if there are completed jobs
+  // Расчет эффективности
   const efficiency = completedPrintJobs > 0 
     ? (completedPrintJobs / (completedPrintJobs + cancelledPrintJobs) * 100).toFixed(1)
     : 'N/A';
 
+  // Экраны загрузки и ошибок
   if (loading) {
-    return <div className="flex justify-center items-center h-full p-10">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
-      <p className="ml-3 text-gray-700 dark:text-gray-300">Loading...</p>
-    </div>;
+    return (
+      <div className="flex justify-center items-center h-full p-10">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+        <p className="ml-3 text-gray-700 dark:text-gray-300">Loading...</p>
+      </div>
+    );
   }
 
   if (!printer) {
-    return <div className="text-center py-10">
-      <ExclamationCircleIcon className="h-12 w-12 mx-auto text-red-500" />
-      <h3 className="mt-2 text-base font-medium text-gray-900 dark:text-gray-100">Printer not found</h3>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        The printer you are looking for does not exist or has been deleted.
-      </p>
-      <div className="mt-6">
-        <Button onClick={() => navigate('/printers')}>
-          <ArrowLeftIcon className="h-5 w-5 mr-2" />
-          Back to Printers
-        </Button>
+    return (
+      <div className="text-center py-10">
+        <ExclamationCircleIcon className="h-12 w-12 mx-auto text-red-500" />
+        <h3 className="mt-2 text-base font-medium text-gray-900 dark:text-gray-100">Printer not found</h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          The printer you are looking for does not exist or has been deleted.
+        </p>
+        <div className="mt-6">
+          <Button onClick={() => navigate('/printers')}>
+            <ArrowLeftIcon className="h-5 w-5 mr-2" />
+            Back to Printers
+          </Button>
+        </div>
       </div>
-    </div>;
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center">
-          <Button variant="outline" size="sm" onClick={() => navigate('/printers')} className="mr-4">
-            <ArrowLeftIcon className="h-5 w-5" />
-          </Button>
-          <h1 className="text-2xl font-bold dark:text-white">
-            {editing ? (
-              <form onSubmit={handleEditSubmit} className="flex items-center">
-                <input
-                  type="text"
-                  name="name"
-                  value={editForm.name}
-                  onChange={handleEditChange}
-                  className="px-2 py-1 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  required
-                />
-                <div className="ml-2 space-x-2">
-                  <Button type="submit" variant="success" size="xs" disabled={isSubmitting}>
-                    <CheckIcon className="h-4 w-4" />
-                  </Button>
-                  <Button type="button" variant="danger" size="xs" onClick={() => setEditing(false)}>
-                    <XMarkIcon className="h-4 w-4" />
-                  </Button>
-                </div>
-              </form>
-            ) : (
-              <div className="flex items-center">
-                <span>{printer.name}</span>
-                <button 
-                  className="ml-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                  onClick={() => setEditing(true)}
-                >
-                  <PencilIcon className="h-5 w-5" />
-                </button>
+    <div className="space-y-8">
+      {/* Верхняя панель с информацией о принтере */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 dark:from-blue-800 dark:to-indigo-900 rounded-xl shadow-lg overflow-hidden">
+        <div className="px-6 py-5 sm:px-8 sm:py-6">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
+            <div className="flex items-center space-x-4">
+              <div className="hidden md:block p-3 rounded-full bg-white/10">
+                <PrinterIcon className="h-10 w-10 text-white" />
               </div>
-            )}
-          </h1>
-          <div className="ml-4">
-            <StatusBadge status={printer.status} size="lg" />
+              <div>
+                <div className="flex items-center">
+                  <Button 
+                    variant="light" 
+                    size="sm" 
+                    onClick={() => navigate('/printers')}
+                    className="mr-3"
+                  >
+                    <ArrowLeftIcon className="h-4 w-4" />
+                  </Button>
+                  <h1 className="text-2xl font-bold text-white">
+                    {editing ? (
+                      <form onSubmit={handleEditSubmit} className="flex items-center">
+                        <input
+                          type="text"
+                          name="name"
+                          value={editForm.name}
+                          onChange={handleEditChange}
+                          className="px-2 py-1 rounded-md bg-white/20 border-white/30 text-white placeholder-white/60 focus:ring-blue-300 focus:border-blue-300"
+                          required
+                        />
+                        <div className="ml-2 space-x-2">
+                          <Button type="submit" variant="success" size="xs" disabled={isSubmitting}>
+                            <CheckIcon className="h-4 w-4" />
+                          </Button>
+                          <Button type="button" variant="danger" size="xs" onClick={() => setEditing(false)}>
+                            <XMarkIcon className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="flex items-center">
+                        <span className="text-white">{printer.name}</span>
+                        <button 
+                          className="ml-2 text-white/70 hover:text-white"
+                          onClick={() => setEditing(true)}
+                        >
+                          <PencilIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    )}
+                  </h1>
+                </div>
+                <div className="mt-1 flex items-center">
+                  <StatusBadge status={printer.status} variant="light" size="md" />
+                  {printer.model && (
+                    <span className="ml-3 text-sm text-white/80">
+                      Model: {printer.model}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <Button 
+                variant="light" 
+                onClick={fetchPrinterData} 
+                disabled={refreshing}
+              >
+                <ArrowPathIcon className={`h-5 w-5 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </Button>
+              
+              {printer.status === 'idle' && (
+                <Button
+                  variant="success"
+                  onClick={() => setShowStartForm(true)}
+                >
+                  <PlayIcon className="h-5 w-5 mr-2" />
+                  Start Print
+                </Button>
+              )}
+              
+              {printer.status === 'waiting' && (
+                <Button
+                  variant="success"
+                  onClick={() => setShowConfirmModal(true)}
+                >
+                  <CheckIcon className="h-5 w-5 mr-2" />
+                  Confirm Complete
+                </Button>
+              )}
+            </div>
           </div>
         </div>
-        <div className="flex space-x-2">
-          <Button onClick={fetchPrinterData} disabled={refreshing}>
-            <ArrowPathIcon className={`h-5 w-5 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </Button>
-          {printer.status === 'idle' && (
-            <Button
-              variant="primary"
-              onClick={() => setShowStartForm(true)}
-            >
-              <PrinterIcon className="h-5 w-5 mr-2" />
-              Start Print
-            </Button>
-          )}
-          {printer.status === 'waiting' && (
-            <Button
-              variant="success"
-              onClick={() => setShowConfirmModal(true)}
-            >
-              <CheckIcon className="h-5 w-5 mr-2" />
-              Confirm Print Complete
-            </Button>
-          )}
-        </div>
       </div>
-
+      
+      {/* Сообщение об ошибке */}
       {error && (
         <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
           <div className="flex">
@@ -383,300 +499,507 @@ const PrinterDetail = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Left Column - Printer Info */}
-        <div className="md:col-span-1">
-          <Card className="p-6 h-full">
-            <h2 className="text-xl font-semibold mb-4 dark:text-white">Printer Information</h2>
+      {/* Основные карточки с информацией */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Техническая информация */}
+        <Card className="relative overflow-hidden border-none shadow-lg bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+          <div className="absolute top-0 right-0 w-24 h-24 opacity-10">
+            <WrenchScrewdriverIcon className="w-full h-full text-gray-800 dark:text-gray-300" />
+          </div>
+          <div className="p-6 relative">
+            <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-white">
+              <WrenchScrewdriverIcon className="h-5 w-5 mr-2 text-blue-500" />
+              Технические данные
+            </h2>
             
             <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</h3>
-                <p className="mt-1 text-sm dark:text-white">
-                  <StatusBadge status={printer.status} />
+              <div className="flex flex-col">
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Модель</h3>
+                <div className="mt-1 flex items-center">
+                  {editing ? (
+                    <input
+                      type="text"
+                      name="model"
+                      value={editForm.model}
+                      onChange={handleEditChange}
+                      className="px-2 py-1 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white w-full"
+                      placeholder="Введите модель принтера"
+                    />
+                  ) : (
+                    <p className="text-base font-medium dark:text-white">
+                      {printer.model ? printer.model : 
+                        <span className="text-gray-400 dark:text-gray-500 italic">Не указана</span>}
+                    </p>
+                  )}
+                  {!editing && (
+                    <button 
+                      className="ml-2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      onClick={() => setEditing(true)}
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex flex-col">
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Статус</h3>
+                <p className="mt-1 text-base font-medium flex items-center dark:text-white">
+                  <StatusBadge status={printer.status} size="md" />
+                  {currentPrinting && printer.status === 'printing' && (
+                    <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                      Работает {formatMinutesToHHMM(Math.floor((new Date() - new Date(currentPrinting.start_time)) / 60000))}
+                    </span>
+                  )}
                 </p>
               </div>
               
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Print Time</h3>
-                <p className="mt-1 text-sm dark:text-white">
-                  {formatTime(printer.total_print_time)}
-                </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Общее время печати</h3>
+                  <p className="mt-1 text-lg font-bold text-blue-600 dark:text-blue-400">
+                    {formatTime(printer.total_print_time)}
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Время простоя</h3>
+                  <p className="mt-1 text-lg font-bold text-amber-600 dark:text-amber-400">
+                    {formatTime(printer.total_downtime)}
+                  </p>
+                </div>
               </div>
               
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Downtime</h3>
-                <p className="mt-1 text-sm dark:text-white">
-                  {formatTime(printer.total_downtime)}
-                </p>
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Statistics</h3>
-                <div className="mt-1 text-sm space-y-1 dark:text-white">
-                  <p>Total Jobs: {totalPrintJobs}</p>
-                  <p>Completed: {completedPrintJobs}</p>
-                  <p>Cancelled: {cancelledPrintJobs}</p>
-                  <p>Success Rate: {efficiency}%</p>
+              <div className="pt-2">
+                <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-2 mb-2">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Статистика заданий</h3>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Всего</p>
+                    <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{totalPrintJobs}</p>
+                  </div>
+                  
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Успешно</p>
+                    <p className="text-xl font-bold text-green-600 dark:text-green-400">{completedPrintJobs}</p>
+                  </div>
+                  
+                  <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Отменено</p>
+                    <p className="text-xl font-bold text-red-600 dark:text-red-400">{cancelledPrintJobs}</p>
+                  </div>
+                </div>
+                
+                <div className="mt-3 text-center">
+                  <div className="inline-block bg-gray-100 dark:bg-gray-700 rounded-full px-3 py-1">
+                    <span className="text-sm">Эффективность: </span>
+                    <span className={`text-sm font-semibold ${
+                      parseFloat(efficiency) > 80 ? 'text-green-600 dark:text-green-400' : 
+                      parseFloat(efficiency) > 50 ? 'text-amber-600 dark:text-amber-400' : 
+                      'text-red-600 dark:text-red-400'
+                    }`}>{efficiency === 'N/A' ? 'N/A' : `${efficiency}%`}</span>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+        </Card>
+        
+        {/* Пользовательские параметры */}
+        <Card className="relative overflow-hidden border-none shadow-lg bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+          <div className="absolute top-0 right-0 w-24 h-24 opacity-10">
+            <TagIcon className="w-full h-full text-gray-800 dark:text-gray-300" />
+          </div>
+          <div className="p-6 relative">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold flex items-center text-gray-900 dark:text-white">
+                <TagIcon className="h-5 w-5 mr-2 text-green-500" />
+                Параметры принтера
+              </h2>
+              <Button 
+                size="xs" 
+                variant={showParamForm ? "danger" : "success"}
+                onClick={() => setShowParamForm(!showParamForm)}
+              >
+                {showParamForm ? 'Отмена' : 'Добавить'}
+              </Button>
+            </div>
             
-            {(printer.status === 'printing' || printer.status === 'paused') && (
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Actions</h3>
-                <div className="flex flex-wrap gap-2">
+            {showParamForm && (
+              <form onSubmit={handleAddParameter} className="mb-4 p-3 bg-white dark:bg-gray-700 rounded-lg shadow-sm space-y-3">
+                <div>
+                  <label htmlFor="param-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Название параметра
+                  </label>
+                  <input
+                    id="param-name"
+                    type="text"
+                    name="name"
+                    value={newParameter.name}
+                    onChange={handleParameterChange}
+                    className="px-3 py-2 border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white w-full"
+                    placeholder="Например: Диаметр сопла"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="param-value" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Значение
+                  </label>
+                  <input
+                    id="param-value"
+                    type="text"
+                    name="value"
+                    value={newParameter.value}
+                    onChange={handleParameterChange}
+                    className="px-3 py-2 border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white w-full"
+                    placeholder="Например: 0.4 мм"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  variant="success" 
+                  fullWidth 
+                  disabled={isSubmitting || !newParameter.name.trim()}
+                >
+                  {isSubmitting ? 'Сохранение...' : 'Сохранить параметр'}
+                </Button>
+              </form>
+            )}
+            
+            {parameters.length > 0 ? (
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                {parameters.map(param => (
+                  <div 
+                    key={param.id} 
+                    className="flex justify-between items-center p-3 border dark:border-gray-700 rounded-lg bg-white dark:bg-gray-700 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">{param.name}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">{param.value || '-'}</p>
+                    </div>
+                    <button 
+                      className="ml-2 p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full"
+                      onClick={() => handleDeleteParameter(param.id)}
+                      title="Удалить параметр"
+                    >
+                      <XMarkIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <TagIcon className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-2" />
+                <p className="text-gray-500 dark:text-gray-400 mb-3">Для этого принтера еще не добавлены параметры</p>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => setShowParamForm(true)}
+                >
+                  Добавить первый параметр
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+        
+        {/* Текущее задание печати */}
+        <Card className="relative overflow-hidden border-none shadow-lg bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+          <div className="absolute top-0 right-0 w-24 h-24 opacity-10">
+            <CubeIcon className="w-full h-full text-gray-800 dark:text-gray-300" />
+          </div>
+          <div className="p-6 relative">
+            <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-white">
+              <CubeIcon className="h-5 w-5 mr-2 text-purple-500" />
+              Текущее задание
+            </h2>
+            
+            {currentPrinting ? (
+              <div className="space-y-4">
+                <div className={`p-4 rounded-lg ${
+                  printer.status === 'printing' ? 'bg-blue-50 dark:bg-blue-900/20' : 
+                  printer.status === 'paused' ? 'bg-amber-50 dark:bg-amber-900/20' : 
+                  'bg-gray-50 dark:bg-gray-700/30'
+                }`}>
+                  <div className="flex items-center">
+                    <CubeIcon className={`h-6 w-6 mr-2 ${
+                      printer.status === 'printing' ? 'text-blue-500' : 
+                      printer.status === 'paused' ? 'text-amber-500' : 
+                      'text-gray-500'
+                    }`} />
+                    <h3 className="text-lg font-medium">
+                      {currentPrinting.model_name}
+                    </h3>
+                  </div>
+                  
+                  <div className="mt-3">
+                    <div className="flex justify-between mb-1 text-xs font-medium">
+                      <span>Прогресс</span>
+                      <span>{Math.round(currentPrinting.progress || 0)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                      <div 
+                        className={`h-2.5 rounded-full ${
+                          printer.status === 'printing' ? 'bg-blue-600 dark:bg-blue-500' : 
+                          printer.status === 'paused' ? 'bg-amber-600 dark:bg-amber-500' : 
+                          'bg-gray-600 dark:bg-gray-500'
+                        }`}
+                        style={{ width: `${currentPrinting.progress || 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <p className="text-gray-500 dark:text-gray-400">Начало:</p>
+                      <p className="font-medium">{formatDate(currentPrinting.start_time)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 dark:text-gray-400">Окончание:</p>
+                      <p className="font-medium">{formatDate(currentPrinting.calculated_time_stop)}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex justify-center space-x-2">
                   {printer.status === 'printing' && (
                     <Button 
-                      size="sm" 
                       variant="warning" 
                       onClick={handlePause}
                     >
-                      <PauseIcon className="h-4 w-4 mr-1" />
-                      Pause
+                      <PauseIcon className="h-5 w-5 mr-1" />
+                      Пауза
                     </Button>
                   )}
                   
                   {printer.status === 'paused' && (
                     <Button 
-                      size="sm" 
                       variant="success" 
                       onClick={handleResume}
                     >
-                      <PlayIcon className="h-4 w-4 mr-1" />
-                      Resume
+                      <PlayIcon className="h-5 w-5 mr-1" />
+                      Продолжить
                     </Button>
                   )}
                   
                   {(printer.status === 'printing' || printer.status === 'paused') && (
                     <Button 
-                      size="sm" 
                       variant="danger" 
                       onClick={handleStop}
                     >
-                      <StopIcon className="h-4 w-4 mr-1" />
-                      Stop
+                      <StopIcon className="h-5 w-5 mr-1" />
+                      Остановить
                     </Button>
                   )}
-                </div>
-              </div>
-            )}
-          </Card>
-        </div>
-        
-        {/* Middle Column - Current Printing */}
-        <div className="md:col-span-1">
-          <Card className="p-6 h-full">
-            <h2 className="text-xl font-semibold mb-4 dark:text-white">Current Print Job</h2>
-            
-            {currentPrinting ? (
-              <div className="space-y-4">
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                  <div className="flex items-center">
-                    <CubeIcon className="h-5 w-5 text-blue-500 mr-2" />
-                    <h3 className="text-blue-800 dark:text-blue-300 font-medium">{currentPrinting.model_name}</h3>
-                  </div>
                   
-                  <div className="mt-2">
-                    <div className="flex justify-between mb-1 text-xs text-blue-800 dark:text-blue-300">
-                      <span>Progress</span>
-                      <span>{Math.round(currentPrinting.progress || 0)}%</span>
-                    </div>
-                    <div className="w-full bg-blue-200 dark:bg-blue-700 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full" 
-                        style={{ width: `${currentPrinting.progress || 0}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</h3>
-                  <p className="mt-1 text-sm dark:text-white">
-                    <StatusBadge status={currentPrinting.status} />
-                  </p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Printing Time</h3>
-                  <p className="mt-1 text-sm dark:text-white">
-                    {formatTime(currentPrinting.printing_time / 3600)}
-                  </p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Started At</h3>
-                  <p className="mt-1 text-sm dark:text-white">
-                    {formatDate(currentPrinting.start_time)}
-                  </p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Estimated Completion</h3>
-                  <p className="mt-1 text-sm dark:text-white">
-                    {formatDate(currentPrinting.calculated_time_stop)}
-                  </p>
-                </div>
-                
-                <div className="pt-4 flex justify-center">
                   <Link to={`/printings/${currentPrinting.id}`}>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                    >
-                      <EyeIcon className="h-4 w-4 mr-1" />
-                      View Details
+                    <Button variant="outline">
+                      <EyeIcon className="h-5 w-5 mr-1" />
+                      Детали
                     </Button>
                   </Link>
                 </div>
-
+                
                 {currentPrinting.progress >= 100 && (
-                  <div className="pt-2 flex justify-center">
+                  <div className="mt-2 flex justify-center">
                     <Button 
-                      size="sm" 
                       variant="success"
                       onClick={() => setShowConfirmModal(true)}
+                      size="lg"
+                      fullWidth
                     >
-                      <CheckIcon className="h-4 w-4 mr-1" />
-                      Confirm Completion
+                      <CheckIcon className="h-5 w-5 mr-2" />
+                      Подтвердить завершение
                     </Button>
                   </div>
                 )}
               </div>
             ) : unconfirmedPrinting ? (
               <div className="space-y-4">
-                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20">
                   <div className="flex items-center">
-                    <CubeIcon className="h-5 w-5 text-green-500 mr-2" />
-                    <h3 className="text-green-800 dark:text-green-300 font-medium">{unconfirmedPrinting.model_name}</h3>
+                    <CheckIcon className="h-6 w-6 mr-2 text-green-500" />
+                    <h3 className="text-lg font-medium">
+                      {unconfirmedPrinting.model_name}
+                    </h3>
                   </div>
                   
-                  <div className="mt-2">
-                    <div className="flex justify-between mb-1 text-xs text-green-800 dark:text-green-300">
-                      <span>Progress</span>
+                  <div className="mt-3">
+                    <div className="flex justify-between mb-1 text-xs font-medium">
+                      <span>Прогресс</span>
                       <span>100%</span>
                     </div>
-                    <div className="w-full bg-green-200 dark:bg-green-700 rounded-full h-2">
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                       <div 
-                        className="bg-green-600 dark:bg-green-400 h-2 rounded-full w-full"
+                        className="h-2.5 rounded-full bg-green-600 dark:bg-green-500 w-full"
                       ></div>
                     </div>
                   </div>
+                  
+                  <div className="mt-3 text-center">
+                    <p className="text-green-700 dark:text-green-400 font-medium">
+                      Задание печати завершено!
+                    </p>
+                  </div>
                 </div>
                 
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Status</h3>
-                  <p className="mt-1 text-sm dark:text-white">
-                    <StatusBadge status="completed" />
-                  </p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Printing Time</h3>
-                  <p className="mt-1 text-sm dark:text-white">
-                    {formatTime(unconfirmedPrinting.printing_time / 3600)}
-                  </p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Started At</h3>
-                  <p className="mt-1 text-sm dark:text-white">
-                    {formatDate(unconfirmedPrinting.start_time)}
-                  </p>
-                </div>
-                
-                <div className="pt-4 flex justify-center">
+                <div className="flex justify-center">
                   <Button 
-                    size="sm" 
                     variant="success"
                     onClick={() => setShowConfirmModal(true)}
+                    size="lg"
+                    fullWidth
                   >
-                    <CheckIcon className="h-4 w-4 mr-1" />
-                    Confirm Completion
+                    <CheckIcon className="h-5 w-5 mr-2" />
+                    Подтвердить завершение
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-10">
-                <PrinterIcon className="h-12 w-12 mx-auto text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-300">No active print job</h3>
-                {printer.status === 'idle' ? (
-                  <>
-                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      Printer is ready for a new job
-                    </p>
-                    <div className="mt-4">
-                      <Button 
-                        size="sm" 
-                        variant="primary"
-                        onClick={() => setShowStartForm(true)}
-                      >
-                        Start Print
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Printer is in {printer.status} state
-                  </p>
-                )}
-              </div>
-            )}
-          </Card>
-        </div>
-        
-        {/* Right Column - Recent Printings History */}
-        <div className="md:col-span-1">
-          <Card className="p-6 h-full">
-            <h2 className="text-xl font-semibold mb-4 dark:text-white">Recent Print History</h2>
-            
-            {recentPrintings.length > 0 ? (
-              <div className="space-y-3">
-                {recentPrintings.map(printing => (
-                  <Link 
-                    key={printing.id} 
-                    to={`/printings/${printing.id}`}
-                    className="block p-3 border rounded-lg hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium dark:text-white">{printing.model_name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Completed: {formatDate(printing.real_time_stop)}
-                        </p>
-                      </div>
-                      <StatusBadge status={printing.status} />
-                    </div>
-                  </Link>
-                ))}
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <div className="bg-gray-100 dark:bg-gray-700 rounded-full p-6 mb-4">
+                  <PrinterIcon className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-200 mb-1">Принтер простаивает</h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  {printer.status === 'idle' 
+                    ? 'Принтер готов к новому заданию печати'
+                    : `Принтер в статусе "${printer.status}"`}
+                </p>
                 
-                {totalPrintJobs > 5 && (
-                  <div className="text-center pt-3">
-                    <Button 
-                      size="xs" 
-                      variant="outline"
-                      onClick={() => navigate('/printings')}
-                    >
-                      View All History
-                    </Button>
-                  </div>
+                {printer.status === 'idle' && (
+                  <Button 
+                    variant="primary"
+                    size="lg"
+                    onClick={() => setShowStartForm(true)}
+                  >
+                    <PlayIcon className="h-5 w-5 mr-2" />
+                    Начать печать
+                  </Button>
                 )}
               </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-sm text-gray-500 dark:text-gray-400">No print history yet</p>
-              </div>
             )}
-          </Card>
-        </div>
+          </div>
+        </Card>
       </div>
 
-      {/* Modal for starting a new print */}
+      {/* История печати */}
+      <Card className="border-none shadow-lg bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold flex items-center text-gray-900 dark:text-white">
+              <DocumentTextIcon className="h-5 w-5 mr-2 text-orange-500" />
+              История печати
+            </h2>
+            <div className="flex space-x-2">
+              <button 
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  activeHistoryTab === 'recent' 
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' 
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                }`}
+                onClick={() => setActiveHistoryTab('recent')}
+              >
+                Последние
+              </button>
+              <button 
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  activeHistoryTab === 'all' 
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' 
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                }`}
+                onClick={() => setActiveHistoryTab('all')}
+              >
+                Все задания
+              </button>
+            </div>
+          </div>
+          
+          {(activeHistoryTab === 'recent' ? recentPrintings : allPrintings).length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-100 dark:bg-gray-700">
+                  <tr>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Модель
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Статус
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Начало
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Завершение
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Длительность
+                    </th>
+                    <th scope="col" className="relative px-4 py-3">
+                      <span className="sr-only">Действия</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {(activeHistoryTab === 'recent' ? recentPrintings : allPrintings).map(printing => (
+                    <tr key={printing.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                        {printing.model_name}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <StatusBadge status={printing.status} />
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                        {formatDate(printing.start_time)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                        {formatDate(printing.real_time_stop)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                        {printing.real_time_stop ? 
+                          formatMinutesToHHMM(Math.floor((new Date(printing.real_time_stop) - new Date(printing.start_time)) / 60000)) : 
+                          '-'
+                        }
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
+                        <Link 
+                          to={`/printings/${printing.id}`}
+                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                        >
+                          Подробнее
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <DocumentTextIcon className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-2" />
+              <p className="text-gray-500 dark:text-gray-400 mb-3">Для этого принтера еще нет истории печати</p>
+              <Button 
+                size="sm" 
+                variant="primary"
+                onClick={() => setShowStartForm(true)}
+                disabled={printer.status !== 'idle'}
+              >
+                Начать первую печать
+              </Button>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Модальное окно для запуска новой печати */}
       <Modal
         isOpen={showStartForm}
         onClose={() => setShowStartForm(false)}
-        title="Start New Print"
+        title="Начать новую печать"
+        size="lg"
         footer={
           <div className="flex justify-end">
             <Button
@@ -684,7 +1007,7 @@ const PrinterDetail = () => {
               onClick={() => setShowStartForm(false)}
               className="mr-2"
             >
-              Cancel
+              Отмена
             </Button>
             <Button
               variant="primary"
@@ -692,7 +1015,7 @@ const PrinterDetail = () => {
               isLoading={isSubmitting}
               disabled={!startForm.model_id || isSubmitting}
             >
-              Start Print
+              Начать печать
             </Button>
           </div>
         }
@@ -700,7 +1023,7 @@ const PrinterDetail = () => {
         <form onSubmit={handleStart} className="space-y-4">
           <div>
             <label htmlFor="model_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Select Model
+              Выберите модель для печати
             </label>
             <select
               id="model_id"
@@ -710,7 +1033,7 @@ const PrinterDetail = () => {
               className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               required
             >
-              <option value="">Select a model</option>
+              <option value="">Выберите модель</option>
               {models.map(model => (
                 <option key={model.id} value={model.id}>
                   {model.name} ({formatMinutesToHHMM(model.printing_time)})
@@ -720,25 +1043,36 @@ const PrinterDetail = () => {
           </div>
           
           {startForm.model_id && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md">
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
               <div className="flex">
-                <CubeIcon className="h-5 w-5 text-blue-400 mr-2" />
+                <CubeIcon className="h-8 w-8 text-blue-500 mr-3" />
                 <div>
-                  <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">
-                    Print Job Summary
+                  <h4 className="text-lg font-medium text-blue-800 dark:text-blue-300">
+                    Информация о задании
                   </h4>
-                  <div className="mt-2 text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                    <p>
-                      Printer: {printer.name}
-                    </p>
-                    <p>
-                      Model: {models.find(m => m.id === parseInt(startForm.model_id))?.name}
-                    </p>
-                    <p>
-                      Estimated time: {models.find(m => m.id === parseInt(startForm.model_id))?.printing_time ? 
-                        `${formatMinutesToHHMM(models.find(m => m.id === parseInt(startForm.model_id))?.printing_time)} (${formatDuration(models.find(m => m.id === parseInt(startForm.model_id))?.printing_time)})` : 
-                        'Unknown'}
-                    </p>
+                  <div className="mt-2 text-sm space-y-2">
+                    <div className="flex items-center">
+                      <PrinterIcon className="h-5 w-5 text-blue-500 mr-2" />
+                      <span className="text-blue-700 dark:text-blue-300">
+                        Принтер: <span className="font-medium">{printer.name}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      <CubeIcon className="h-5 w-5 text-blue-500 mr-2" />
+                      <span className="text-blue-700 dark:text-blue-300">
+                        Модель: <span className="font-medium">{models.find(m => m.id === parseInt(startForm.model_id))?.name}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      <ClockIcon className="h-5 w-5 text-blue-500 mr-2" />
+                      <span className="text-blue-700 dark:text-blue-300">
+                        Расчетное время: <span className="font-medium">
+                          {models.find(m => m.id === parseInt(startForm.model_id))?.printing_time ? 
+                            formatMinutesToHHMM(models.find(m => m.id === parseInt(startForm.model_id))?.printing_time) : 
+                            'Неизвестно'}
+                        </span>
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -747,11 +1081,12 @@ const PrinterDetail = () => {
         </form>
       </Modal>
 
-      {/* Modal for confirming print completion */}
+      {/* Модальное окно для подтверждения завершения печати */}
       <Modal
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
-        title="Confirm Print Completion"
+        title="Подтвердить завершение печати"
+        size="md"
         footer={
           <div className="flex justify-end">
             <Button
@@ -759,7 +1094,7 @@ const PrinterDetail = () => {
               onClick={() => setShowConfirmModal(false)}
               className="mr-2"
             >
-              Cancel
+              Отмена
             </Button>
             <Button
               variant="success"
@@ -767,26 +1102,38 @@ const PrinterDetail = () => {
               isLoading={isSubmitting}
               disabled={isSubmitting}
             >
-              Confirm Complete
+              Подтвердить завершение
             </Button>
           </div>
         }
       >
         <div className="space-y-4">
-          <p className="text-gray-700 dark:text-gray-300">
-            Are you sure the print job is complete and you want to mark it as successful?
-          </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            This will set the printer status to idle and record the print job as completed successfully.
+          <div className="flex items-start p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+            <div className="flex-shrink-0">
+              <CheckIcon className="h-6 w-6 text-green-500" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-lg font-medium text-green-800 dark:text-green-300">
+                Задание печати завершено
+              </h3>
+              <p className="mt-2 text-green-700 dark:text-green-400">
+                Вы уверены, что задание печати успешно завершено?
+              </p>
+            </div>
+          </div>
+          <p className="text-gray-500 dark:text-gray-400">
+            При подтверждении статус принтера будет изменен на "idle" (простаивает),
+            а задание печати будет отмечено как успешно завершенное.
           </p>
         </div>
       </Modal>
 
-      {/* Stop Reason Modal */}
+      {/* Модальное окно для выбора причины остановки */}
       <Modal
         isOpen={isStopReasonModalOpen}
         onClose={() => setIsStopReasonModalOpen(false)}
-        title="Why are you stopping the print?"
+        title="Почему вы останавливаете печать?"
+        size="md"
         footer={
           <div className="flex justify-end">
             <Button
@@ -794,30 +1141,31 @@ const PrinterDetail = () => {
               onClick={() => setIsStopReasonModalOpen(false)}
               className="mr-2"
             >
-              Cancel
+              Отмена
             </Button>
             <Button
               variant="danger"
               disabled={!stopReason || isSubmitting}
               onClick={confirmStop}
+              isLoading={isSubmitting}
             >
-              {isSubmitting ? 'Processing...' : 'Confirm Stop'}
+              Остановить печать
             </Button>
           </div>
         }
       >
         <div className="space-y-6">
           <div className="flex items-start space-x-4">
-            <ExclamationTriangleIcon className="h-6 w-6 text-yellow-500 mt-1" />
+            <ExclamationTriangleIcon className="h-6 w-6 text-yellow-500 mt-1 flex-shrink-0" />
             <div>
-              <p className="text-sm text-gray-700 dark:text-gray-200">
-                Please select a reason for stopping this print job:
+              <p className="text-gray-700 dark:text-gray-200">
+                Пожалуйста, выберите причину остановки задания печати:
               </p>
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center">
+          <div className="space-y-3 pl-2">
+            <div className="flex items-center rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <input
                 id="success-early"
                 name="stop-reason"
@@ -826,11 +1174,16 @@ const PrinterDetail = () => {
                 onChange={() => setStopReason('finished-early')}
                 className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
               />
-              <label htmlFor="success-early" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Print finished early (success)
+              <label htmlFor="success-early" className="ml-3 flex flex-col cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Печать завершилась раньше (успех)
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Задание будет отмечено как успешное
+                </span>
               </label>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <input
                 id="emergency"
                 name="stop-reason"
@@ -839,11 +1192,16 @@ const PrinterDetail = () => {
                 onChange={() => setStopReason('emergency')}
                 className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
               />
-              <label htmlFor="emergency" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Emergency stop (failure)
+              <label htmlFor="emergency" className="ml-3 flex flex-col cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Экстренная остановка (ошибка)
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Задание будет отмечено как неудачное
+                </span>
               </label>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <input
                 id="changed-mind"
                 name="stop-reason"
@@ -852,11 +1210,16 @@ const PrinterDetail = () => {
                 onChange={() => setStopReason('changed-mind')}
                 className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300"
               />
-              <label htmlFor="changed-mind" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Changed mind (cancelled)
+              <label htmlFor="changed-mind" className="ml-3 flex flex-col cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Передумал (отменено)
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Задание будет отмечено как отмененное
+                </span>
               </label>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <input
                 id="other"
                 name="stop-reason"
@@ -865,8 +1228,13 @@ const PrinterDetail = () => {
                 onChange={() => setStopReason('other')}
                 className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300"
               />
-              <label htmlFor="other" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Other reason (cancelled)
+              <label htmlFor="other" className="ml-3 flex flex-col cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Другая причина (отменено)
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Задание будет отмечено как отмененное
+                </span>
               </label>
             </div>
           </div>

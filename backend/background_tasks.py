@@ -7,23 +7,36 @@ from services.printer import get_printers, format_hours_to_hhmm
 from dal import printer as printer_dal
 
 def update_printer_downtimes():
-    """Обновляет время простоя для всех принтеров в состоянии idle"""
+    """Обновляет время простоя для всех принтеров в неактивном состоянии"""
     db = SessionLocal()
     try:
         printers = get_printers(db)
         current_time = datetime.now()
         print(f"[{current_time}] Checking printer downtimes...")
         
+        # Время в минутах между запусками задачи
+        # Обычно планировщик запускается раз в 30 секунд, но для надежности используем
+        # фактическое время между запусками
+        
         for printer in printers:
-            if printer.status == "idle" or printer.status == "waiting":
-                # Получаем актуальное время простоя с момента последней активности
-                current_downtime = calculate_printer_downtime(db, printer.id, current_time)
-                # Вычисляем разницу между текущим простоем и прошлым
-                downtime_difference = current_downtime - printer.total_downtime
-                print(f"[{current_time}] Printer {printer.id} downtime difference: {downtime_difference}")
-                # Обновляем через DAL только разницу
-                printer_dal.update(db, printer.id, {"total_downtime": downtime_difference})
-                formatted_time = format_hours_to_hhmm(downtime_difference)        
+            # Обновляем время простоя только для принтеров в неактивном состоянии
+            if printer.status in ["idle", "waiting", "error"]:
+                # Добавляем инкрементальное время простоя
+                # Используем 0.5 минуты (30 секунд) как стандартный интервал планировщика
+                increment_minutes = 0.5  # 30 секунд в минутах
+                
+                # Получаем текущее время простоя
+                current_downtime = float(printer.total_downtime or 0)
+                
+                # Добавляем инкрементальное время
+                new_downtime = current_downtime + increment_minutes
+                
+                # Обновляем общее время простоя
+                printer_dal.update(db, printer.id, {"total_downtime": new_downtime})
+                
+                formatted_time = format_hours_to_hhmm(new_downtime)
+                print(f"[{current_time}] Printer {printer.id} updated downtime: {formatted_time} (+{increment_minutes:.2f} min)")
+        
         db.commit()
     except Exception as e:
         print(f"Error updating printer downtimes: {e}")

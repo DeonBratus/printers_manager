@@ -13,6 +13,7 @@ def create(db: Session, printer: PrinterCreate):
     # If not exists, create new printer
     db_printer = models.Printer(
         name=printer.name,
+        model=printer.model,
         status=printer.status,
         total_print_time=printer.total_print_time,
         total_downtime=printer.total_downtime
@@ -59,3 +60,44 @@ def delete(db: Session, printer_id: int):
         db.delete(db_printer)
         db.commit()
     return db_printer
+
+def add_parameter(db: Session, printer_id: int, param_name: str, param_value: str):
+    # Check if parameter already exists
+    existing_param = db.query(models.PrinterParameter).filter(
+        models.PrinterParameter.printer_id == printer_id,
+        models.PrinterParameter.name == param_name
+    ).first()
+    
+    if existing_param:
+        # Update existing parameter
+        existing_param.value = param_value
+        db.commit()
+        db.refresh(existing_param)
+        return existing_param
+    
+    # Create new parameter
+    db_param = models.PrinterParameter(
+        printer_id=printer_id,
+        name=param_name,
+        value=param_value
+    )
+    db.add(db_param)
+    db.commit()
+    db.refresh(db_param)
+    return db_param
+
+def get_parameters(db: Session, printer_id: int):
+    return db.query(models.PrinterParameter).filter(
+        models.PrinterParameter.printer_id == printer_id
+    ).all()
+
+def delete_parameter(db: Session, param_id: int):
+    db_param = db.query(models.PrinterParameter).filter(
+        models.PrinterParameter.id == param_id
+    ).first()
+    
+    if db_param:
+        db.delete(db_param)
+        db.commit()
+    
+    return db_param

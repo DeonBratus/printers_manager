@@ -10,6 +10,7 @@ class Printer(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
+    model = Column(String, nullable=True)  # Printer model e.g. Creality Ender 3 V2
     status = Column(String, default="idle")  # idle, printing, waiting, paused, error
     total_print_time = Column(Float, default=0.0)
     total_downtime = Column(Float, default=0.0)
@@ -18,6 +19,7 @@ class Printer(Base):
     # Define relationships after all classes
     printings = relationship("Printing", back_populates="printer")
     queue_items = relationship("PrintQueue", back_populates="printer")
+    parameters = relationship("PrinterParameter", back_populates="printer", cascade="all, delete-orphan")
 
 class Model(Base):
     __tablename__ = "td_models"
@@ -71,3 +73,15 @@ class PrintQueue(Base):
 
     printer = relationship("Printer", back_populates="queue_items")
     model = relationship("Model", back_populates="queue_items")
+
+# Add this new model at the end of the file
+class PrinterParameter(Base):
+    __tablename__ = "td_printer_parameters"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    printer_id = Column(Integer, ForeignKey("td_printers.id"))
+    name = Column(String, nullable=False)
+    value = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    
+    printer = relationship("Printer", back_populates="parameters")

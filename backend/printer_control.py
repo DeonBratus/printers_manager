@@ -8,8 +8,9 @@ from dal import printer as printer_dal
 
 def calculate_printer_downtime(db: Session, printer_id: int, current_time: datetime = None) -> float:
     """
-    Вычисляет текущее время простоя принтера.
-    Простой считается когда принтер в состоянии idle или waiting
+    Вычисляет полное время простоя принтера с момента последней активности.
+    Используется при изменении статуса принтера с активного на неактивный.
+    Возвращает время простоя в минутах.
     """
     if current_time is None:
         current_time = datetime.now()
@@ -18,35 +19,49 @@ def calculate_printer_downtime(db: Session, printer_id: int, current_time: datet
     if not printer:
         return 0.0
         
-    # Если принтер активен (printing, paused), то нет простоя
-    if printer.status not in ["idle", "waiting", "error"]:
-        return printer.total_downtime
-        
     # Получаем время последней активности принтера
     last_printing = db.query(models.Printing).filter(
         models.Printing.printer_id == printer_id
     ).order_by(models.Printing.real_time_stop.desc()).first()
     
-    current_downtime = 0.0
-    
     if last_printing and last_printing.real_time_stop:
         # Время простоя от завершения последней печати до текущего момента в минутах
-        current_downtime = (current_time - last_printing.real_time_stop).total_seconds() / 60
-        print(f"Printer {printer_id} idle time since last print: {format_minutes_to_hhmm(current_downtime)}")
+        idle_time = (current_time - last_printing.real_time_stop).total_seconds() / 60
+        print(f"Printer {printer_id} idle time since last print: {format_minutes_to_hhmm(idle_time)}")
+        return idle_time
     else:
         # Если печатей не было или нет завершенных, считаем с момента добавления принтера в систему
-        current_downtime = (current_time - printer.created_at).total_seconds() / 60
-        print(f"Printer {printer_id} idle time since creation: {format_minutes_to_hhmm(current_downtime)}")
+        idle_time = (current_time - printer.created_at).total_seconds() / 60
+        print(f"Printer {printer_id} idle time since creation: {format_minutes_to_hhmm(idle_time)}")
+        return idle_time
+
+def update_printer_status(db: Session, printer_id: int, new_status: str) -> models.Printer:
+    """
+    Обновляет статус принтера с учётом изменения режима работы.
+    При переходе из активного состояния в неактивное, обновляет время простоя.
+    """
+    printer = get_printer(db, printer_id)
+    if not printer:
+        return None
+        
+    # Если статус не изменился, просто возвращаем принтер
+    if printer.status == new_status:
+        return printer
+        
+    # Проверяем переход из активного состояния в неактивное
+    active_states = ["printing", "paused"]
+    inactive_states = ["idle", "waiting", "error"]
     
-    # Обновляем общее время простоя в БД
-    total_downtime = (printer.total_downtime or 0) + current_downtime
-    printer_dal.update(db, printer_id, {"total_downtime": total_downtime})
+    # Обновляем статус
+    printer_dal.update(db, printer_id, {"status": new_status})
     
-    return total_downtime
+    # Обновляем принтер из базы данных
+    db.refresh(printer)
+    return printer
 
 def complete_printing(db: Session, printing_id: int, auto_complete: bool = False):
     printing = get_printing(db, printing_id)
-    if not printing or printing.real_time_stop is not None:
+    if not printing:
         return None
     
     printer = get_printer(db, printing.printer_id)
@@ -54,12 +69,14 @@ def complete_printing(db: Session, printing_id: int, auto_complete: bool = False
         return None
     
     current_time = datetime.now()
-    printing.real_time_stop = current_time
+    # Always set the real_time_stop field
+    if not printing.real_time_stop:
+        printing.real_time_stop = current_time
     
     # Обновляем статус печати
     if auto_complete:
         printing.status = "completed"
-        printer_dal.update(db, printer.id, {"status": "waiting"})
+        update_printer_status(db, printer.id, "waiting")
     else:
         printing.status = "completed"
         # Вычисляем фактическое время печати без учета простоев в минутах
@@ -70,6 +87,8 @@ def complete_printing(db: Session, printing_id: int, auto_complete: bool = False
         
         # Обновляем общее время работы принтера
         total_print_time = (printer.total_print_time or 0) + actual_printing_time
+        
+        # Обновляем статус принтера на idle и общее время печати
         printer_dal.update(db, printer.id, {
             "status": "idle",
             "total_print_time": total_print_time
@@ -91,11 +110,12 @@ def pause_printing(db: Session, printing_id: int):
     if not printer:
         return None
     
-    printer.status = "paused"
+    # Обновляем статус принтера на "paused"
+    update_printer_status(db, printer.id, "paused")
+    
     printing.status = "paused"
     printing.pause_time = datetime.now()
     
-    db.add(printer)
     db.add(printing)
     db.commit()
     db.refresh(printing)
@@ -120,11 +140,12 @@ def resume_printing(db: Session, printing_id: int):
             printing.calculated_time_stop = printing.calculated_time_stop + \
                 (current_time - printing.pause_time)
     
-    printer.status = "printing"
+    # Обновляем статус принтера на "printing"
+    update_printer_status(db, printer.id, "printing")
+    
     printing.status = "printing"
     printing.pause_time = None
     
-    db.add(printer)
     db.add(printing)
     db.commit()
     db.refresh(printing)
@@ -152,12 +173,15 @@ def cancel_printing(db: Session, printing_id: int):
     
     # Обновляем статистику принтера
     total_print_time = (printer.total_print_time or 0) + actual_printing_time
-    printer.status = "idle"
-    printer.total_print_time = total_print_time
+    
+    # Обновляем статус принтера на "idle" и общее время печати
+    printer_dal.update(db, printer.id, {
+        "status": "idle",
+        "total_print_time": total_print_time
+    })
     
     # Сохраняем изменения
     db.add(printing)
-    db.add(printer)
     db.commit()
     
     # Обновляем объект печати из базы данных

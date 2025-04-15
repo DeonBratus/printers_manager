@@ -271,22 +271,46 @@ const Dashboard = () => {
         </Card>
         
         <Card className="p-4">
-          <h2 className="text-lg font-semibold mb-2 dark:text-white">{t('dashboard.printersOverview')}</h2>
-          <div className="space-y-2 dark:text-gray-300">
-            <p>{t('dashboard.totalPrinters')}: {printers.length}</p>
-            <p>{t('dashboard.activePrinters')}: {printers.filter(p => p.status === 'printing').length}</p>
-            <p>{t('dashboard.totalPrintJobs')}: {printings.length}</p>
+          <h2 className="text-lg font-semibold mb-2 dark:text-white">{t('dashboard.pendingConfirmation')}</h2>
+          <div className="overflow-y-auto max-h-64">
+            {printings.filter(p => p.status === 'waiting' || (p.status === 'completed' && !p.real_time_stop)).length > 0 ? (
+              <div className="space-y-2">
+                {printings
+                  .filter(p => p.status === 'waiting' || (p.status === 'completed' && !p.real_time_stop))
+                  .map(printing => (
+                    <Link to={`/printings/${printing.id}`} key={printing.id} className="block">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/20 transition-colors">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium text-blue-700 dark:text-blue-300">
+                              {printing.model_name}
+                            </div>
+                            <div className="text-sm text-blue-600 dark:text-blue-400">
+                              {printing.printer_name}
+                            </div>
+                          </div>
+                          <StatusBadge status={printing.status} />
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+              </div>
+            ) : (
+              <div className="text-center py-5 text-gray-500 dark:text-gray-400">
+                {t('dashboard.noPendingConfirmation')}
+              </div>
+            )}
           </div>
           <div className="mt-4">
-            <Link to="/printers">
-              <Button variant="outline" size="sm">{t('dashboard.viewAllPrinters')}</Button>
+            <Link to="/printings">
+              <Button variant="outline" size="sm">{t('dashboard.viewAllPrintJobs')}</Button>
             </Link>
           </div>
         </Card>
       </div>
 
       <Card className="p-4">
-        <h2 className="text-lg font-semibold mb-2 dark:text-white">{t('dashboard.recentPrintJobs')}</h2>
+        <h2 className="text-lg font-semibold mb-2 dark:text-white">{t('dashboard.upcomingCompletions')}</h2>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800">
@@ -294,36 +318,44 @@ const Dashboard = () => {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('printings.printer')}</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('printings.model')}</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('printings.startTime')}</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('printings.estimatedCompletion')}</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('common.status')}</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('printings.progress')}</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {printings && printings.length > 0 ? (
-                printings.map((printing) => (
-                  <tr key={printing.id}>
-                    <td className="px-4 py-2 whitespace-nowrap dark:text-gray-300">{printing.printer_name}</td>
-                    <td className="px-4 py-2 whitespace-nowrap dark:text-gray-300">{printing.model_name}</td>
-                    <td className="px-4 py-2 whitespace-nowrap dark:text-gray-300">
-                      {new Date(printing.start_time).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap">
-                      <StatusBadge status={printing.status} />
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap">
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div 
-                          className="bg-blue-600 dark:bg-blue-500 h-2.5 rounded-full" 
-                          style={{ width: `${printing.progress || 0}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-xs dark:text-gray-300">{Math.round(printing.progress || 0)}%</span>
-                    </td>
-                  </tr>
-                ))
+                // Sort by calculated completion time
+                [...printings]
+                  .filter(p => p.status === 'printing' || p.status === 'paused')
+                  .sort((a, b) => new Date(a.calculated_time_stop || 0) - new Date(b.calculated_time_stop || 0))
+                  .map((printing) => (
+                    <tr key={printing.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-4 py-2 whitespace-nowrap dark:text-gray-300">{printing.printer_name}</td>
+                      <td className="px-4 py-2 whitespace-nowrap dark:text-gray-300">{printing.model_name}</td>
+                      <td className="px-4 py-2 whitespace-nowrap dark:text-gray-300">
+                        {new Date(printing.start_time).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap dark:text-gray-300">
+                        {printing.calculated_time_stop ? new Date(printing.calculated_time_stop).toLocaleString() : 'N/A'}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <StatusBadge status={printing.status} />
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                          <div 
+                            className="bg-blue-600 dark:bg-blue-500 h-2.5 rounded-full" 
+                            style={{ width: `${printing.progress || 0}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-xs dark:text-gray-300">{Math.round(printing.progress || 0)}%</span>
+                      </td>
+                    </tr>
+                  ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="px-4 py-4 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan="6" className="px-4 py-4 text-center text-gray-500 dark:text-gray-400">
                     {t('dashboard.noPrintings')}
                   </td>
                 </tr>

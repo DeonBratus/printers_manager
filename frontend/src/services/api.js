@@ -81,6 +81,11 @@ export const resumePrinter = (id) => api.post(`/printers/${id}/resume`);
 export const stopPrinter = (id, data = {}) => api.post(`/printers/${id}/stop`, data);
 export const confirmPrinting = (id) => api.post(`/printers/${id}/confirm`);
 
+// Printer Parameters API
+export const getPrinterParameters = (printerId) => api.get(`/printers/${printerId}/parameters`);
+export const addPrinterParameter = (printerId, paramData) => api.post(`/printers/${printerId}/parameters`, paramData);
+export const deletePrinterParameter = (printerId, paramId) => api.delete(`/printers/${printerId}/parameters/${paramId}`);
+
 // Models API
 export const getModels = () => api.get('/models/');
 export const getModel = (id) => api.get(`/models/${id}`);
