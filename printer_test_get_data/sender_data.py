@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger("printer_sender")
 
 # Настройки
-SERVER_URL = "http://localhost:8000"  # Адрес сервера getter_data.py
+SERVER_URL = "http://localhost:5000"  # Адрес сервера getter_data.py
 POLL_INTERVAL = 30  # Интервал обновления данных в секундах
 REQUEST_TIMEOUT = 5  # Таймаут запросов в секундах
 
@@ -43,7 +43,7 @@ def send_printer_data(data: Dict) -> bool:
             timeout=REQUEST_TIMEOUT
         )
         if response.status_code == 200:
-            logger.info("Данные успешно отправлены на сервер")
+            logger.info(f"Данные успешно отправлены на сервер для принтера {data.get('printer_name')}")
             return True
         else:
             logger.error(f"Ошибка отправки данных: {response.status_code}")
@@ -80,6 +80,7 @@ def is_printer_online(ip_address: str) -> bool:
 def main_loop():
     """Основной цикл программы"""
     logger.info("Запуск клиента сбора данных с принтеров")
+    logger.info(f"Сервер: {SERVER_URL}")
     
     while True:
         try:

@@ -14,8 +14,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Настройка шаблонов Jinja2
 templates = Jinja2Templates(directory="templates")
 
-# Глобальная переменная для хранения последних данных (можно заменить на БД)
-latest_printer_data: Dict[str, Any] = {}
+# Словарь для хранения данных всех принтеров, ключ - имя принтера
+printers_data: Dict[str, Dict[str, Any]] = {}
 
 # Модель для принтера
 class Printer(BaseModel):
@@ -28,10 +28,16 @@ printers: List[Printer] = []
 @app.post("/receive_data")
 async def receive_data(request: Request):
     """Принимает данные от клиента и сохраняет их."""
-    global latest_printer_data
+    global printers_data
     data = await request.json()
-    latest_printer_data = data
-    print("Данные обновлены:", latest_printer_data)  # Для отладки
+    printer_name = data.get("printer_name")
+    
+    if printer_name:
+        printers_data[printer_name] = data
+        print(f"Данные обновлены для принтера {printer_name}")  # Для отладки
+    else:
+        print("Получены данные без указания имени принтера")
+    
     return {"message": "Data received successfully"}
 
 @app.get("/", response_class=HTMLResponse)
@@ -39,15 +45,22 @@ async def read_root(request: Request):
     """Отображает веб-страницу с данными."""
     return templates.TemplateResponse(
         "index.html",
-        {"request": request, "data": latest_printer_data}
+        {"request": request}
     )
 
 @app.get("/api/data")
 async def get_latest_data():
-    """API-эндпоинт для получения данных (используется JavaScript-ом)."""
-    return latest_printer_data
+    """API-эндпоинт для получения данных о всех принтерах."""
+    return printers_data
 
-# Новые endpoint'ы для управления списком принтеров
+@app.get("/api/data/{printer_name}")
+async def get_printer_data(printer_name: str):
+    """Получение данных для конкретного принтера."""
+    if printer_name in printers_data:
+        return printers_data[printer_name]
+    return {"error": "Printer not found"}
+
+# Endpoint'ы для управления списком принтеров
 @app.get("/api/printers")
 async def get_printers():
     """Получение списка принтеров"""
@@ -63,8 +76,14 @@ async def add_printer(printer: Printer):
 async def delete_printer(printer_name: str):
     """Удаление принтера по имени"""
     global printers
+    global printers_data
+    
     original_count = len(printers)
     printers = [p for p in printers if p.name != printer_name]
+    
+    # Удаляем данные принтера, если они есть
+    if printer_name in printers_data:
+        del printers_data[printer_name]
     
     if len(printers) < original_count:
         return {"message": f"Printer '{printer_name}' deleted successfully"}

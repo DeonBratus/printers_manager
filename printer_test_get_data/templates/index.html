@@ -132,8 +132,8 @@
             }
         }
         
-        // Функция получения последних данных о принтере
-        async function fetchPrinterData() {
+        // Функция получения данных о всех принтерах
+        async function fetchPrintersData() {
             try {
                 const response = await fetch('/api/data');
                 if (!response.ok) {
@@ -142,7 +142,7 @@
                 return await response.json();
             } catch (error) {
                 console.error('Ошибка загрузки данных:', error);
-                return null;
+                return {};
             }
         }
         
@@ -189,10 +189,19 @@
             }
         }
         
+        // Преобразование временной метки в читаемый формат
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return 'Нет данных';
+            
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleString();
+        }
+        
         // Обновление UI
         async function updateUI() {
+            // Получаем список принтеров и данные о них
             const printers = await fetchPrinters();
-            const latestData = await fetchPrinterData();
+            const printersData = await fetchPrintersData();
             
             const printerListElement = document.getElementById('printer-list');
             
@@ -209,31 +218,33 @@
                 const printerName = printer.name;
                 const ipAddress = printer.ip_address;
                 
-                // Проверяем, есть ли данные для этого принтера
-                let printerData = null;
-                if (latestData && latestData.printer_name === printerName) {
-                    printerData = latestData;
-                }
-                
+                // Получаем данные для текущего принтера
+                const printerData = printersData[printerName];
                 const isOnline = printerData && printerData.status === 'online';
                 const statusClass = isOnline ? 'status-online' : 'status-offline';
+                const lastUpdate = printerData ? formatTimestamp(printerData.timestamp) : 'Нет данных';
                 
                 html += `
                     <div class="status-box ${statusClass}">
                         <h3>${printerName} (${ipAddress})</h3>
                         <p>Статус: ${isOnline ? 'Онлайн' : 'Офлайн'}</p>
+                        <p>Обновлено: ${lastUpdate}</p>
                 `;
                 
                 if (isOnline && printerData.result) {
-                    const status = printerData.result.status;
-                    if (status) {
+                    const data = printerData.result;
+                    if (data.status) {
+                        const printStats = data.status.print_stats || {};
+                        const heaterBed = data.status.heater_bed || {};
+                        const extruder = data.status.extruder || {};
+                        
                         html += `
-                            <p>Состояние печати: ${status.print_stats?.state || 'Н/Д'}</p>
+                            <p>Состояние печати: ${printStats.state || 'Н/Д'}</p>
                             <div class="temp-info">
-                                <span>Стол: ${status.heater_bed?.temperature.toFixed(1) || 'Н/Д'}°C / 
-                                    ${status.heater_bed?.target.toFixed(0) || 'Н/Д'}°C</span>
-                                <span>Экструдер: ${status.extruder?.temperature.toFixed(1) || 'Н/Д'}°C / 
-                                    ${status.extruder?.target.toFixed(0) || 'Н/Д'}°C</span>
+                                <span>Стол: ${heaterBed.temperature ? heaterBed.temperature.toFixed(1) : 'Н/Д'}°C / 
+                                    ${heaterBed.target ? heaterBed.target.toFixed(0) : 'Н/Д'}°C</span>
+                                <span>Экструдер: ${extruder.temperature ? extruder.temperature.toFixed(1) : 'Н/Д'}°C / 
+                                    ${extruder.target ? extruder.target.toFixed(0) : 'Н/Д'}°C</span>
                             </div>
                         `;
                     } else {
