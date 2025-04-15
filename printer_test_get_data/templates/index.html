@@ -197,6 +197,63 @@
             return date.toLocaleString();
         }
         
+        // Получение данных о температуре и статусе в зависимости от формата данных
+        function extractPrinterStatus(printerData) {
+            if (!printerData || !printerData.result) {
+                return {
+                    state: 'Нет данных',
+                    extruder: { temperature: null, target: null },
+                    bed: { temperature: null, target: null }
+                };
+            }
+            
+            // Определим формат данных
+            const result = printerData.result;
+            
+            // Старый формат (прямой ответ от Klipper)
+            if (result.status) {
+                const status = result.status;
+                return {
+                    state: status.print_stats?.state || 'Нет данных',
+                    extruder: {
+                        temperature: status.extruder?.temperature || null,
+                        target: status.extruder?.target || null
+                    },
+                    bed: {
+                        temperature: status.heater_bed?.temperature || null,
+                        target: status.heater_bed?.target || null
+                    }
+                };
+            }
+            
+            // Формат от старого клиента (Moonraker API response)
+            if (result.result) {
+                const moonraker = result.result;
+                const stats = moonraker?.status?.print_stats || {};
+                const extruder = moonraker?.status?.extruder || {};
+                const bed = moonraker?.status?.heater_bed || {};
+                
+                return {
+                    state: stats.state || 'Нет данных',
+                    extruder: {
+                        temperature: extruder.temperature || null,
+                        target: extruder.target || null
+                    },
+                    bed: {
+                        temperature: bed.temperature || null,
+                        target: bed.target || null
+                    }
+                };
+            }
+            
+            // Если не смогли распознать формат
+            return {
+                state: 'Формат данных не распознан',
+                extruder: { temperature: null, target: null },
+                bed: { temperature: null, target: null }
+            };
+        }
+        
         // Обновление UI
         async function updateUI() {
             // Получаем список принтеров и данные о них
@@ -231,25 +288,18 @@
                         <p>Обновлено: ${lastUpdate}</p>
                 `;
                 
-                if (isOnline && printerData.result) {
-                    const data = printerData.result;
-                    if (data.status) {
-                        const printStats = data.status.print_stats || {};
-                        const heaterBed = data.status.heater_bed || {};
-                        const extruder = data.status.extruder || {};
-                        
-                        html += `
-                            <p>Состояние печати: ${printStats.state || 'Н/Д'}</p>
-                            <div class="temp-info">
-                                <span>Стол: ${heaterBed.temperature ? heaterBed.temperature.toFixed(1) : 'Н/Д'}°C / 
-                                    ${heaterBed.target ? heaterBed.target.toFixed(0) : 'Н/Д'}°C</span>
-                                <span>Экструдер: ${extruder.temperature ? extruder.temperature.toFixed(1) : 'Н/Д'}°C / 
-                                    ${extruder.target ? extruder.target.toFixed(0) : 'Н/Д'}°C</span>
-                            </div>
-                        `;
-                    } else {
-                        html += `<p>Нет данных о состоянии</p>`;
-                    }
+                if (isOnline) {
+                    const status = extractPrinterStatus(printerData);
+                    
+                    html += `
+                        <p>Состояние печати: ${status.state}</p>
+                        <div class="temp-info">
+                            <span>Стол: ${status.bed.temperature ? status.bed.temperature.toFixed(1) : 'Н/Д'}°C / 
+                                ${status.bed.target ? status.bed.target.toFixed(0) : 'Н/Д'}°C</span>
+                            <span>Экструдер: ${status.extruder.temperature ? status.extruder.temperature.toFixed(1) : 'Н/Д'}°C / 
+                                ${status.extruder.target ? status.extruder.target.toFixed(0) : 'Н/Д'}°C</span>
+                        </div>
+                    `;
                 }
                 
                 html += `

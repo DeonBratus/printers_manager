@@ -17,16 +17,19 @@ logging.basicConfig(
 logger = logging.getLogger("printer_sender")
 
 # Настройки
-SERVER_URL = "http://localhost:5000"  # Адрес сервера getter_data.py
-POLL_INTERVAL = 30  # Интервал обновления данных в секундах
+SERVER_URL = "http://83.222.17.92:5000"  # Адрес сервера getter_data.py
+POLL_INTERVAL = 5  # Интервал обновления данных в секундах
 REQUEST_TIMEOUT = 5  # Таймаут запросов в секундах
 
 def get_printer_list() -> List[Dict]:
     """Получение списка принтеров с сервера"""
     try:
+        logger.debug(f"Запрос списка принтеров на {SERVER_URL}/api/printers")
         response = requests.get(f"{SERVER_URL}/api/printers", timeout=REQUEST_TIMEOUT)
         if response.status_code == 200:
-            return response.json()
+            printers = response.json()
+            logger.debug(f"Получен список принтеров: {json.dumps(printers, indent=2)}")
+            return printers
         else:
             logger.error(f"Ошибка получения списка принтеров: {response.status_code}")
             return []
@@ -37,6 +40,7 @@ def get_printer_list() -> List[Dict]:
 def send_printer_data(data: Dict) -> bool:
     """Отправка данных о принтере на сервер"""
     try:
+        logger.debug(f"Отправка данных на сервер: {json.dumps(data, indent=2)}")
         response = requests.post(
             f"{SERVER_URL}/receive_data", 
             json=data,
@@ -46,7 +50,7 @@ def send_printer_data(data: Dict) -> bool:
             logger.info(f"Данные успешно отправлены на сервер для принтера {data.get('printer_name')}")
             return True
         else:
-            logger.error(f"Ошибка отправки данных: {response.status_code}")
+            logger.error(f"Ошибка отправки данных: {response.status_code}, {response.text}")
             return False
     except Exception as e:
         logger.error(f"Ошибка при отправке данных: {str(e)}")
@@ -55,15 +59,59 @@ def send_printer_data(data: Dict) -> bool:
 def get_printer_status(ip_address: str) -> Optional[Dict]:
     """Получение статуса принтера по API Klipper/Moonraker"""
     try:
-        # Пробуем подключиться к Moonraker API (обычно на порту 7125)
-        api_url = f"http://{ip_address}:7125/printer/objects/query?extruder&heater_bed&print_stats"
-        response = requests.get(api_url, timeout=REQUEST_TIMEOUT)
+        api_url = f"http://{ip_address}/printer/objects/query"
+        logger.debug(f"Запрос статуса принтера по адресу: {api_url}")
+        
+        # Расширенный список запрашиваемых объектов
+        data = {
+            "objects": {
+                "print_stats": None,
+                "heater_bed": None,
+                "extruder": None,
+                "gcode_move": None,
+                "toolhead": None,
+                "virtual_sdcard": None,
+                "display_status": None,
+                "fan": None
+            }
+        }
+        
+        response = requests.post(url=api_url, json=data, timeout=REQUEST_TIMEOUT)
         
         if response.status_code == 200:
-            return response.json()
+            status_data = response.json()
+            logger.debug(f"Получены данные от принтера {ip_address}")
+            
+            # Извлечем и выведем в лог основные параметры для мониторинга
+            try:
+                result = status_data.get("result", {})
+                status = result.get("status", {})
+                
+                # Статус печати
+                print_stats = status.get("print_stats", {})
+                state = print_stats.get("state", "неизвестно")
+                
+                # Температуры
+                bed_temp = status.get("heater_bed", {}).get("temperature", 0)
+                bed_target = status.get("heater_bed", {}).get("target", 0)
+                
+                extruder_temp = status.get("extruder", {}).get("temperature", 0)
+                extruder_target = status.get("extruder", {}).get("target", 0)
+                
+                logger.info(f"Принтер {ip_address}: Статус={state}, Стол={bed_temp:.1f}/{bed_target:.1f}°C, Экструдер={extruder_temp:.1f}/{extruder_target:.1f}°C")
+            except Exception as e:
+                logger.warning(f"Ошибка при разборе данных принтера {ip_address}: {str(e)}")
+            
+            return status_data
         else:
-            logger.warning(f"Не удалось получить данные с принтера {ip_address}: {response.status_code}")
+            logger.warning(f"Не удалось получить данные с принтера {ip_address}: код {response.status_code}")
             return None
+    except requests.exceptions.Timeout:
+        logger.warning(f"Таймаут при запросе статуса принтера {ip_address}")
+        return None
+    except requests.exceptions.ConnectionError:
+        logger.warning(f"Ошибка соединения с принтером {ip_address}")
+        return None
     except Exception as e:
         logger.warning(f"Ошибка при запросе статуса принтера {ip_address}: {str(e)}")
         return None
@@ -71,16 +119,19 @@ def get_printer_status(ip_address: str) -> Optional[Dict]:
 def is_printer_online(ip_address: str) -> bool:
     """Проверка доступности принтера"""
     try:
-        # Проверяем доступность хоста через сокет
+        logger.debug(f"Проверка доступности принтера {ip_address}")
         socket.create_connection((ip_address, 7125), timeout=REQUEST_TIMEOUT)
+        logger.debug(f"Принтер {ip_address} доступен")
         return True
-    except (socket.timeout, socket.error):
+    except (socket.timeout, socket.error) as e:
+        logger.debug(f"Принтер {ip_address} недоступен: {str(e)}")
         return False
 
 def main_loop():
     """Основной цикл программы"""
     logger.info("Запуск клиента сбора данных с принтеров")
     logger.info(f"Сервер: {SERVER_URL}")
+    logger.info(f"Интервал опроса: {POLL_INTERVAL} сек")
     
     while True:
         try:
@@ -96,21 +147,26 @@ def main_loop():
                     logger.warning(f"Пропуск принтера {printer_name}: отсутствует IP-адрес")
                     continue
                 
-                logger.info(f"Проверка принтера {printer_name} ({ip_address})...")
+                logger.info(f"Обработка принтера {printer_name} ({ip_address})")
                 
                 # Проверяем доступность принтера
-                if not is_printer_online(ip_address):
+                is_online = is_printer_online(ip_address)
+                
+                if not is_online:
                     logger.warning(f"Принтер {printer_name} ({ip_address}) недоступен")
-                    # Отправляем информацию о недоступности
-                    send_printer_data({
+                    # Отправляем статус оффлайн
+                    offline_data = {
                         "printer_name": printer_name,
                         "ip_address": ip_address,
                         "status": "offline",
+                        "result": {},
                         "timestamp": time.time()
-                    })
+                    }
+                    send_printer_data(offline_data)
                     continue
                 
                 # Получаем статус принтера
+                logger.debug(f"Запрос статуса принтера {printer_name}")
                 status_data = get_printer_status(ip_address)
                 
                 if status_data:
@@ -128,6 +184,15 @@ def main_loop():
                     send_printer_data(data_to_send)
                 else:
                     logger.warning(f"Не удалось получить данные с принтера {printer_name}")
+                    # Отправляем статус ошибки
+                    error_data = {
+                        "printer_name": printer_name,
+                        "ip_address": ip_address,
+                        "status": "error",
+                        "result": {"error": "Не удалось получить данные с принтера"},
+                        "timestamp": time.time()
+                    }
+                    send_printer_data(error_data)
             
             # Спим до следующего опроса
             logger.info(f"Ожидание {POLL_INTERVAL} секунд до следующего опроса...")
@@ -137,9 +202,9 @@ def main_loop():
             logger.info("Программа остановлена пользователем")
             break
         except Exception as e:
-            logger.error(f"Произошла ошибка в основном цикле: {str(e)}")
+            logger.error(f"Произошла ошибка в основном цикле: {str(e)}", exc_info=True)
             # Ожидаем перед повторной попыткой
-            time.sleep(10)
+            time.sleep(1)
 
 if __name__ == "__main__":
     main_loop()
