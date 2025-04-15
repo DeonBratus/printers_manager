@@ -49,7 +49,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: 3d_printer_db
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data  # Убедитесь, что этот том правильно настроен
     ports:
       - "5432:5432"
     networks:
@@ -60,6 +60,8 @@ services:
       timeout: 5s
       retries: 5
 
+volumes:
+  postgres_data:  # Убедитесь, что том объявлен здесь
 
 networks:
   app-network:
