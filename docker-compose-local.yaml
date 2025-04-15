@@ -60,8 +60,6 @@ services:
       timeout: 5s
       retries: 5
 
-volumes:
-  postgres_data:
 
 networks:
   app-network:
