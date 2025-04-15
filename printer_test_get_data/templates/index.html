@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Printer Status</title>
+    <title>Управление принтерами</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -15,74 +15,282 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
         }
-        h1 {
+        h1, h2 {
             color: #333;
             text-align: center;
         }
         .status-box {
             margin: 15px 0;
-            padding: 10px;
+            padding: 15px;
             border-left: 4px solid #4CAF50;
             background-color: #f9f9f9;
+            border-radius: 4px;
         }
-        .error {
+        .status-offline {
             border-left-color: #f44336;
+        }
+        .status-online {
+            border-left-color: #4CAF50;
         }
         .last-updated {
             font-size: 0.8em;
             color: #666;
             text-align: right;
         }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button.delete {
+            background-color: #f44336;
+        }
+        .printer-list {
+            margin-top: 20px;
+        }
+        .temp-info {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+        }
+        .no-printers {
+            text-align: center;
+            color: #666;
+            margin: 20px 0;
+        }
+        .add-printer-form {
+            border-top: 1px solid #ddd;
+            margin-top: 20px;
+            padding-top: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>3D Printer Status</h1>
-        <div id="status-container">
-            <p>Loading data...</p>
+        <h1>Управление 3D-принтерами</h1>
+        
+        <div id="printer-list" class="printer-list">
+            <p>Загрузка данных...</p>
         </div>
+        
+        <div class="add-printer-form">
+            <h2>Добавить новый принтер</h2>
+            <form id="printer-form">
+                <div class="form-group">
+                    <label for="printer-name">Название принтера:</label>
+                    <input type="text" id="printer-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="printer-ip">IP-адрес:</label>
+                    <input type="text" id="printer-ip" required>
+                </div>
+                <button type="submit">Добавить принтер</button>
+            </form>
+        </div>
+        
         <div class="last-updated" id="last-updated"></div>
     </div>
 
     <script>
-        async function fetchData() {
+        // Функция загрузки данных о принтерах
+        async function fetchPrinters() {
+            try {
+                const response = await fetch('/api/printers');
+                if (!response.ok) {
+                    throw new Error('Ошибка получения списка принтеров');
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('Ошибка загрузки принтеров:', error);
+                return [];
+            }
+        }
+        
+        // Функция получения последних данных о принтере
+        async function fetchPrinterData() {
             try {
                 const response = await fetch('/api/data');
-                const data = await response.json();
-                updateUI(data);
+                if (!response.ok) {
+                    throw new Error('Ошибка получения данных');
+                }
+                return await response.json();
             } catch (error) {
-                console.error('Error fetching data:', error);
-                document.getElementById('status-container').innerHTML = 
-                    '<div class="status-box error">Error loading printer data</div>';
+                console.error('Ошибка загрузки данных:', error);
+                return null;
             }
         }
-
-        function updateUI(data) {
-            if (!data || !data.result) {
-                document.getElementById('status-container').innerHTML = 
-                    '<div class="status-box error">No data available</div>';
+        
+        // Функция добавления принтера
+        async function addPrinter(name, ipAddress) {
+            try {
+                const response = await fetch('/api/printers', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        ip_address: ipAddress
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка добавления принтера');
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Ошибка при добавлении принтера:', error);
+                return null;
+            }
+        }
+        
+        // Функция удаления принтера
+        async function deletePrinter(name) {
+            try {
+                const response = await fetch(`/api/printers/${name}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка удаления принтера');
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Ошибка при удалении принтера:', error);
+                return null;
+            }
+        }
+        
+        // Обновление UI
+        async function updateUI() {
+            const printers = await fetchPrinters();
+            const latestData = await fetchPrinterData();
+            
+            const printerListElement = document.getElementById('printer-list');
+            
+            if (!printers || printers.length === 0) {
+                printerListElement.innerHTML = '<p class="no-printers">Нет добавленных принтеров</p>';
+                document.getElementById('last-updated').textContent = 
+                    `Последнее обновление: ${new Date().toLocaleTimeString()}`;
                 return;
             }
-
-            const status = data.result.status;
-            const html = `
-                <div class="status-box">
-                    <strong>Print Status:</strong> ${status.print_stats.state}<br>
-                    <strong>Bed Temp:</strong> ${status.heater_bed.temperature}°C / ${status.heater_bed.target}°C<br>
-                    <strong>Extruder Temp:</strong> ${status.extruder.temperature}°C / ${status.extruder.target}°C
-                </div>
-            `;
-            document.getElementById('status-container').innerHTML = html;
+            
+            let html = '';
+            
+            printers.forEach(printer => {
+                const printerName = printer.name;
+                const ipAddress = printer.ip_address;
+                
+                // Проверяем, есть ли данные для этого принтера
+                let printerData = null;
+                if (latestData && latestData.printer_name === printerName) {
+                    printerData = latestData;
+                }
+                
+                const isOnline = printerData && printerData.status === 'online';
+                const statusClass = isOnline ? 'status-online' : 'status-offline';
+                
+                html += `
+                    <div class="status-box ${statusClass}">
+                        <h3>${printerName} (${ipAddress})</h3>
+                        <p>Статус: ${isOnline ? 'Онлайн' : 'Офлайн'}</p>
+                `;
+                
+                if (isOnline && printerData.result) {
+                    const status = printerData.result.status;
+                    if (status) {
+                        html += `
+                            <p>Состояние печати: ${status.print_stats?.state || 'Н/Д'}</p>
+                            <div class="temp-info">
+                                <span>Стол: ${status.heater_bed?.temperature.toFixed(1) || 'Н/Д'}°C / 
+                                    ${status.heater_bed?.target.toFixed(0) || 'Н/Д'}°C</span>
+                                <span>Экструдер: ${status.extruder?.temperature.toFixed(1) || 'Н/Д'}°C / 
+                                    ${status.extruder?.target.toFixed(0) || 'Н/Д'}°C</span>
+                            </div>
+                        `;
+                    } else {
+                        html += `<p>Нет данных о состоянии</p>`;
+                    }
+                }
+                
+                html += `
+                        <div style="text-align: right; margin-top: 10px;">
+                            <button class="delete" onclick="handleDeletePrinter('${printerName}')">Удалить</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            printerListElement.innerHTML = html;
             document.getElementById('last-updated').textContent = 
-                `Last updated: ${new Date().toLocaleTimeString()}`;
+                `Последнее обновление: ${new Date().toLocaleTimeString()}`;
         }
-
-        // Загружаем данные сразу и каждые 3 секунды
-        fetchData();
-        setInterval(fetchData, 3000);
+        
+        // Обработчик формы добавления принтера
+        document.getElementById('printer-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const nameInput = document.getElementById('printer-name');
+            const ipInput = document.getElementById('printer-ip');
+            
+            const name = nameInput.value.trim();
+            const ipAddress = ipInput.value.trim();
+            
+            if (!name || !ipAddress) {
+                alert('Пожалуйста, заполните все поля');
+                return;
+            }
+            
+            const result = await addPrinter(name, ipAddress);
+            
+            if (result) {
+                nameInput.value = '';
+                ipInput.value = '';
+                updateUI();
+            }
+        });
+        
+        // Функция удаления принтера
+        window.handleDeletePrinter = async function(name) {
+            if (confirm(`Вы уверены, что хотите удалить принтер "${name}"?`)) {
+                const result = await deletePrinter(name);
+                if (result) {
+                    updateUI();
+                }
+            }
+        };
+        
+        // Загружаем данные сразу и каждые 5 секунд
+        updateUI();
+        setInterval(updateUI, 5000);
     </script>
 </body>
 </html>
