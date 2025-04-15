@@ -1,38 +1,42 @@
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import uvicorn
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 
 app = FastAPI()
 
-# Модель для валидации входящих данных (опционально)
-class PrinterData(BaseModel):
-    result: Dict[str, Any]
-    # Можно добавить дополнительные поля, если нужно
+# Монтируем папку static для CSS/JS (если нужно)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Настройка шаблонов Jinja2
+templates = Jinja2Templates(directory="templates")
+
+# Глобальная переменная для хранения последних данных (можно заменить на БД)
+latest_printer_data: Dict[str, Any] = {}
 
 @app.post("/receive_data")
 async def receive_data(request: Request):
-    """Принимает данные от клиента и выводит их в консоль."""
-    try:
-        data = await request.json()
-        if not data:
-            raise HTTPException(status_code=400, detail="No data received")
-        
-        # Вывод данных в консоль
-        print("\n--- Получены данные с принтера (FastAPI) ---")
-        print(f"Статус печати: {data['result']['status']['print_stats']['state']}")
-        print(f"Температура стола: {data['result']['status']['heater_bed']['temperature']} °C")
-        print(f"Целевая температура стола: {data['result']['status']['heater_bed']['target']} °C")
-        print(f"Температура экструдера: {data['result']['status']['extruder']['temperature']} °C")
-        print(f"Целевая температура экструдера: {data['result']['status']['extruder']['target']} °C")
+    """Принимает данные от клиента и сохраняет их."""
+    global latest_printer_data
+    data = await request.json()
+    latest_printer_data = data
+    print("Данные обновлены:", latest_printer_data)  # Для отладки
+    return {"message": "Data received successfully"}
 
-        return JSONResponse(
-            content={"message": "Data received successfully"},
-            status_code=200,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    """Отображает веб-страницу с данными."""
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "data": latest_printer_data}
+    )
+
+@app.get("/api/data")
+async def get_latest_data():
+    """API-эндпоинт для получения данных (используется JavaScript-ом)."""
+    return latest_printer_data
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
