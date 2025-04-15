@@ -359,7 +359,10 @@
     "totalPrintJobs": "Total Print Jobs",
     "viewAllPrinters": "View All Printers",
     "recentPrintJobs": "Recent Print Jobs",
-    "viewAllPrintJobs": "View All Print Jobs"
+    "viewAllPrintJobs": "View All Print Jobs",
+    "pendingConfirmation": "Pending Confirmation",
+    "noPendingConfirmation": "No print jobs waiting for confirmation",
+    "upcomingCompletions": "Upcoming Completions"
   },
   "printerForm": {
     "nameRequired": "Printer name is required",

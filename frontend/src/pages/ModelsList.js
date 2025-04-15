@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getModels, createModel, deleteModel } from '../services/api';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
+import ModelCube from '../components/ModelCube';
 import { 
   CubeIcon, 
   ClockIcon, 
@@ -27,6 +28,23 @@ const ModelsList = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [modelToDelete, setModelToDelete] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Define a set of colors to use for the model cubes
+  const modelColors = useMemo(() => [
+    '#3B82F6', // blue
+    '#10B981', // green
+    '#8B5CF6', // purple
+    '#F59E0B', // amber
+    '#EF4444', // red
+    '#6366F1', // indigo
+    '#EC4899', // pink
+    '#14B8A6', // teal
+  ], []);
+
+  // Get a color based on the model id
+  const getModelColor = (id) => {
+    return modelColors[id % modelColors.length];
+  };
 
   const fetchModels = async () => {
     try {
@@ -161,46 +179,95 @@ const ModelsList = () => {
 
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {models.map((model) => (
-            <Card key={model.id} className="p-0 overflow-hidden hover:shadow-lg transition-shadow duration-200">
-              <div className="flex flex-col h-full">
-                {/* Model Icon */}
-                <div className="p-4 flex justify-center items-center h-40 bg-blue-50 dark:bg-blue-900/20">
-                  <CubeIcon className="h-16 w-16 text-blue-500 dark:text-blue-400" />
-                </div>
-                
-                {/* Model Info */}
-                <div className="p-4 flex-grow">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-lg font-semibold dark:text-white">
-                        <Link to={`/models/${model.id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                          {model.name}
-                        </Link>
-                      </h3>
-                      <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400">
-                        <ClockIcon className="h-4 w-4 mr-1 text-gray-400" aria-hidden="true" />
-                        <span>Printing Time: {formatMinutesToHHMM(model.printing_time)} ({formatDuration(model.printing_time)})</span>
+          {models.map((model) => {
+            const modelColor = getModelColor(model.id);
+            
+            return (
+              <Card 
+                key={model.id} 
+                className="p-0 overflow-hidden hover:shadow-lg transition-shadow duration-200 group border-none"
+              >
+                <div className="flex flex-col h-full">
+                  {/* Model 3D Cube */}
+                  <div 
+                    className="flex justify-center items-center h-48 relative overflow-hidden"
+                    style={{
+                      background: `linear-gradient(135deg, ${modelColor}20 0%, ${modelColor}40 100%)`
+                    }}
+                  >
+                    <div className="absolute inset-0 opacity-30">
+                      <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        <path d="M0,0 L100,0 L100,100 L0,100 Z" fill="url(#grid-pattern)" />
+                      </svg>
+                      <defs>
+                        <pattern id="grid-pattern" width="10" height="10" patternUnits="userSpaceOnUse">
+                          <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5" />
+                        </pattern>
+                      </defs>
+                    </div>
+                    <div className="transform group-hover:scale-110 transition-transform duration-300 z-10">
+                      <ModelCube size="lg" color={modelColor} />
+                    </div>
+                    <div className="absolute top-0 right-0 m-2 bg-white dark:bg-gray-800 rounded-full px-2 py-1 text-xs font-semibold shadow-md">
+                      ID: {model.id}
+                    </div>
+                  </div>
+                  
+                  {/* Model Info */}
+                  <div className="p-5 flex-grow bg-white dark:bg-gray-800">
+                    <h3 className="text-xl font-semibold dark:text-white mb-2">
+                      <Link 
+                        to={`/models/${model.id}`} 
+                        className="text-gray-900 hover:text-blue-600 dark:text-white dark:hover:text-blue-400 transition-colors"
+                      >
+                        {model.name}
+                      </Link>
+                    </h3>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                        <ClockIcon className="h-4 w-4 mr-2 text-gray-400" aria-hidden="true" />
+                        <span>
+                          <span className="font-medium">{formatMinutesToHHMM(model.printing_time)}</span>
+                          <span className="text-gray-400 ml-1">({formatDuration(model.printing_time)})</span>
+                        </span>
                       </div>
+                      
                       {model.filament_type && (
-                        <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          Filament: {model.filament_type}
+                        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                          <span className="w-3 h-3 rounded-full bg-blue-500 mr-2"></span>
+                          <span>Filament: <span className="font-medium">{model.filament_type}</span></span>
                         </div>
                       )}
+                      
                       {model.filament_length > 0 && (
-                        <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          Length: {model.filament_length}mm
+                        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                          <span className="w-3 h-3 rounded-full bg-green-500 mr-2"></span>
+                          <span>Length: <span className="font-medium">{model.filament_length}mm</span></span>
                         </div>
                       )}
+                      
                       {model.success_rate && (
-                        <div className="mt-2 text-sm">
-                          <div className="flex justify-between">
+                        <div className="mt-3">
+                          <div className="flex justify-between text-sm mb-1">
                             <span className="text-gray-500 dark:text-gray-400">Success Rate:</span>
-                            <span className="font-medium text-green-600 dark:text-green-400">{model.success_rate}%</span>
+                            <span 
+                              className={`font-medium ${
+                                model.success_rate > 80 ? 'text-green-600 dark:text-green-400' : 
+                                model.success_rate > 50 ? 'text-amber-600 dark:text-amber-400' : 
+                                'text-red-600 dark:text-red-400'
+                              }`}
+                            >
+                              {model.success_rate}%
+                            </span>
                           </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1">
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                             <div 
-                              className="bg-green-500 h-1.5 rounded-full" 
+                              className={`h-2 rounded-full ${
+                                model.success_rate > 80 ? 'bg-green-500' : 
+                                model.success_rate > 50 ? 'bg-amber-500' : 
+                                'bg-red-500'
+                              }`}
                               style={{ width: `${model.success_rate}%` }}
                             ></div>
                           </div>
@@ -208,27 +275,32 @@ const ModelsList = () => {
                       )}
                     </div>
                   </div>
-                </div>
-                
-                {/* Action Buttons */}
-                <div className="px-4 pb-4 flex justify-between space-x-2">
-                  <Link to={`/models/${model.id}`} className="flex-1">
-                    <Button variant="secondary" size="sm" fullWidth>
-                      View
+                  
+                  {/* Action Buttons */}
+                  <div className="px-5 py-4 bg-gray-50 dark:bg-gray-700/50 flex justify-between space-x-3">
+                    <Link to={`/models/${model.id}`} className="flex-1">
+                      <Button 
+                        variant="primary" 
+                        size="sm" 
+                        fullWidth
+                        className="rounded-md shadow-sm"
+                      >
+                        View Details
+                      </Button>
+                    </Link>
+                    <Button 
+                      variant="danger" 
+                      size="sm" 
+                      onClick={() => openDeleteModal(model)}
+                      className="flex-1 rounded-md shadow-sm"
+                    >
+                      Delete
                     </Button>
-                  </Link>
-                  <Button 
-                    variant="danger" 
-                    size="sm" 
-                    onClick={() => openDeleteModal(model)}
-                    className="flex-1"
-                  >
-                    Delete
-                  </Button>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <Card>
