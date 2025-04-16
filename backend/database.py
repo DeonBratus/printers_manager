@@ -20,7 +20,7 @@ safe_pass = quote_plus(db_pass)
 
 # Get database URL from environment variable or use default
 SQLALCHEMY_DATABASE_URL = f"postgresql://{db_user}:{safe_pass}@{db_host}:{db_port}/{db_name}"
-
+print(SQLALCHEMY_DATABASE_URL)  # Debug: print the database URL to check if it's correct
 # Create engine with proper encoding
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
