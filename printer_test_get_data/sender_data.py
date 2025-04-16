@@ -56,6 +56,21 @@ def send_printer_data(data: Dict) -> bool:
         logger.error(f"Ошибка при отправке данных: {str(e)}")
         return False
 
+def is_printer_online(ip_address: str) -> bool:
+    """Проверка доступности принтера"""
+    try:
+        # Проверяем доступность принтера через ping на порт Moonraker API (обычно 80)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2)  # Таймаут 2 секунды
+        result = s.connect_ex((ip_address, 80))
+        s.close()
+        
+        # Если порт открыт, принтер считается доступным
+        return result == 0
+    except Exception as e:
+        logger.warning(f"Ошибка при проверке доступности принтера {ip_address}: {str(e)}")
+        return False
+
 def get_printer_status(ip_address: str) -> Optional[Dict]:
     """Получение статуса принтера по API Klipper/Moonraker"""
     try:
@@ -116,16 +131,6 @@ def get_printer_status(ip_address: str) -> Optional[Dict]:
         logger.warning(f"Ошибка при запросе статуса принтера {ip_address}: {str(e)}")
         return None
 
-def is_printer_online(ip_address: str) -> bool:
-    """Проверка доступности принтера"""
-    try:
-        logger.debug(f"Проверка доступности принтера {ip_address}")
-        socket.create_connection((ip_address, 7125), timeout=REQUEST_TIMEOUT)
-        logger.debug(f"Принтер {ip_address} доступен")
-        return True
-    except (socket.timeout, socket.error) as e:
-        logger.debug(f"Принтер {ip_address} недоступен: {str(e)}")
-        return False
 
 def main_loop():
     """Основной цикл программы"""
