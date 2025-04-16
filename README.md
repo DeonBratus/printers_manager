@@ -90,3 +90,11 @@ npm start
 ### Прокси для разработки
 
 В `frontend/package.json` настроен прокси на `http://localhost:8000`, что позволяет избежать проблем с CORS во время разработки. 
+
+# build exe
+pyinstaller --onefile --windowed --icon=printer_icon.ico desktop_client.py
+
+# printers endpoints
+
+get gcodes:         /server/files/list?root=gcodes
+get status printer: /printer/objects/query
