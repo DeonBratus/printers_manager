@@ -88,7 +88,7 @@ const Reports = () => {
     max: 100
   });
 
-    const fetchReportData = async () => {
+  useEffect(() => {
     if (!selectedStudio) {
       setError('Please select a studio to view reports');
       setLoading(false);
@@ -96,67 +96,44 @@ const Reports = () => {
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    setIsRefreshing(true);
-    
-    try {
-      // Pass studio_id to all API calls
-      const results = await Promise.allSettled([
-        getPrinterStatusReport(selectedStudio.id),
-        getPrintingEfficiencyReport(selectedStudio.id)
-      ]);
-      
-      const [statusReportResult, efficiencyReportResult] = results;
-      
-      if (statusReportResult.status === 'fulfilled') {
-        setStatusReport(statusReportResult.value.data);
-        
-        // Extract available printers
-        if (statusReportResult.value.data && statusReportResult.value.data.printers) {
-          setAvailablePrinters(statusReportResult.value.data.printers);
+    const fetchReports = async () => {
+      setLoading(true);
+      setError(null);
+      setIsRefreshing(true);
+
+      try {
+        const results = await Promise.allSettled([
+          getPrinterStatusReport(selectedStudio.id),
+          getPrintingEfficiencyReport(selectedStudio.id),
+        ]);
+
+        const [statusReportResult, efficiencyReportResult] = results;
+
+        if (statusReportResult.status === 'fulfilled') {
+          setStatusReport(statusReportResult.value.data);
+          setAvailablePrinters(statusReportResult.value.data?.printers || []);
+        } else {
+          console.error('Error loading status report:', statusReportResult.reason);
+          setStatusReport({ total_printers: 0, printers: [] });
         }
-      } else {
-        console.error('Error loading status report:', statusReportResult.reason);
-        // Create dummy data for status report
-        setStatusReport({
-          total_printers: 0,
-          status_counts: { idle: 0, printing: 0, paused: 0, error: 0 },
-          printers: [],
-          average_efficiency: 0
-        });
-      }
-      
-      if (efficiencyReportResult.status === 'fulfilled') {
-        setEfficiencyReport(efficiencyReportResult.value.data);
-        
-        // Extract available models
-        if (efficiencyReportResult.value.data && efficiencyReportResult.value.data.models) {
-          setAvailableModels(efficiencyReportResult.value.data.models);
+
+        if (efficiencyReportResult.status === 'fulfilled') {
+          setEfficiencyReport(efficiencyReportResult.value.data);
+          setAvailableModels(efficiencyReportResult.value.data?.models || []);
+        } else {
+          console.error('Error loading efficiency report:', efficiencyReportResult.reason);
+          setEfficiencyReport({ total_printings: 0, models: [] });
         }
-      } else {
-        console.error('Error loading efficiency report:', efficiencyReportResult.reason);
-        // Create dummy data for efficiency report
-        setEfficiencyReport({
-          total_printings: 0,
-          daily_printings: {},
-          downtime_by_printer: {},
-          models: []
-        });
-      }
       } catch (error) {
-        console.error('Error loading report data:', error);
-      setError('Failed to load report data. Please try again later.');
-    } finally {
+        console.error('Error loading reports:', error);
+        setError('Failed to load reports. Please try again later.');
+      } finally {
         setLoading(false);
-      setIsRefreshing(false);
+        setIsRefreshing(false);
       }
     };
 
-  useEffect(() => {
-    if (selectedStudio) {
-      fetchReportData();
-    }
+    fetchReports();
   }, [selectedStudio]);
 
   // Fetch printer-specific report
@@ -309,6 +286,31 @@ const Reports = () => {
       setError('Failed to export report');
     } finally {
       setLoadingExport(false);
+    }
+  };
+
+  const fetchReportData = async () => {
+    if (!selectedStudio) {
+      setError('Please select a studio to view reports');
+      return;
+    }
+  
+    setLoading(true);
+    setError(null);
+  
+    try {
+      const [statusReportResult, efficiencyReportResult] = await Promise.all([
+        getPrinterStatusReport(selectedStudio.id),
+        getPrintingEfficiencyReport(selectedStudio.id),
+      ]);
+  
+      setStatusReport(statusReportResult.data || {});
+      setEfficiencyReport(efficiencyReportResult.data || {});
+    } catch (error) {
+      console.error('Error fetching report data:', error);
+      setError('Failed to fetch report data.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1041,4 +1043,4 @@ const Reports = () => {
   );
 };
 
-export default Reports; 
+export default Reports;

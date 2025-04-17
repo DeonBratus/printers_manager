@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -14,16 +14,6 @@ const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState('');
-  const [authMessage, setAuthMessage] = useState('');
-  
-  useEffect(() => {
-    // Check for auth messages (like session expiration)
-    const message = localStorage.getItem('authMessage');
-    if (message) {
-      setAuthMessage(message);
-      localStorage.removeItem('authMessage');
-    }
-  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -33,7 +23,6 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
-    setAuthMessage('');
     
     // Basic validation
     if (!formData.username.trim() || !formData.password) {
@@ -62,14 +51,6 @@ const Login = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white dark:bg-gray-800 py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {authMessage && (
-            <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/30 p-4 mb-4">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                {authMessage}
-              </p>
-            </div>
-          )}
-          
           {(formError || error) && (
             <div className="rounded-md bg-red-50 dark:bg-red-900 p-4 mb-4">
               <p className="text-sm text-red-700 dark:text-red-200">

@@ -45,21 +45,12 @@ api.interceptors.response.use(
 
     // Handle 401 (Unauthorized) errors
     if (error.response && error.response.status === 401) {
-      // Check if token is expired
-      const tokenExpiry = localStorage.getItem('tokenExpiry');
-      const isExpired = tokenExpiry && new Date(tokenExpiry) < new Date();
-      
-      // Clear auth data
+      // Remove token if it's expired or invalid
       localStorage.removeItem('token');
       localStorage.removeItem('tokenExpiry');
       
-      // Only redirect to login if not already on login or register page
+      // Redirect to login if not already there
       if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-        // Add a message to notify the user their session expired
-        if (isExpired) {
-          localStorage.setItem('authMessage', 'Your session has expired. Please log in again.');
-        }
-        
         window.location.href = '/login';
       }
       
@@ -77,7 +68,7 @@ api.interceptors.response.use(
     
     // Handle network errors or 500 errors with a retry
     if (!error.response || error.response.status >= 500) {
-      // Make sure originalRequest exists
+      // Если originalRequest может быть undefined после предыдущих проверок
       if (!originalRequest) {
         return Promise.reject(error);
       }
@@ -103,17 +94,6 @@ export const register = (userData) => api.post('/auth/register', userData);
 export const login = (credentials) => api.post('/auth/login', credentials);
 export const logout = () => api.post('/auth/logout');
 export const getProfile = () => api.get('/auth/me');
-export const updateUserSettings = (settings) => api.put('/auth/me/settings', settings);
-export const uploadAvatar = (file) => {
-  const formData = new FormData();
-  formData.append('avatar', file);
-  return api.post('/auth/me/avatar', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  });
-};
-export const getAvatar = (userId) => api.get(`/auth/avatar/${userId}`);
 
 // Users API
 export const getUsers = () => api.get('/users/');

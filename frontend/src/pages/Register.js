@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { register, login } from '../services/auth'; // Убедитесь, что импорт корректный
 import { useAuth } from '../context/AuthContext';
 
 const Register = () => {
@@ -61,21 +62,31 @@ const Register = () => {
 
     try {
       setLoading(true);
-      // Register the user
+      
+      // Регистрируем пользователя
       const userData = {
         username: formData.username,
         email: formData.email,
         password: formData.password,
       };
       
-      await register(userData);
+      await register(userData); // Убедитесь, что register определена
       
-      // Log in the user
-      await login(formData.username, formData.password);
+      // После успешной регистрации выполняем вход
+      const loginResponse = await login(formData.username, formData.password);
       
-      // Redirect to the home page
+      // Устанавливаем токен
+      if (loginResponse.access_token) {
+        localStorage.setItem('token', loginResponse.access_token);
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        localStorage.setItem('tokenExpiry', expiryDate.toISOString());
+      }
+      
+      // Редирект на главную страницу
       navigate('/');
     } catch (err) {
+      console.error('Registration/Login error:', err);
       setError(err.response?.data?.detail || t('auth.registrationFailed'));
     } finally {
       setLoading(false);
@@ -209,4 +220,4 @@ const Register = () => {
   );
 };
 
-export default Register; 
+export default Register;

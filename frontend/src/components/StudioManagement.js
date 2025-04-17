@@ -51,27 +51,25 @@ const StudioManagement = () => {
     }
   }, [selectedStudio]);
   
+  useEffect(() => {
+    if (selectedStudio) {
+      fetchStats();
+    }
+  }, [selectedStudio]);
+
   // Fetch stats for the summary section
   const fetchStats = async () => {
     if (!selectedStudio) return;
     
     try {
-      // Fetch printers count
       const printersResponse = await getPrinters(selectedStudio.id);
-      const printersData = Array.isArray(printersResponse) ? printersResponse : printersResponse.data || [];
-      
-      // Fetch models count
       const modelsResponse = await getModels(selectedStudio.id);
-      const modelsData = Array.isArray(modelsResponse) ? modelsResponse : modelsResponse.data || [];
-      
-      // Fetch pending invitations
       const invitationsResponse = await getStudioInvitations(selectedStudio.id, 'pending');
-      const invitationsData = Array.isArray(invitationsResponse) ? invitationsResponse : invitationsResponse.data || [];
-      
+
       setStats({
-        printers: printersData.length,
-        models: modelsData.length,
-        pendingInvitations: invitationsData.length
+        printers: printersResponse.data?.length || 0,
+        models: modelsResponse.data?.length || 0,
+        pendingInvitations: invitationsResponse.data?.length || 0,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -379,4 +377,4 @@ const StudioManagement = () => {
   );
 };
 
-export default StudioManagement; 
+export default StudioManagement;

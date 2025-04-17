@@ -4,6 +4,17 @@ import api from './api';
 export const register = async (userData) => {
   try {
     const response = await api.post('/auth/register', userData);
+    const token = response.data.access_token;
+
+    // Устанавливаем токен
+    setAuthToken(token);
+
+    // Сохраняем токен в localStorage
+    localStorage.setItem('token', token);
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 30);
+    localStorage.setItem('tokenExpiry', expiryDate.toISOString());
+
     return response.data;
   } catch (error) {
     console.error('Registration error:', error);
@@ -15,8 +26,17 @@ export const register = async (userData) => {
 export const login = async (username, password) => {
   try {
     const response = await api.post('/auth/login', { username, password });
-    // Set the token in the axios instance for future requests
-    api.defaults.headers.common['Authorization'] = `Bearer ${response.data.access_token}`;
+    const token = response.data.access_token;
+
+    // Устанавливаем токен
+    setAuthToken(token);
+
+    // Сохраняем токен в localStorage
+    localStorage.setItem('token', token);
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 30);
+    localStorage.setItem('tokenExpiry', expiryDate.toISOString());
+
     return response.data;
   } catch (error) {
     console.error('Login error:', error);
@@ -76,4 +96,4 @@ export const setAuthToken = (token) => {
   } else {
     delete api.defaults.headers.common['Authorization'];
   }
-}; 
+};

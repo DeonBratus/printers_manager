@@ -139,9 +139,6 @@ class PrinterParameter(Base):
     printer = relationship("Printer", back_populates="parameters")
 
 class User(Base):
-    """
-    User model for authentication and authorization
-    """
     __tablename__ = "td_users"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -150,10 +147,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    language = Column(String, default="russian")
-    default_view = Column(String, default="grid")
-    avatar = Column(String, nullable=True)  # Store avatar file path
+    created_at = Column(DateTime, default=datetime.now)
     # Remove the direct studio_id FK here since we're using many-to-many
     
     # Define relationships

@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { useTranslation } from 'react-i18next';
-import { getProfile, updateUserSettings, uploadAvatar } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import { 
   UserCircleIcon, 
   MoonIcon, 
@@ -13,25 +11,29 @@ import {
   BellIcon,
   ArrowUpTrayIcon,
   CameraIcon,
-  CheckCircleIcon,
-  ExclamationCircleIcon
+  CheckCircleIcon
 } from '@heroicons/react/24/outline';
 
 const UserSettings = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, refreshUserInfo } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [uploadError, setUploadError] = useState(null);
   const [userSettings, setUserSettings] = useState({
-    name: '',
-    email: '',
+    name: 'Admin User',
+    email: 'admin@example.com',
     darkMode: localStorage.getItem('theme') === 'dark',
     language: 'russian',
+    notifications: true,
+    profileImage: 'default1',
     defaultPrinterView: 'grid',
-    avatar: null
+    autoRefresh: true,
+    refreshInterval: 30,
+    emailNotifications: true,
+    pushNotifications: false, 
+    slackNotifications: false,
+    apiAccess: false,
+    apiKey: 'xxxx-xxxx-xxxx-xxxx'
   });
   
   const profileImages = [
@@ -45,29 +47,6 @@ const UserSettings = () => {
     { id: 'english', name: 'English' },
     { id: 'russian', name: 'Русский' }
   ];
-  
-  // Load user settings from API
-  useEffect(() => {
-    const loadUserSettings = async () => {
-      try {
-        const userData = await getProfile();
-        const savedSettings = JSON.parse(localStorage.getItem('userSettings') || '{}');
-        
-        setUserSettings({
-          name: userData.data?.username || user?.username || '',
-          email: userData.data?.email || user?.email || '',
-          darkMode: localStorage.getItem('theme') === 'dark',
-          language: userData.data?.language || savedSettings.language || 'russian',
-          defaultPrinterView: userData.data?.default_view || savedSettings.defaultPrinterView || 'grid',
-          avatar: userData.data?.avatar || savedSettings.avatar || null
-        });
-      } catch (error) {
-        console.error('Error loading user settings:', error);
-      }
-    };
-    
-    loadUserSettings();
-  }, [user]);
   
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -100,85 +79,14 @@ const UserSettings = () => {
     }
   };
   
-  const handleAvatarUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Проверяем, что файл - изображение
-    if (!file.type.startsWith('image/')) {
-      setUploadError('Выберите изображение');
-      return;
-    }
-    
-    // Максимальный размер 5MB
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError('Максимальный размер файла - 5MB');
-      return;
-    }
-    
-    setUploadingAvatar(true);
-    setUploadError(null);
-    
-    try {
-      const response = await uploadAvatar(file);
-      const avatarFilename = response.data.avatar;
-      
-      // Обновляем локальные настройки и контекст
-      setUserSettings({
-        ...userSettings,
-        avatar: avatarFilename
-      });
-      
-      // Обновляем настройки в localStorage
-      const savedSettings = JSON.parse(localStorage.getItem('userSettings') || '{}');
-      localStorage.setItem('userSettings', JSON.stringify({
-        ...savedSettings,
-        avatar: avatarFilename
-      }));
-      
-      // Обновляем информацию о пользователе в контексте
-      await refreshUserInfo();
-      
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error) {
-      console.error('Error uploading avatar:', error);
-      setUploadError('Ошибка при загрузке аватара');
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
-  
-  const getAvatarUrl = () => {
-    const baseUrl = process.env.REACT_APP_API_URL || '';
-    return `${baseUrl}/auth/avatar/${user?.id}`;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     
     try {
-      // Save settings to API
-      await updateUserSettings({
-        username: userSettings.name,
-        email: userSettings.email,
-        language: userSettings.language,
-        default_view: userSettings.defaultPrinterView,
-        avatar: userSettings.avatar
-      });
-      
-      // Save settings locally
-      localStorage.setItem('userSettings', JSON.stringify({
-        language: userSettings.language,
-        defaultPrinterView: userSettings.defaultPrinterView,
-        avatar: userSettings.avatar
-      }));
-      
-      // Update language if changed
-      if (i18n.language !== userSettings.language) {
-        i18n.changeLanguage(userSettings.language);
-      }
+      // Here you would normally make an API call to save user settings
+      // For now, we'll just simulate a delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Show success message
       setSaveSuccess(true);
@@ -212,39 +120,14 @@ const UserSettings = () => {
         </div>
       )}
       
-      {uploadError && (
-        <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
-          <div className="flex">
-            <ExclamationCircleIcon className="h-5 w-5 text-red-400" aria-hidden="true" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-red-800 dark:text-red-300">
-                {uploadError}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-      
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Card */}
         <Card className="p-4 lg:col-span-1">
           <div className="flex flex-col items-center">
             <div className="relative">
               <div className="h-32 w-32 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
-                {user?.id ? (
-                  <img
-                    src={getAvatarUrl()}
-                    alt="Profile"
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      e.target.onerror = null; // Prevent infinite error loop
-                      e.target.style.display = 'none';
-                      e.target.parentElement.innerHTML = '<svg class="h-28 w-28 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" /></svg>';
-                    }}
-                  />
-                ) : (
-                  <UserCircleIcon className="h-28 w-28 text-gray-400 dark:text-gray-500" />
-                )}
+                {/* This would normally be an actual image */}
+                <UserCircleIcon className="h-28 w-28 text-gray-400 dark:text-gray-500" />
               </div>
               <button 
                 className="absolute bottom-0 right-0 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg"
@@ -253,15 +136,16 @@ const UserSettings = () => {
                 <CameraIcon className="h-5 w-5" />
               </button>
               <input 
-                id="profile-upload"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarUpload}
+                id="profile-upload" 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
               />
             </div>
+            
             <h2 className="mt-4 text-xl font-semibold dark:text-white">{userSettings.name}</h2>
             <p className="text-gray-500 dark:text-gray-400">{userSettings.email}</p>
+            
             <div className="w-full mt-6">
               <Button variant="outline" fullWidth onClick={handleToggleDarkMode}>
                 {userSettings.darkMode ? (
@@ -279,9 +163,11 @@ const UserSettings = () => {
             </div>
           </div>
         </Card>
+        
         {/* Settings Form */}
         <Card className="p-4 lg:col-span-2">
           <h2 className="text-lg font-semibold mb-4 dark:text-white">{t('userSettings.accountSettings')}</h2>
+          
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Information */}
             <div className="space-y-4">
@@ -298,6 +184,7 @@ const UserSettings = () => {
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 />
               </div>
+              
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t('common.email')}
@@ -312,9 +199,11 @@ const UserSettings = () => {
                 />
               </div>
             </div>
+            
             {/* Preferences */}
             <div>
               <h3 className="text-md font-medium mb-3 dark:text-white">{t('userSettings.preferences')}</h3>
+              
               <div className="space-y-4">
                 <div>
                   <label htmlFor="language" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -337,6 +226,24 @@ const UserSettings = () => {
                     ))}
                   </select>
                 </div>
+                
+                <div className="flex items-center">
+                  <input
+                    id="notifications"
+                    name="notifications"
+                    type="checkbox"
+                    checked={userSettings.notifications}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="notifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    <div className="flex items-center">
+                      <BellIcon className="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
+                      {t('userSettings.enableNotifications')}
+                    </div>
+                  </label>
+                </div>
+
                 <div>
                   <label htmlFor="defaultPrinterView" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t('userSettings.defaultPrinterView')}
@@ -348,12 +255,175 @@ const UserSettings = () => {
                     onChange={handleInputChange}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   >
-                    <option value="list">{t('userSettings.listView')}</option>
                     <option value="grid">{t('userSettings.gridView')}</option>
+                    <option value="list">{t('userSettings.listView')}</option>
                   </select>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    id="autoRefresh"
+                    name="autoRefresh"
+                    type="checkbox"
+                    checked={userSettings.autoRefresh}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="autoRefresh" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    {t('userSettings.autoRefresh')}
+                  </label>
+                </div>
+
+                {userSettings.autoRefresh && (
+                  <div>
+                    <label htmlFor="refreshInterval" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('userSettings.refreshInterval')}
+                    </label>
+                    <input
+                      type="number"
+                      id="refreshInterval"
+                      name="refreshInterval"
+                      value={userSettings.refreshInterval}
+                      onChange={handleInputChange}
+                      min="10"
+                      max="300"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Notification Settings */}
+            <div>
+              <h3 className="text-md font-medium mb-3 dark:text-white">{t('userSettings.notificationSettings')}</h3>
+              
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    id="emailNotifications"
+                    name="emailNotifications"
+                    type="checkbox"
+                    checked={userSettings.emailNotifications}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="emailNotifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    {t('userSettings.emailNotifications')}
+                  </label>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    id="pushNotifications"
+                    name="pushNotifications"
+                    type="checkbox"
+                    checked={userSettings.pushNotifications}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="pushNotifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    {t('userSettings.pushNotifications')}
+                  </label>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    id="slackNotifications"
+                    name="slackNotifications"
+                    type="checkbox"
+                    checked={userSettings.slackNotifications}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="slackNotifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    {t('userSettings.slackNotifications')}
+                  </label>
                 </div>
               </div>
             </div>
+
+            {/* API Access */}
+            <div>
+              <h3 className="text-md font-medium mb-3 dark:text-white">{t('userSettings.apiAccess')}</h3>
+              
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    id="apiAccess"
+                    name="apiAccess"
+                    type="checkbox"
+                    checked={userSettings.apiAccess}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="apiAccess" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                    {t('userSettings.enableApiAccess')}
+                  </label>
+                </div>
+
+                {userSettings.apiAccess && (
+                  <div>
+                    <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('userSettings.apiKey')}
+                    </label>
+                    <div className="mt-1 flex rounded-md shadow-sm">
+                      <input
+                        type="text"
+                        id="apiKey"
+                        name="apiKey"
+                        value={userSettings.apiKey}
+                        readOnly
+                        className="block w-full flex-1 rounded-none rounded-l-md border-gray-300 bg-gray-100 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="inline-flex items-center rounded-none rounded-r-md"
+                      >
+                        {t('userSettings.regenerate')}
+                      </Button>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      {t('userSettings.apiKeyDescription')}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Avatar Selection */}
+            <div>
+              <h3 className="text-md font-medium mb-3 dark:text-white">{t('userSettings.defaultAvatar')}</h3>
+              
+              <div className="grid grid-cols-4 gap-4">
+                {profileImages.map(image => (
+                  <div 
+                    key={image.id}
+                    className={`relative cursor-pointer rounded-lg overflow-hidden border-2 ${
+                      userSettings.profileImage === image.id 
+                        ? 'border-blue-500 dark:border-blue-400' 
+                        : 'border-transparent'
+                    }`}
+                    onClick={() => handleProfileImageSelect(image.id)}
+                  >
+                    <div className="h-20 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                      {/* This would be an actual image in a real app */}
+                      <UserCircleIcon className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+                    </div>
+                    {userSettings.profileImage === image.id && (
+                      <div className="absolute top-1 right-1 bg-blue-500 rounded-full p-0.5">
+                        <CheckCircleIcon className="h-4 w-4 text-white" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                {t('userSettings.customAvatar')}
+              </p>
+            </div>
+            
             <div className="flex justify-end space-x-3">
               <Button 
                 type="button" 
@@ -373,4 +443,4 @@ const UserSettings = () => {
   );
 };
 
-export default UserSettings;
+export default UserSettings; 
