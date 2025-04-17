@@ -7,7 +7,7 @@ import csv
 from io import StringIO
 
 from database import get_db
-from crud import get_printers, get_models, get_printings
+from crud import get_printers
 from reports import get_daily_report, get_printer_report, get_model_report
 from models import Printer, Model, Printing
 

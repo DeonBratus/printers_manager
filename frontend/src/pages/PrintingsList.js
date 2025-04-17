@@ -21,8 +21,10 @@ import {
   XMarkIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
+import { useStudio } from '../context/StudioContext';
 
 const PrintingsList = () => {
+  const { selectedStudio } = useStudio();
   const [printings, setPrintings] = useState([]);
   const [allPrintings, setAllPrintings] = useState([]);
   const [printers, setPrinters] = useState([]);
@@ -47,9 +49,9 @@ const PrintingsList = () => {
       setLoading(true);
       setError(null);
       const [printingsResponse, printersResponse, modelsResponse] = await Promise.all([
-        getPrintings(),
-        getPrinters(),
-        getModels()
+        getPrintings(selectedStudio?.id),
+        getPrinters(selectedStudio?.id),
+        getModels(selectedStudio?.id)
       ]);
       setPrintings(printingsResponse.data);
       setAllPrintings(printingsResponse.data);
@@ -73,7 +75,7 @@ const PrintingsList = () => {
     }, 10000); // refresh every 10 seconds
     
     return () => clearInterval(refreshInterval);
-  }, []);
+  }, [selectedStudio]);
   
   // Add a second useEffect to update whenever the print status changes
   useEffect(() => {
@@ -145,9 +147,9 @@ const PrintingsList = () => {
       setLoading(true);
       // Get fresh data directly from server
       const [printingsResponse, printersResponse, modelsResponse] = await Promise.all([
-        getPrintings(),
-        getPrinters(),
-        getModels()
+        getPrintings(selectedStudio?.id),
+        getPrinters(selectedStudio?.id),
+        getModels(selectedStudio?.id)
       ]);
       setPrintings(printingsResponse.data);
       setAllPrintings(printingsResponse.data);
@@ -182,11 +184,13 @@ const PrintingsList = () => {
       setIsSubmitting(true);
       setError(null);
       
-      // Stop printer with reason
-      await stopPrinter(currentPrinterId, { reason: stopReason });
+      // Format data properly for API
+      await stopPrinter(currentPrinterId, {
+        reason: stopReason 
+      });
       
       setIsStopReasonModalOpen(false);
-      // Force a complete refresh to ensure cards disappear
+      // Refresh data to update the UI
       await forceRefreshData();
     } catch (error) {
       console.error('Error stopping printer:', error);

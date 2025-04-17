@@ -1,25 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
 from database import get_db
-from schemas import PrinterCreate, Printer, Printing, PrintingCreate
+from schemas import PrinterCreate, BaseSchemaPrinter, Printing, PrintingCreate
 from crud import (
     create_printer, get_printer, get_printers, 
     update_printer, delete_printer
 )
+from services import printer as printer_service
 from printer_control import calculate_printer_downtime
-import models
-from models import Model, Printer as PrinterModel, User
-from sqlalchemy.exc import IntegrityError
-from auth import get_current_active_user, get_studio_id_from_user
+from models import Model, Printer, User
+from auth.auth import get_current_active_user, get_studio_id_from_user
+from pydantic import BaseModel
 
 router = APIRouter(
     prefix="/printers",
     tags=["printers"]
 )
 
-@router.post("/", response_model=Printer)
+@router.post("/", response_model=BaseSchemaPrinter)
 def create_new_printer(
     printer: PrinterCreate, 
     db: Session = Depends(get_db),
@@ -40,7 +40,7 @@ def create_new_printer(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/", response_model=List[Printer])
+@router.get("/", response_model=List[BaseSchemaPrinter])
 def read_printers(
     skip: int = 0, 
     limit: int = 100, 
@@ -52,17 +52,17 @@ def read_printers(
 ):
     try:
         # Get printers for this studio
-        query = db.query(models.Printer)
+        query = db.query(Printer)
         
         # Filter by studio_id unless user is superuser
         if not current_user.is_superuser:
             # Get the current studio ID from the user's studios using the passed studio_id
             studio_id = get_studio_id_from_user(current_user, db, studio_id)
-            query = query.filter(models.Printer.studio_id == studio_id)
+            query = query.filter(Printer.studio_id == studio_id)  # Changed from BaseSchemaPrinter to Printer
             
         # Apply sorting
         if sort_by:
-            sort_col = getattr(models.Printer, sort_by, None)
+            sort_col = getattr(Printer, sort_by, None)  # Changed from BaseSchemaPrinter to Printer
             if sort_col:
                 query = query.order_by(sort_col.desc() if sort_desc else sort_col.asc())
         
@@ -73,7 +73,7 @@ def read_printers(
         print(f"Error in read_printers: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.get("/{printer_id}", response_model=Printer)
+@router.get("/{printer_id}", response_model=BaseSchemaPrinter)
 def read_printer(
     printer_id: int, 
     studio_id: Optional[int] = None,
@@ -103,7 +103,7 @@ def read_printer(
         print(f"Error in read_printer: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.put("/{printer_id}", response_model=Printer)
+@router.put("/{printer_id}", response_model=BaseSchemaPrinter)
 def update_existing_printer(
     printer_id: int, 
     printer: PrinterCreate, 
@@ -128,7 +128,7 @@ def update_existing_printer(
     db_printer = update_printer(db, printer_id=printer_id, printer=printer)
     return db_printer
 
-@router.delete("/{printer_id}", response_model=Printer)
+@router.delete("/{printer_id}", response_model=BaseSchemaPrinter)
 def delete_existing_printer(
     printer_id: int, 
     db: Session = Depends(get_db),
@@ -174,7 +174,7 @@ def get_printer_downtime(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/{printer_id}/resume", response_model=Printer)
+@router.post("/{printer_id}/resume", response_model=BaseSchemaPrinter)
 def resume_printer(printer_id: int, db: Session = Depends(get_db)):
     """Возобновление печати на принтере"""
     try:
@@ -186,9 +186,9 @@ def resume_printer(printer_id: int, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="Printer is not in paused or waiting state")
         
         # Find current printing
-        current_printing = db.query(models.Printing).filter(
-            models.Printing.printer_id == printer_id,
-            models.Printing.real_time_stop == None
+        current_printing = db.query(Printing).filter(
+            Printing.printer_id == printer_id,
+            Printing.real_time_stop == None
         ).first()
         
         if current_printing:
@@ -207,7 +207,7 @@ def resume_printer(printer_id: int, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.post("/{printer_id}/confirm", response_model=Printer)
+@router.post("/{printer_id}/confirm", response_model=BaseSchemaPrinter)
 def confirm_printing(printer_id: int, db: Session = Depends(get_db)):
     """Подтверждение завершения печати"""
     try:
@@ -219,9 +219,9 @@ def confirm_printing(printer_id: int, db: Session = Depends(get_db)):
         # Printer status might have been changed but the UI still shows it as waiting
         
         # Find the most recent printing that needs confirmation
-        current_printing = db.query(models.Printing).filter(
-            models.Printing.printer_id == printer_id
-        ).order_by(models.Printing.real_time_stop.desc() if models.Printing.real_time_stop else models.Printing.start_time.desc()).first()
+        current_printing = db.query(Printing).filter(
+            Printing.printer_id == printer_id
+        ).order_by(Printing.real_time_stop.desc() if Printing.real_time_stop else Printing.start_time.desc()).first()
         
         if not current_printing:
             raise HTTPException(status_code=404, detail="No printings found for this printer")
@@ -248,7 +248,7 @@ def confirm_printing(printer_id: int, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.post("/{printer_id}/start", response_model=Printer)
+@router.post("/{printer_id}/start")
 def start_printer(printer_id: int, printing_data: PrintingCreate, db: Session = Depends(get_db)):
     """Начать печать на принтере"""
     try:
@@ -267,12 +267,13 @@ def start_printer(printer_id: int, printing_data: PrintingCreate, db: Session = 
             raise HTTPException(status_code=404, detail="Model not found")
         
         # Create new printing record
-        new_printing = models.Printing(
+        new_printing = Printing(
             printer_id=printer_id,
             model_id=printing_data.model_id,
             status="printing",
             start_time=datetime.now(),
-            printing_time=model.printing_time
+            printing_time=model.printing_time,
+            studio_id=printing_data.studio_id
         )
         
         # Calculate expected end time based on model printing time
@@ -292,7 +293,7 @@ def start_printer(printer_id: int, printing_data: PrintingCreate, db: Session = 
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.post("/{printer_id}/pause", response_model=Printer)
+@router.post("/{printer_id}/pause", response_model=BaseSchemaPrinter)
 def pause_printer(printer_id: int, db: Session = Depends(get_db)):
     """Приостановить работу принтера"""
     try:
@@ -304,10 +305,10 @@ def pause_printer(printer_id: int, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail=f"Printer is not printing, current status: {printer.status}")
         
         # Find current printing
-        current_printing = db.query(models.Printing).filter(
-            models.Printing.printer_id == printer_id,
-            models.Printing.status == "printing",
-            models.Printing.real_time_stop == None
+        current_printing = db.query(Printing).filter(
+            Printing.printer_id == printer_id,
+            Printing.status == "printing",
+            Printing.real_time_stop == None
         ).first()
         
         if current_printing:
@@ -326,87 +327,22 @@ def pause_printer(printer_id: int, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.post("/{printer_id}/stop", response_model=Printer)
-def stop_printer(printer_id: int, data: dict = {}, db: Session = Depends(get_db)):
-    """Остановить работу принтера"""
+class StopPrinterRequest(BaseModel):
+    stop_reason: Optional[str] = None
+
+@router.post("/{printer_id}/stop")
+def stop_printer(
+    printer_id: int, 
+    stop_data: StopPrinterRequest = Body(...), # Validate request body
+    db: Session = Depends(get_db)
+):
+    """Stop printer and cancel current printing"""
     try:
-        printer = get_printer(db, printer_id)
+        printer = printer_service.stop_printer(db, printer_id, stop_data.stop_reason)
         if not printer:
             raise HTTPException(status_code=404, detail="Printer not found")
-        
-        # Allow stopping from various states including idle (e.g., for fixing state conflicts)
-        allowed_states = ["printing", "paused", "idle", "waiting", "completed"]
-        if printer.status not in allowed_states:
-            raise HTTPException(status_code=400, detail=f"Printer cannot be stopped from current status: {printer.status}")
-        
-        # Find current printing
-        current_printing = db.query(models.Printing).filter(
-            models.Printing.printer_id == printer_id,
-            models.Printing.real_time_stop == None
-        ).first()
-        
-        if not current_printing:
-            # Try to find the most recent printing
-            current_printing = db.query(models.Printing).filter(
-                models.Printing.printer_id == printer_id
-            ).order_by(models.Printing.start_time.desc()).first()
-            
-            if not current_printing:
-                raise HTTPException(status_code=404, detail="No printing found for this printer")
-                
-            # If real_time_stop is already set, this means we're handling a completed job
-            if current_printing.real_time_stop is not None:
-                current_printing.status = "cancelled"
-                current_printing.stop_reason = data.get("reason", "other")
-                db.add(current_printing)
-                db.commit()
-                printer.status = "idle"
-                db.add(printer)
-                db.commit()
-                db.refresh(printer)
-                return printer
-            # If it's a completed job without real_time_stop, set it now
-            elif current_printing.status == "completed":
-                current_printing.real_time_stop = datetime.now()
-                current_printing.stop_reason = data.get("reason", "other")
-                db.add(current_printing)
-                db.commit()
-                printer.status = "idle"
-                db.add(printer)
-                db.commit()
-                db.refresh(printer)
-                return printer
-        
-        # Set status based on the reason
-        reason = data.get("reason", "other")
-        is_success = reason in ["finished", "finished-early"]
-        
-        # Record the stop time and update status
-        current_time = datetime.now()
-        if current_printing.real_time_stop is None:
-            current_printing.real_time_stop = current_time
-        current_printing.status = "completed" if is_success else "cancelled"
-        current_printing.stop_reason = reason
-        
-        # Calculate actual print time for statistics if successful
-        if is_success and current_printing.start_time:
-            actual_printing_time = (current_time - current_printing.start_time).total_seconds() / 60  # в минутах
-            # Subtract any pause time
-            if current_printing.downtime:
-                actual_printing_time -= current_printing.downtime
-            printer.total_print_time = (printer.total_print_time or 0) + actual_printing_time
-        
-        # If print was successful, mark as waiting for confirmation
-        # Otherwise mark as idle
-        printer.status = "waiting" if is_success else "idle"
-        
-        # Save changes
-        db.add(printer)
-        db.add(current_printing)
-        db.commit()
-        db.refresh(printer)
-        
         return printer
     except Exception as e:
         db.rollback()
+        print(f"Error stopping printer: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

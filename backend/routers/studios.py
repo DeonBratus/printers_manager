@@ -8,7 +8,7 @@ import uuid
 from database import get_db
 import models
 import schemas
-from auth import get_current_active_user, check_user_permission, get_user_studio_role
+from auth.auth import get_current_active_user, check_user_permission, get_user_studio_role
 
 router = APIRouter(
     prefix="/studios",
@@ -83,12 +83,17 @@ def get_studio(
     if not db_studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     
-    # Check if user has access to this studio (either superuser or member)
+    # Проверяем базовое право на просмотр студии
     if not current_user.is_superuser:
-        role = get_user_studio_role(current_user, studio_id, db)
-        if not role:
+        has_permission = check_user_permission(
+            current_user, 
+            studio_id, 
+            models.StudioPermission.VIEW_STUDIO,
+            db
+        )
+        if not has_permission:
             raise HTTPException(status_code=403, detail="Not authorized to access this studio")
-    
+
     # Get users with their roles in this studio
     users = db.execute(
         text("""

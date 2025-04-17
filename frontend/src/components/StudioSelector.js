@@ -78,13 +78,13 @@ const StudioSelector = ({ className }) => {
         >
           <UserGroupIcon className="w-5 h-5" />
         </Link>
-        <Link 
+        {/* <Link 
           to="/studios" 
           className="p-1 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300"
           title={t('studios.title', 'Studios')}
         >
           <Cog6ToothIcon className="w-5 h-5" />
-        </Link>
+        </Link> */}
       </div>
     </div>
   );

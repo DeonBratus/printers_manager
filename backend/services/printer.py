@@ -95,3 +95,7 @@ def delete_printer(db: Session, printer_id: int):
     if result and hasattr(result, 'id'):
         result.id = str(result.id)
     return result
+
+def stop_printer(db: Session, printer_id: int, stop_reason: str = None):
+    """Stop printer and handle related updates"""
+    return printer_dal.stop_printer(db, printer_id, stop_reason)
