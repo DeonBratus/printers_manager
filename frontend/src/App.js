@@ -17,7 +17,6 @@ import Reports from './pages/Reports';
 import ApiDebug from './pages/ApiDebug';
 import UserSettings from './pages/UserSettings';
 import HelpSupport from './pages/HelpSupport';
-import StudiosList from './pages/StudiosList';
 import StudioManagementPage from './pages/StudioManagementPage';
 import './index.css';
 
@@ -89,12 +88,9 @@ const App = () => {
                 </Layout>
               </ProtectedRoute>
             } />
+            {/* Redirect /studios to /studios/manage */}
             <Route path="/studios" element={
-              <ProtectedRoute>
-                <Layout>
-                  <StudiosList />
-                </Layout>
-              </ProtectedRoute>
+              <Navigate to="/studios/manage" replace />
             } />
             <Route path="/studios/manage" element={
               <ProtectedRoute>

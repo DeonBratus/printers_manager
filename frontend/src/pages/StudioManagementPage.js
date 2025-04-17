@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import StudioManagement from '../components/StudioManagement';
 import { useStudio } from '../context/StudioContext';
 import PageHeader from '../components/PageHeader';
-import UserInvitations from '../components/UserInvitations';
 
 const StudioManagementPage = () => {
   const { t } = useTranslation();
@@ -16,10 +15,7 @@ const StudioManagementPage = () => {
         subtitle={selectedStudio ? selectedStudio.name : t('studios.noStudioSelected', 'No studio selected')}
       />
 
-      <div className="grid grid-cols-1 gap-6">
-        <UserInvitations />
-        <StudioManagement />
-      </div>
+      <StudioManagement />
     </div>
   );
 };

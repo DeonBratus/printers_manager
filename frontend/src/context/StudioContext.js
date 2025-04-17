@@ -14,67 +14,67 @@ export const StudioProvider = ({ children }) => {
   const [studioMembers, setStudioMembers] = useState([]);
   const [membersLoading, setMembersLoading] = useState(false);
 
-  useEffect(() => {
-    // При инициализации загружаем список студий
-    const fetchStudios = async () => {
-      try {
-        setLoading(true);
-        const response = await getStudios();
-        const studiosData = Array.isArray(response) ? response : response.data || [];
-        setStudios(studiosData);
+  // Fetch studios from the API
+  const fetchStudios = async () => {
+    try {
+      setLoading(true);
+      const response = await getStudios();
+      const studiosData = Array.isArray(response) ? response : response.data || [];
+      setStudios(studiosData);
+      
+      // Выбираем студию на основе данных пользователя
+      if (user && user.studios && user.studios.length > 0) {
+        // Получаем роли пользователя в каждой студии
+        const roles = {};
+        user.studios.forEach(studio => {
+          roles[studio.id] = studio.role;
+        });
+        setUserRoles(roles);
         
-        // Выбираем студию на основе данных пользователя
-        if (user && user.studios && user.studios.length > 0) {
-          // Получаем роли пользователя в каждой студии
-          const roles = {};
-          user.studios.forEach(studio => {
-            roles[studio.id] = studio.role;
-          });
-          setUserRoles(roles);
+        // Проверяем, есть ли сохраненная студия в localStorage
+        const savedStudioId = localStorage.getItem('selectedStudio');
+        if (savedStudioId) {
+          // Проверяем, имеет ли пользователь доступ к этой студии
+          const userHasAccess = user.studios.some(s => s.id.toString() === savedStudioId);
           
-          // Проверяем, есть ли сохраненная студия в localStorage
-          const savedStudioId = localStorage.getItem('selectedStudio');
-          if (savedStudioId) {
-            // Проверяем, имеет ли пользователь доступ к этой студии
-            const userHasAccess = user.studios.some(s => s.id.toString() === savedStudioId);
-            
-            if (userHasAccess) {
-              const studio = studiosData.find(s => s.id.toString() === savedStudioId);
-              if (studio) {
-                setSelectedStudio(studio);
-              } else if (studiosData.length > 0) {
-                // Если сохраненная студия не найдена в списке доступных, выбираем первую
-                setSelectedStudio(studiosData[0]);
-                localStorage.setItem('selectedStudio', studiosData[0].id.toString());
-              }
-            } else if (user.studios.length > 0) {
-              // Если у пользователя нет доступа к сохраненной студии, выбираем первую из его доступных
-              const firstUserStudio = studiosData.find(s => s.id === user.studios[0].id);
-              if (firstUserStudio) {
-                setSelectedStudio(firstUserStudio);
-                localStorage.setItem('selectedStudio', firstUserStudio.id.toString());
-              }
+          if (userHasAccess) {
+            const studio = studiosData.find(s => s.id.toString() === savedStudioId);
+            if (studio) {
+              setSelectedStudio(studio);
+            } else if (studiosData.length > 0) {
+              // Если сохраненная студия не найдена в списке доступных, выбираем первую
+              setSelectedStudio(studiosData[0]);
+              localStorage.setItem('selectedStudio', studiosData[0].id.toString());
             }
-          } else if (studiosData.length > 0) {
-            // Если нет сохраненной студии, используем первую доступную
-            setSelectedStudio(studiosData[0]);
-            localStorage.setItem('selectedStudio', studiosData[0].id.toString());
+          } else if (user.studios.length > 0) {
+            // Если у пользователя нет доступа к сохраненной студии, выбираем первую из его доступных
+            const firstUserStudio = studiosData.find(s => s.id === user.studios[0].id);
+            if (firstUserStudio) {
+              setSelectedStudio(firstUserStudio);
+              localStorage.setItem('selectedStudio', firstUserStudio.id.toString());
+            }
           }
         } else if (studiosData.length > 0) {
-          // Если нет данных о пользователе или его студиях, но есть доступные студии
+          // Если нет сохраненной студии, используем первую доступную
           setSelectedStudio(studiosData[0]);
           localStorage.setItem('selectedStudio', studiosData[0].id.toString());
         }
-        
-        setError(null);
-      } catch (err) {
-        console.error("Error fetching studios:", err);
-        setError("Failed to load studios");
-      } finally {
-        setLoading(false);
+      } else if (studiosData.length > 0) {
+        // Если нет данных о пользователе или его студиях, но есть доступные студии
+        setSelectedStudio(studiosData[0]);
+        localStorage.setItem('selectedStudio', studiosData[0].id.toString());
       }
-    };
+      
+      setError(null);
+    } catch (err) {
+      console.error("Error fetching studios:", err);
+      setError("Failed to load studios");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchStudios();
   }, [user]);
 
@@ -106,33 +106,7 @@ export const StudioProvider = ({ children }) => {
   };
 
   const refreshStudios = async () => {
-    try {
-      const response = await getStudios();
-      const studiosData = Array.isArray(response) ? response : response.data || [];
-      setStudios(studiosData);
-      
-      // Обновляем роли пользователя если доступны данные
-      if (user && user.studios) {
-        const roles = {};
-        user.studios.forEach(studio => {
-          roles[studio.id] = studio.role;
-        });
-        setUserRoles(roles);
-      }
-      
-      // Если текущая студия была удалена, выбираем новую
-      if (selectedStudio && !studiosData.find(s => s.id === selectedStudio.id)) {
-        if (studiosData.length > 0) {
-          setSelectedStudio(studiosData[0]);
-          localStorage.setItem('selectedStudio', studiosData[0].id.toString());
-        } else {
-          setSelectedStudio(null);
-          localStorage.removeItem('selectedStudio');
-        }
-      }
-    } catch (err) {
-      console.error("Error refreshing studios:", err);
-    }
+    return await fetchStudios();
   };
 
   // Fetch members of the current studio
@@ -195,6 +169,7 @@ export const StudioProvider = ({ children }) => {
         changeStudio, 
         getCurrentStudioId,
         refreshStudios,
+        fetchStudios,
         getUserRole,
         isStudioAdmin,
         studioMembers,
@@ -208,10 +183,10 @@ export const StudioProvider = ({ children }) => {
   );
 };
 
-// Хук для использования контекста студий
+// Custom hook for using the Studio context
 export const useStudio = () => {
   const context = useContext(StudioContext);
-  if (!context) {
+  if (context === null) {
     throw new Error('useStudio must be used within a StudioProvider');
   }
   return context;

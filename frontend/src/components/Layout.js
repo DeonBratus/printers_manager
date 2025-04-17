@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { SunIcon, MoonIcon, UserCircleIcon, Bars3Icon, XMarkIcon, LanguageIcon } from '@heroicons/react/24/outline';
+import { SunIcon, MoonIcon, UserCircleIcon, Bars3Icon, XMarkIcon, LanguageIcon, BellIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitcher from './LanguageSwitcher';
 import StudioSelector from './StudioSelector';
+import { getUserInvitations, updateInvitationStatus } from '../services/api';
 
 const Layout = ({ children }) => {
   const { t } = useTranslation();
@@ -12,6 +13,10 @@ const Layout = ({ children }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [invitations, setInvitations] = useState([]);
+  const [loadingInvitations, setLoadingInvitations] = useState(false);
+  const [processingInvitation, setProcessingInvitation] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -27,6 +32,54 @@ const Layout = ({ children }) => {
       document.documentElement.classList.add('dark');
     }
   }, []);
+
+  // Fetch invitations periodically
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchInvitations();
+      const interval = setInterval(fetchInvitations, 60000); // Check every minute
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
+  const fetchInvitations = async () => {
+    if (!isAuthenticated) return;
+    
+    setLoadingInvitations(true);
+    try {
+      const response = await getUserInvitations();
+      setInvitations(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error('Error fetching invitations:', err);
+    } finally {
+      setLoadingInvitations(false);
+    }
+  };
+
+  const handleAcceptInvitation = async (invitationId) => {
+    await handleInvitationResponse(invitationId, 'accepted');
+  };
+
+  const handleRejectInvitation = async (invitationId) => {
+    await handleInvitationResponse(invitationId, 'rejected');
+  };
+
+  const handleInvitationResponse = async (invitationId, status) => {
+    setProcessingInvitation(invitationId);
+    try {
+      await updateInvitationStatus(invitationId, { status });
+      setInvitations(invitations.filter(inv => inv.id !== invitationId));
+    } catch (err) {
+      console.error(`Error ${status} invitation:`, err);
+    } finally {
+      setProcessingInvitation(null);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString();
+  };
 
   const toggleDarkMode = () => {
     const newMode = !isDarkMode;
@@ -55,7 +108,6 @@ const Layout = ({ children }) => {
     { name: t('navigation.printers'), href: '/printers' },
     { name: t('navigation.models'), href: '/models' },
     { name: t('navigation.printings'), href: '/printings' },
-    { name: t('navigation.studios'), href: '/studios' },
     { name: t('navigation.studioManagement'), href: '/studios/manage' },
     { name: t('navigation.reports'), href: '/reports' },
     { name: t('navigation.debug'), href: '/debug' },
@@ -110,12 +162,110 @@ const Layout = ({ children }) => {
                 )}
               </button>
               
+              {/* Notification Bell */}
+              {isAuthenticated && (
+                <div className="relative">
+                  <button
+                    className={`p-2 rounded-full relative ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-500 hover:bg-gray-100'}`}
+                    onClick={() => {
+                      setIsNotificationsOpen(!isNotificationsOpen);
+                      if (isProfileMenuOpen) setIsProfileMenuOpen(false);
+                    }}
+                  >
+                    <BellIcon className="h-5 w-5" aria-hidden="true" />
+                    {invitations.length > 0 && (
+                      <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-800" />
+                    )}
+                  </button>
+                
+                  {isNotificationsOpen && (
+                    <div 
+                      className={`absolute right-0 z-10 mt-2 w-80 origin-top-right rounded-md shadow-lg py-1 ${
+                        isDarkMode ? 'bg-gray-800' : 'bg-white'
+                      } ring-1 ring-black ring-opacity-5`}
+                    >
+                      <div className={`px-4 py-2 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                        <h3 className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {t('notifications.title', 'Notifications')}
+                        </h3>
+                      </div>
+                      
+                      {loadingInvitations ? (
+                        <div className="px-4 py-3 text-center">
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {t('common.loading', 'Loading...')}
+                          </p>
+                        </div>
+                      ) : invitations.length > 0 ? (
+                        <div className="max-h-60 overflow-y-auto">
+                          {invitations.map(invitation => (
+                            <div 
+                              key={invitation.id} 
+                              className={`px-4 py-3 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'} last:border-0`}
+                            >
+                              <div className="flex flex-col">
+                                <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                  {t('invitations.inviteFrom', 'Invite to join')} <span className="font-bold">{invitation.studio_name}</span>
+                                </p>
+                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  {t('invitations.from', 'From')}: {invitation.inviter_name || 'Unknown'}
+                                </p>
+                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  {t('invitations.role', 'Role')}: {t(`roles.${invitation.role}`, invitation.role)}
+                                </p>
+                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  {formatDate(invitation.created_at)}
+                                </p>
+                                
+                                <div className="flex justify-end space-x-2 mt-2">
+                                  <button
+                                    disabled={processingInvitation === invitation.id}
+                                    onClick={() => handleRejectInvitation(invitation.id)}
+                                    className={`px-2 py-1 text-xs rounded ${
+                                      isDarkMode 
+                                        ? 'bg-red-900/30 text-red-300 hover:bg-red-900/50' 
+                                        : 'bg-red-50 text-red-600 hover:bg-red-100'
+                                    }`}
+                                  >
+                                    {processingInvitation === invitation.id ? t('common.processing', 'Processing...') : t('invitations.reject', 'Reject')}
+                                  </button>
+                                  <button
+                                    disabled={processingInvitation === invitation.id}
+                                    onClick={() => handleAcceptInvitation(invitation.id)}
+                                    className={`px-2 py-1 text-xs rounded ${
+                                      isDarkMode 
+                                        ? 'bg-green-900/30 text-green-300 hover:bg-green-900/50' 
+                                        : 'bg-green-50 text-green-600 hover:bg-green-100'
+                                    }`}
+                                  >
+                                    {processingInvitation === invitation.id ? t('common.processing', 'Processing...') : t('invitations.accept', 'Accept')}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="px-4 py-3 text-center">
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {t('notifications.noNotifications', 'No notifications')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {/* User profile */}
               <div className="relative ml-3">
                 <div>
                   <button
                     className={`flex rounded-full focus:outline-none focus:ring-2 ${isDarkMode ? 'focus:ring-white' : 'focus:ring-blue-500'}`}
-                    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                    onClick={() => {
+                      setIsProfileMenuOpen(!isProfileMenuOpen);
+                      if (isNotificationsOpen) setIsNotificationsOpen(false);
+                    }}
                   >
                     <UserCircleIcon className={`h-8 w-8 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`} />
                     {isAuthenticated && user && (
@@ -249,76 +399,94 @@ const Layout = ({ children }) => {
                   {item.name}
                 </Link>
               ))}
-              
-              {/* Language switcher in mobile menu */}
-              <div className={`block px-3 py-2 text-base font-medium ${
-                isDarkMode
-                  ? 'text-gray-300 hover:bg-gray-700 hover:text-white border-l-4 border-transparent'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
-              }`}>
-                <LanguageSwitcher />
-              </div>
-              
-              {/* Add settings link to mobile menu */}
-              <Link
-                to="/settings"
-                className={`block px-3 py-2 text-base font-medium ${
-                  location.pathname === '/settings' 
-                    ? isDarkMode 
-                      ? 'bg-gray-900 text-blue-400 border-l-4 border-blue-400' 
-                      : 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
-                    : isDarkMode
-                      ? 'text-gray-300 hover:bg-gray-700 hover:text-white border-l-4 border-transparent'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
-                }`}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {t('user.profile')}
-              </Link>
-              
-              {/* Add help & support link to mobile menu */}
-              <Link
-                to="/help"
-                className={`block px-3 py-2 text-base font-medium ${
-                  location.pathname === '/help' 
-                    ? isDarkMode 
-                      ? 'bg-gray-900 text-blue-400 border-l-4 border-blue-400' 
-                      : 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
-                    : isDarkMode
-                      ? 'text-gray-300 hover:bg-gray-700 hover:text-white border-l-4 border-transparent'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
-                }`}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {t('common.helpSupport')}
-              </Link>
-
-              {isAuthenticated ? (
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    handleLogout();
-                  }}
-                  className={`block w-full text-left px-3 py-2 text-base font-medium ${
-                    isDarkMode
-                      ? 'text-gray-300 hover:bg-gray-700 hover:text-white border-l-4 border-transparent'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
+            </div>
+            
+            {/* Mobile menu notification bell */}
+            {isAuthenticated && invitations.length > 0 && (
+              <div className={`px-3 py-3 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="flex items-center">
+                  <BellIcon className={`h-5 w-5 mr-2 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                  <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    {invitations.length} {t('invitations.pendingInvitations', 'pending invitations')}
+                  </span>
+                </div>
+                <Link
+                  to="/studios/manage"
+                  className={`mt-2 block px-3 py-2 text-sm font-medium rounded-md ${
+                    isDarkMode 
+                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  {t('user.logout')}
-                </button>
-              ) : (
+                  {t('invitations.viewAll', 'View all invitations')}
+                </Link>
+              </div>
+            )}
+            
+            {/* Mobile profile/auth links */}
+            <div className={`pt-4 pb-3 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              {isAuthenticated ? (
                 <>
+                  <div className="px-3 space-y-1">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <UserCircleIcon className={`h-8 w-8 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`} />
+                      </div>
+                      <div className="ml-3">
+                        <div className={`text-base font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                          {user?.username}
+                        </div>
+                        <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {user?.email}
+                        </div>
+                      </div>
+                    </div>
+                    <Link
+                      to="/settings"
+                      className={`block px-3 py-2 text-base font-medium ${
+                        isDarkMode
+                          ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      {t('user.profile')}
+                    </Link>
+                    <Link
+                      to="/help"
+                      className={`block px-3 py-2 text-base font-medium ${
+                        isDarkMode
+                          ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      {t('common.helpSupport')}
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className={`block w-full text-left px-3 py-2 text-base font-medium ${
+                        isDarkMode
+                          ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                    >
+                      {t('user.logout')}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="px-3 space-y-1">
                   <Link
                     to="/login"
                     className={`block px-3 py-2 text-base font-medium ${
-                      location.pathname === '/login' 
-                        ? isDarkMode 
-                          ? 'bg-gray-900 text-blue-400 border-l-4 border-blue-400' 
-                          : 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
-                        : isDarkMode
-                          ? 'text-gray-300 hover:bg-gray-700 hover:text-white border-l-4 border-transparent'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
+                      isDarkMode
+                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -327,19 +495,15 @@ const Layout = ({ children }) => {
                   <Link
                     to="/register"
                     className={`block px-3 py-2 text-base font-medium ${
-                      location.pathname === '/register' 
-                        ? isDarkMode 
-                          ? 'bg-gray-900 text-blue-400 border-l-4 border-blue-400' 
-                          : 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
-                        : isDarkMode
-                          ? 'text-gray-300 hover:bg-gray-700 hover:text-white border-l-4 border-transparent'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
+                      isDarkMode
+                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     {t('auth.register')}
                   </Link>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -347,11 +511,11 @@ const Layout = ({ children }) => {
       </header>
       
       {/* Main content */}
-      <main className="pt-20 pb-8 px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-8xl">
+      <div className="pt-16">
+        <main className="container mx-auto px-4 py-6">
           {children}
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 };
