@@ -11,6 +11,13 @@ api.interceptors.request.use(
     if (process.env.NODE_ENV === 'development') {
       console.log(`[API] ${config.method.toUpperCase()} ${config.url}`);
     }
+    
+    // Add token to request if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    
     return config;
   },
   (error) => {
@@ -36,11 +43,24 @@ api.interceptors.response.use(
       error: error.message
     });
 
+    // Handle 401 (Unauthorized) errors
+    if (error.response && error.response.status === 401) {
+      // Remove token if it's expired or invalid
+      localStorage.removeItem('token');
+      localStorage.removeItem('tokenExpiry');
+      
+      // Redirect to login if not already there
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+        window.location.href = '/login';
+      }
+      
+      return Promise.reject(error);
+    }
+    
     // Don't retry if we've already retried or certain status codes
     if (
       originalRequest?._retry || 
-      (error.response && (error.response.status === 401 || 
-      error.response.status === 403 || 
+      (error.response && (error.response.status === 403 || 
       error.response.status === 404))
     ) {
       return Promise.reject(error);
@@ -68,6 +88,14 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Authentication API
+export const register = (userData) => api.post('/auth/register', userData);
+export const login = (credentials) => api.post('/auth/login', credentials);
+export const logout = () => api.post('/auth/logout');
+export const getProfile = () => api.get('/auth/me');
+export const getStudios = () => api.get('/auth/studios');
+export const createStudio = (studioData) => api.post('/auth/studios', studioData);
 
 // Printers API
 export const getPrinters = () => api.get('/printers/');

@@ -10,8 +10,9 @@ from crud import (
 )
 from printer_control import calculate_printer_downtime
 import models
-from models import Model, Printer as PrinterModel
+from models import Model, Printer as PrinterModel, User
 from sqlalchemy.exc import IntegrityError
+from auth import get_current_active_user, get_studio_id_from_user
 
 router = APIRouter(
     prefix="/printers",
@@ -19,8 +20,16 @@ router = APIRouter(
 )
 
 @router.post("/", response_model=Printer)
-def create_new_printer(printer: PrinterCreate, db: Session = Depends(get_db)):
+def create_new_printer(
+    printer: PrinterCreate, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
     try:
+        # Set studio_id if not provided
+        if not printer.studio_id:
+            printer.studio_id = current_user.studio_id
+            
         # Create or get existing printer
         result = create_printer(db, printer)
         # If result is a list (from old code), take the first item
@@ -37,23 +46,47 @@ def read_printers(
     limit: int = 100, 
     sort_by: Optional[str] = None,
     sort_desc: bool = False,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
     try:
-        printers = get_printers(db, skip=skip, limit=limit, sort_by=sort_by, sort_desc=sort_desc)
+        # Get printers for this studio
+        query = db.query(models.Printer)
+        
+        # Filter by studio_id unless user is superuser
+        if not current_user.is_superuser:
+            query = query.filter(models.Printer.studio_id == current_user.studio_id)
+            
+        # Apply sorting
+        if sort_by:
+            sort_col = getattr(models.Printer, sort_by, None)
+            if sort_col:
+                query = query.order_by(sort_col.desc() if sort_desc else sort_col.asc())
+        
+        # Apply pagination
+        printers = query.offset(skip).limit(limit).all()
         return printers
     except Exception as e:
         print(f"Error in read_printers: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.get("/{printer_id}", response_model=Printer)
-def read_printer(printer_id: int, db: Session = Depends(get_db)):
+def read_printer(
+    printer_id: int, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
     try:
         # Convert printer_id to int in case it's coming as a string
         printer_id = int(printer_id)
         db_printer = get_printer(db, printer_id=printer_id)
         if db_printer is None:
             raise HTTPException(status_code=404, detail="Printer not found")
+            
+        # Check if user has access to this printer
+        if not current_user.is_superuser and db_printer.studio_id != current_user.studio_id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this printer")
+            
         return db_printer
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid printer ID format")
@@ -64,23 +97,62 @@ def read_printer(printer_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.put("/{printer_id}", response_model=Printer)
-def update_existing_printer(printer_id: int, printer: PrinterCreate, db: Session = Depends(get_db)):
-    db_printer = update_printer(db, printer_id=printer_id, printer=printer)
+def update_existing_printer(
+    printer_id: int, 
+    printer: PrinterCreate, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Check if printer exists and user has access
+    db_printer = get_printer(db, printer_id=printer_id)
     if db_printer is None:
         raise HTTPException(status_code=404, detail="Printer not found")
+        
+    # Check permissions
+    if not current_user.is_superuser and db_printer.studio_id != current_user.studio_id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this printer")
+        
+    # Set studio_id to ensure it doesn't change
+    printer.studio_id = db_printer.studio_id
+    
+    db_printer = update_printer(db, printer_id=printer_id, printer=printer)
     return db_printer
 
 @router.delete("/{printer_id}", response_model=Printer)
-def delete_existing_printer(printer_id: int, db: Session = Depends(get_db)):
-    db_printer = delete_printer(db, printer_id=printer_id)
+def delete_existing_printer(
+    printer_id: int, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Check if printer exists and user has access
+    db_printer = get_printer(db, printer_id=printer_id)
     if db_printer is None:
         raise HTTPException(status_code=404, detail="Printer not found")
+        
+    # Check permissions
+    if not current_user.is_superuser and db_printer.studio_id != current_user.studio_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this printer")
+        
+    db_printer = delete_printer(db, printer_id=printer_id)
     return db_printer
 
 @router.get("/{printer_id}/downtime")
-def get_printer_downtime(printer_id: int, db: Session = Depends(get_db)):
+def get_printer_downtime(
+    printer_id: int, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
     """Получение текущего времени простоя принтера"""
     try:
+        # Check access
+        db_printer = get_printer(db, printer_id=printer_id)
+        if db_printer is None:
+            raise HTTPException(status_code=404, detail="Printer not found")
+            
+        # Check permissions
+        if not current_user.is_superuser and db_printer.studio_id != current_user.studio_id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this printer")
+            
         downtime = calculate_printer_downtime(db, printer_id)
         return {"printer_id": printer_id, "downtime": downtime}
     except Exception as e:

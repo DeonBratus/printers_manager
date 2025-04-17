@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { SunIcon, MoonIcon, UserCircleIcon, Bars3Icon, XMarkIcon, LanguageIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 import LanguageSwitcher from './LanguageSwitcher';
 
 const Layout = ({ children }) => {
   const { t } = useTranslation();
+  const { user, logout, isAuthenticated } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Set up dark mode
   useEffect(() => {
@@ -34,6 +37,15 @@ const Layout = ({ children }) => {
     } else {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
     }
   };
 
@@ -96,6 +108,11 @@ const Layout = ({ children }) => {
                     onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                   >
                     <UserCircleIcon className={`h-8 w-8 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`} />
+                    {isAuthenticated && user && (
+                      <span className={`ml-1.5 mt-1 text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {user.username}
+                      </span>
+                    )}
                   </button>
                 </div>
                 
@@ -105,32 +122,62 @@ const Layout = ({ children }) => {
                       isDarkMode ? 'bg-gray-800' : 'bg-white'
                     } ring-1 ring-black ring-opacity-5`}
                   >
-                    <Link
-                      to="/settings"
-                      className={`block px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
-                      onClick={() => setIsProfileMenuOpen(false)}
-                    >
-                      {t('user.profile')}
-                    </Link>
-                    
-                    {/* Language Switcher */}
-                    <LanguageSwitcher 
-                      className={`block w-full text-left ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
-                    />
-                    
-                    <Link
-                      to="/help"
-                      className={`block px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
-                      onClick={() => setIsProfileMenuOpen(false)}
-                    >
-                      {t('common.helpSupport')}
-                    </Link>
-                    <a
-                      href="#"
-                      className={`block px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
-                    >
-                      {t('user.logout')}
-                    </a>
+                    {isAuthenticated ? (
+                      <>
+                        <div className={`px-4 py-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {user?.email}
+                        </div>
+                        <div className={`px-4 py-1 text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                          {t('auth.studio')}: {user?.studio_id || 'default'}
+                        </div>
+                        <Link
+                          to="/settings"
+                          className={`block px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                          onClick={() => setIsProfileMenuOpen(false)}
+                        >
+                          {t('user.profile')}
+                        </Link>
+                        <LanguageSwitcher 
+                          className={`block w-full text-left ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                        />
+                        <Link
+                          to="/help"
+                          className={`block px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                          onClick={() => setIsProfileMenuOpen(false)}
+                        >
+                          {t('common.helpSupport')}
+                        </Link>
+                        <button
+                          onClick={() => {
+                            setIsProfileMenuOpen(false);
+                            handleLogout();
+                          }}
+                          className={`block w-full text-left px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                        >
+                          {t('user.logout')}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          to="/login"
+                          className={`block px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                          onClick={() => setIsProfileMenuOpen(false)}
+                        >
+                          {t('auth.signIn')}
+                        </Link>
+                        <Link
+                          to="/register"
+                          className={`block px-4 py-2 text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                          onClick={() => setIsProfileMenuOpen(false)}
+                        >
+                          {t('auth.register')}
+                        </Link>
+                        <LanguageSwitcher 
+                          className={`block w-full text-left ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'}`}
+                        />
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -224,6 +271,55 @@ const Layout = ({ children }) => {
               >
                 {t('common.helpSupport')}
               </Link>
+
+              {isAuthenticated ? (
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    handleLogout();
+                  }}
+                  className={`block w-full text-left px-3 py-2 text-base font-medium ${
+                    isDarkMode
+                      ? 'text-gray-300 hover:bg-gray-700 hover:text-white border-l-4 border-transparent'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
+                  }`}
+                >
+                  {t('user.logout')}
+                </button>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    className={`block px-3 py-2 text-base font-medium ${
+                      location.pathname === '/login' 
+                        ? isDarkMode 
+                          ? 'bg-gray-900 text-blue-400 border-l-4 border-blue-400' 
+                          : 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
+                        : isDarkMode
+                          ? 'text-gray-300 hover:bg-gray-700 hover:text-white border-l-4 border-transparent'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
+                    }`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {t('auth.signIn')}
+                  </Link>
+                  <Link
+                    to="/register"
+                    className={`block px-3 py-2 text-base font-medium ${
+                      location.pathname === '/register' 
+                        ? isDarkMode 
+                          ? 'bg-gray-900 text-blue-400 border-l-4 border-blue-400' 
+                          : 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
+                        : isDarkMode
+                          ? 'text-gray-300 hover:bg-gray-700 hover:text-white border-l-4 border-transparent'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
+                    }`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {t('auth.register')}
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}

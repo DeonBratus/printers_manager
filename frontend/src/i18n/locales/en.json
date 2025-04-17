@@ -424,5 +424,24 @@
     "cancel": "Cancel",
     "processing": "Processing...",
     "confirmCancel": "Confirm Cancel"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "register": "Register",
+    "createAccount": "Create Account",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "username": "Username",
+    "orRegister": "Or register",
+    "alreadyHaveAccount": "Already have an account?",
+    "fillAllFields": "Please fill in all fields",
+    "passwordMismatch": "Passwords do not match",
+    "passwordLength": "Password must be at least 6 characters",
+    "invalidEmail": "Please enter a valid email address",
+    "usernameRequired": "Username is required",
+    "loginFailed": "Login failed. Please check your credentials.",
+    "registrationFailed": "Registration failed. Please try again.",
+    "studio": "Studio"
   }
 } 

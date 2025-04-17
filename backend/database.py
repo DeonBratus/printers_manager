@@ -10,7 +10,7 @@ load_dotenv()
 db_user = os.getenv("POSTGRES_USER", "postgres")
 db_pass = os.getenv("POSTGRES_PASSWORD", "postgres")
 db_name = os.getenv("POSTGRES_DB", "3d_printer_db")
-db_host = os.getenv("POSTGRES_HOST", "db")
+db_host = os.getenv("POSTGRES_HOST", "localhost")
 db_port = os.getenv("POSTGRES_PORT", "5432")
 
 # Формируем DSN с экранированием специальных символов

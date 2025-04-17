@@ -12,7 +12,7 @@ from background_tasks import start_scheduler
 from database import get_db, engine
 from models import Base
 from sqlalchemy.orm import Session
-from routers import printers, printings, models, reports, printer_parameters
+from routers import printers, printings, models, reports, printer_parameters, auth
 
 app = FastAPI(
     title="3D Printer Management API",
@@ -40,6 +40,7 @@ app.include_router(printings.router)
 app.include_router(models.router)
 app.include_router(reports.router)
 app.include_router(printer_parameters.router)
+app.include_router(auth.router)
 
 # Запускаем планировщик при старте приложения
 @app.on_event("startup")

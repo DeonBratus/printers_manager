@@ -1,6 +1,10 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthProvider } from './context/AuthContext';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import PrintersList from './pages/PrintersList';
 import PrinterDetail from './pages/PrinterDetail';
@@ -16,23 +20,105 @@ import './index.css';
 
 const App = () => {
   return (
-    <Router>
-      <Layout>
+    <AuthProvider>
+      <Router>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/printers" element={<PrintersList />} />
-          <Route path="/printers/:id" element={<PrinterDetail />} />
-          <Route path="/models" element={<ModelsList />} />
-          <Route path="/models/:id" element={<ModelDetail />} />
-          <Route path="/printings" element={<PrintingsList />} />
-          <Route path="/printings/:id" element={<PrintingDetail />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/debug" element={<ApiDebug />} />
-          <Route path="/settings" element={<UserSettings />} />
-          <Route path="/help" element={<HelpSupport />} />
+          {/* Public routes */}
+          <Route path="/login" element={
+            <Layout>
+              <Login />
+            </Layout>
+          } />
+          <Route path="/register" element={
+            <Layout>
+              <Register />
+            </Layout>
+          } />
+          
+          {/* Protected routes */}
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Layout>
+                <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/printers" element={
+            <ProtectedRoute>
+              <Layout>
+                <PrintersList />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/printers/:id" element={
+            <ProtectedRoute>
+              <Layout>
+                <PrinterDetail />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/models" element={
+            <ProtectedRoute>
+              <Layout>
+                <ModelsList />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/models/:id" element={
+            <ProtectedRoute>
+              <Layout>
+                <ModelDetail />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/printings" element={
+            <ProtectedRoute>
+              <Layout>
+                <PrintingsList />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/printings/:id" element={
+            <ProtectedRoute>
+              <Layout>
+                <PrintingDetail />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/reports" element={
+            <ProtectedRoute>
+              <Layout>
+                <Reports />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/debug" element={
+            <ProtectedRoute>
+              <Layout>
+                <ApiDebug />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Layout>
+                <UserSettings />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/help" element={
+            <ProtectedRoute>
+              <Layout>
+                <HelpSupport />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          {/* Redirect all other routes to dashboard */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </Layout>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 };
 
