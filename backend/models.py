@@ -10,7 +10,7 @@ class Printer(Base):
     __tablename__ = "td_printers"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
+    name = Column(String, index=True)
     model = Column(String, nullable=True)  # Printer model e.g. Creality Ender 3 V2
     status = Column(String, default="idle")  # idle, printing, waiting, paused, error
     total_print_time = Column(Float, default=0.0)

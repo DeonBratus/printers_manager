@@ -134,4 +134,60 @@ def create_studio(
     db.add(db_studio)
     db.commit()
     db.refresh(db_studio)
+    return db_studio
+
+@router.put("/studios/{studio_id}", response_model=schemas.Studio)
+def update_studio(
+    studio_id: int,
+    studio_data: schemas.StudioUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    # Only superusers can update studios
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not authorized to update studios")
+    
+    # Check if studio exists
+    db_studio = db.query(models.Studio).filter(models.Studio.id == studio_id).first()
+    if not db_studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    
+    # Update fields
+    update_data = studio_data.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_studio, key, value)
+    
+    db.commit()
+    db.refresh(db_studio)
+    return db_studio
+
+@router.delete("/studios/{studio_id}", response_model=schemas.Studio)
+def delete_studio(
+    studio_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    # Only superusers can delete studios
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not authorized to delete studios")
+    
+    # Check if studio exists
+    db_studio = db.query(models.Studio).filter(models.Studio.id == studio_id).first()
+    if not db_studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    
+    # Check if any users, printers, or models are using this studio
+    users_count = db.query(models.User).filter(models.User.studio_id == studio_id).count()
+    printers_count = db.query(models.Printer).filter(models.Printer.studio_id == studio_id).count()
+    models_count = db.query(models.Model).filter(models.Model.studio_id == studio_id).count()
+    
+    if users_count > 0 or printers_count > 0 or models_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot delete studio with associated users ({users_count}), printers ({printers_count}), or models ({models_count})"
+        )
+    
+    # Delete the studio
+    db.delete(db_studio)
+    db.commit()
     return db_studio 

@@ -5,31 +5,23 @@ from schemas import PrinterCreate
 from sqlalchemy.exc import IntegrityError
 
 def create(db: Session, printer: PrinterCreate):
-    # Check if printer with this name already exists
-    existing_printer = db.query(models.Printer).filter(models.Printer.name == printer.name).first()
-    if existing_printer:
-        return existing_printer
-        
-    # If not exists, create new printer
+    # Always create new printer (removed check for existing printer with same name)
     db_printer = models.Printer(
         name=printer.name,
         model=printer.model,
         status=printer.status,
         total_print_time=printer.total_print_time,
-        total_downtime=printer.total_downtime
+        total_downtime=printer.total_downtime,
+        studio_id=printer.studio_id
     )
     db.add(db_printer)
     try:
         db.commit()
         db.refresh(db_printer)
         return db_printer
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
-        # Handle race condition where printer was created between our check and insert
-        existing_printer = db.query(models.Printer).filter(models.Printer.name == printer.name).first()
-        if existing_printer:
-            return existing_printer
-        raise
+        raise e
 
 def get(db: Session, printer_id: int):
     try:

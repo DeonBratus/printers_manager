@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getPrinters, createPrinter, deletePrinter } from '../services/api';
+import { useStudio } from '../context/StudioContext';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -20,6 +21,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const PrintersList = () => {
+  const { selectedStudio, getCurrentStudioId } = useStudio();
   const [printers, setPrinters] = useState([]);
   const [filteredPrinters, setFilteredPrinters] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +49,17 @@ const PrintersList = () => {
       setLoading(true);
       setError(null);
       const response = await getPrinters();
-      setPrinters(response.data);
+      let printersData = Array.isArray(response) ? response : (response.data || []);
+      
+      // Фильтруем принтеры по выбранной студии, если задана
+      const studioId = getCurrentStudioId();
+      if (studioId) {
+        printersData = printersData.filter(printer => 
+          printer.studio_id === studioId || printer.studio_id === null
+        );
+      }
+      
+      setPrinters(printersData);
     } catch (error) {
       console.error('Error fetching printers:', error);
       setError("Failed to fetch printers. Please try refreshing the page.");
@@ -65,7 +77,7 @@ const PrintersList = () => {
     }, 30000); // refresh every 30 seconds
     
     return () => clearInterval(refreshInterval);
-  }, []);
+  }, [selectedStudio]); // Повторно загружаем принтеры при изменении студии
 
   // Apply filters, sorting and pagination
   useEffect(() => {
@@ -113,7 +125,12 @@ const PrintersList = () => {
     e.preventDefault();
     try {
       setIsSubmitting(true);
-      await createPrinter(newPrinter);
+      // Добавляем текущую студию к данным принтера
+      const printerData = {
+        ...newPrinter,
+        studio_id: getCurrentStudioId()
+      };
+      await createPrinter(printerData);
       setNewPrinter({ name: '', model: '' });
       setIsAddModalOpen(false);
       fetchPrinters();

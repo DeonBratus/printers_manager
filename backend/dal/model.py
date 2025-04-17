@@ -13,8 +13,13 @@ def create(db: Session, model: ModelCreate):
 def get(db: Session, model_id: int):
     return db.query(models.Model).filter(models.Model.id == model_id).first()
 
-def get_all(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False):
+def get_all(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False, studio_id: int = None):
     query = db.query(models.Model)
+    
+    # Filter by studio_id if provided
+    if studio_id is not None:
+        query = query.filter(models.Model.studio_id == studio_id)
+        
     if sort_by and hasattr(models.Model, sort_by):
         order_by = desc(getattr(models.Model, sort_by)) if sort_desc else getattr(models.Model, sort_by)
         query = query.order_by(order_by)

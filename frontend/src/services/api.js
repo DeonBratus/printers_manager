@@ -96,6 +96,8 @@ export const logout = () => api.post('/auth/logout');
 export const getProfile = () => api.get('/auth/me');
 export const getStudios = () => api.get('/auth/studios');
 export const createStudio = (studioData) => api.post('/auth/studios', studioData);
+export const updateStudio = (studioId, studioData) => api.put(`/auth/studios/${studioId}`, studioData);
+export const deleteStudio = (studioId) => api.delete(`/auth/studios/${studioId}`);
 
 // Printers API
 export const getPrinters = () => api.get('/printers/');

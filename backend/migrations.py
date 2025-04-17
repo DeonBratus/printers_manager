@@ -114,6 +114,30 @@ CREATE INDEX IF NOT EXISTS idx_models_studio_id ON td_models(studio_id);
 CREATE INDEX IF NOT EXISTS idx_printings_studio_id ON td_printings(studio_id);
 CREATE INDEX IF NOT EXISTS idx_queue_studio_id ON print_queue(studio_id);
 
+-- Remove unique constraint from printer name
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'td_printers_name_key'
+    ) THEN
+        ALTER TABLE td_printers DROP CONSTRAINT td_printers_name_key;
+    END IF;
+END $$;
+
+-- Drop unique index on printer name
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_indexes 
+        WHERE indexname = 'ix_td_printers_name'
+    ) THEN
+        DROP INDEX ix_td_printers_name;
+        -- Recreate as non-unique index
+        CREATE INDEX ix_td_printers_name ON td_printers(name);
+    END IF;
+END $$;
+
 -- Insert default studio if it doesn't exist
 INSERT INTO td_studios (name, description)
 SELECT 'default', 'Default studio'

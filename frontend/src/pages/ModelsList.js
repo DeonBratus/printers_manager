@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getModels, createModel, deleteModel } from '../services/api';
+import { getModels, getStudios, createModel, deleteModel } from '../services/api';
+import { useStudio } from '../context/StudioContext';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
@@ -17,10 +18,15 @@ import {
 import { formatMinutesToHHMM, parseHHMMToMinutes, formatDuration } from '../utils/timeFormat';
 
 const ModelsList = () => {
+  const { selectedStudio, getCurrentStudioId } = useStudio();
   const [models, setModels] = useState([]);
+  const [studios, setStudios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [newModel, setNewModel] = useState({ name: '', printing_time: '01:00' });
+  const [newModel, setNewModel] = useState({ 
+    name: '', 
+    printing_time: '01:00'
+  });
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   
   // Modal states
@@ -51,7 +57,17 @@ const ModelsList = () => {
       setLoading(true);
       setError(null);
       const response = await getModels();
-      setModels(response.data);
+      let modelsData = Array.isArray(response) ? response : (response.data || []);
+      
+      // Фильтруем модели по выбранной студии, если задана
+      const studioId = getCurrentStudioId();
+      if (studioId) {
+        modelsData = modelsData.filter(model => 
+          model.studio_id === studioId || model.studio_id === null
+        );
+      }
+      
+      setModels(modelsData);
     } catch (error) {
       console.error('Error fetching models:', error);
       setError("Failed to fetch models. Please try refreshing the page.");
@@ -60,8 +76,23 @@ const ModelsList = () => {
     }
   };
 
+  const fetchStudios = async () => {
+    try {
+      const response = await getStudios();
+      console.log('Studios API response:', response); // Add logging to inspect the response structure
+      // Make sure we access the data property of the response or use an empty array as fallback
+      const studiosData = Array.isArray(response) ? response : response.data || [];
+      console.log('Processed studios data:', studiosData); // Log the processed data
+      setStudios(studiosData);
+    } catch (error) {
+      console.error('Error fetching studios:', error);
+      setStudios([]); // Set to empty array on error
+    }
+  };
+
   useEffect(() => {
     fetchModels();
+    fetchStudios();
     
     // Set up periodic refresh
     const refreshInterval = setInterval(() => {
@@ -69,7 +100,7 @@ const ModelsList = () => {
     }, 30000); // refresh every 30 seconds
     
     return () => clearInterval(refreshInterval);
-  }, []);
+  }, [selectedStudio]);
 
   const handleInputChange = (e) => {
     setNewModel({ ...newModel, [e.target.name]: e.target.value });
@@ -89,11 +120,15 @@ const ModelsList = () => {
       
       const modelData = {
         ...newModel,
-        printing_time: minutes  // время в минутах для API
+        printing_time: minutes,  // время в минутах для API
+        studio_id: getCurrentStudioId() // Используем текущую выбранную студию
       };
       
       await createModel(modelData);
-      setNewModel({ name: '', printing_time: '01:00' });
+      setNewModel({ 
+        name: '', 
+        printing_time: '01:00'
+      });
       setIsAddModalOpen(false);
       fetchModels();
     } catch (error) {

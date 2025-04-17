@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import { StudioProvider } from './context/StudioContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -16,108 +17,118 @@ import Reports from './pages/Reports';
 import ApiDebug from './pages/ApiDebug';
 import UserSettings from './pages/UserSettings';
 import HelpSupport from './pages/HelpSupport';
+import StudiosList from './pages/StudiosList';
 import './index.css';
 
 const App = () => {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={
-            <Layout>
-              <Login />
-            </Layout>
-          } />
-          <Route path="/register" element={
-            <Layout>
-              <Register />
-            </Layout>
-          } />
-          
-          {/* Protected routes */}
-          <Route path="/" element={
-            <ProtectedRoute>
+      <StudioProvider>
+        <Router>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={
               <Layout>
-                <Dashboard />
+                <Login />
               </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/printers" element={
-            <ProtectedRoute>
+            } />
+            <Route path="/register" element={
               <Layout>
-                <PrintersList />
+                <Register />
               </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/printers/:id" element={
-            <ProtectedRoute>
-              <Layout>
-                <PrinterDetail />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/models" element={
-            <ProtectedRoute>
-              <Layout>
-                <ModelsList />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/models/:id" element={
-            <ProtectedRoute>
-              <Layout>
-                <ModelDetail />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/printings" element={
-            <ProtectedRoute>
-              <Layout>
-                <PrintingsList />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/printings/:id" element={
-            <ProtectedRoute>
-              <Layout>
-                <PrintingDetail />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/reports" element={
-            <ProtectedRoute>
-              <Layout>
-                <Reports />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/debug" element={
-            <ProtectedRoute>
-              <Layout>
-                <ApiDebug />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/settings" element={
-            <ProtectedRoute>
-              <Layout>
-                <UserSettings />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/help" element={
-            <ProtectedRoute>
-              <Layout>
-                <HelpSupport />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          
-          {/* Redirect all other routes to dashboard */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
+            } />
+            
+            {/* Protected routes */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Layout>
+                  <Dashboard />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/printers" element={
+              <ProtectedRoute>
+                <Layout>
+                  <PrintersList />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/printers/:id" element={
+              <ProtectedRoute>
+                <Layout>
+                  <PrinterDetail />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/models" element={
+              <ProtectedRoute>
+                <Layout>
+                  <ModelsList />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/models/:id" element={
+              <ProtectedRoute>
+                <Layout>
+                  <ModelDetail />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/printings" element={
+              <ProtectedRoute>
+                <Layout>
+                  <PrintingsList />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/printings/:id" element={
+              <ProtectedRoute>
+                <Layout>
+                  <PrintingDetail />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/studios" element={
+              <ProtectedRoute>
+                <Layout>
+                  <StudiosList />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/reports" element={
+              <ProtectedRoute>
+                <Layout>
+                  <Reports />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/debug" element={
+              <ProtectedRoute>
+                <Layout>
+                  <ApiDebug />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Layout>
+                  <UserSettings />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/help" element={
+              <ProtectedRoute>
+                <Layout>
+                  <HelpSupport />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            
+            {/* Redirect all other routes to dashboard */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </StudioProvider>
     </AuthProvider>
   );
 };

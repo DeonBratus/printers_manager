@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Button from './Button';
 import { useTranslation } from 'react-i18next';
+import { getStudios } from '../services/api';
 
 const PrinterForm = ({ printer, onSubmit }) => {
   const { t } = useTranslation();
@@ -11,10 +12,28 @@ const PrinterForm = ({ printer, onSubmit }) => {
     location: '',
     serialNumber: '',
     total_print_time: 0,
+    studio_id: '',
   });
   
+  const [studios, setStudios] = useState([]);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    // Fetch studios for dropdown
+    const fetchStudios = async () => {
+      try {
+        const response = await getStudios();
+        // Make sure we access the data property of the response or use an empty array as fallback
+        setStudios(Array.isArray(response) ? response : response.data || []);
+      } catch (error) {
+        console.error('Error fetching studios:', error);
+        setStudios([]); // Set to empty array on error
+      }
+    };
+    
+    fetchStudios();
+  }, []);
 
   useEffect(() => {
     // Если передан принтер для редактирования, заполняем форму его данными
@@ -26,6 +45,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
         location: printer.location || '',
         serialNumber: printer.serialNumber || '',
         total_print_time: printer.total_print_time || 0,
+        studio_id: printer.studio_id || '',
       });
     } else {
       // Сброс формы при создании нового принтера
@@ -36,6 +56,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
         location: '',
         serialNumber: '',
         total_print_time: 0,
+        studio_id: '',
       });
     }
     // Сброс ошибок при открытии формы
@@ -97,6 +118,7 @@ const PrinterForm = ({ printer, onSubmit }) => {
         serial_number: formData.serialNumber, // В бэке ожидается snake_case
         status: printer?.status || 'idle',
         total_print_time: parseFloat(formData.total_print_time) || 0,
+        studio_id: formData.studio_id ? parseInt(formData.studio_id) : null,
       };
       
       await onSubmit(apiFormData);
@@ -152,6 +174,28 @@ const PrinterForm = ({ printer, onSubmit }) => {
             ${errors.ipAddress ? 'border-red-300' : 'border-gray-300'}`}
         />
         {errors.ipAddress && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.ipAddress}</p>}
+      </div>
+      
+      <div>
+        <label htmlFor="studio_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          {t('printers.studio', 'Studio')}
+        </label>
+        <select
+          id="studio_id"
+          name="studio_id"
+          value={formData.studio_id}
+          onChange={handleChange}
+          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 
+            focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm
+            dark:bg-gray-700 dark:text-white dark:border-gray-600"
+        >
+          <option value="">{t('printers.selectStudio', 'Select a studio')}</option>
+          {studios.map((studio) => (
+            <option key={studio.id} value={studio.id}>
+              {studio.name}
+            </option>
+          ))}
+        </select>
       </div>
       
       <div>

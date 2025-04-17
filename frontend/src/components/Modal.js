@@ -6,10 +6,20 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
   const { t } = useTranslation();
   const modalRef = useRef(null);
 
+  // Подробный лог для отладки
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🟢 Modal is OPENING:', { title });
+    } else {
+      console.log('🔴 Modal is CLOSING:', { title });
+    }
+  }, [isOpen, title]);
+
   // Handle Escape key press
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
+        console.log('Escape key pressed, closing modal');
         onClose();
       }
     };
@@ -29,11 +39,13 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (modalRef.current && !modalRef.current.contains(e.target)) {
+        console.log('Clicked outside modal, closing');
         onClose();
       }
     };
 
     if (isOpen) {
+      // Используем mousedown для более раннего перехвата события
       document.addEventListener('mousedown', handleOutsideClick);
     }
 
@@ -42,6 +54,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
     };
   }, [isOpen, onClose]);
 
+  // Ранний возврат, если модальное окно не должно быть открыто
   if (!isOpen) return null;
 
   // Calculate size classes
@@ -55,15 +68,28 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
 
   return (
     <Fragment>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-40 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+      {/* Backdrop с более высоким z-index */}
+      <div 
+        className="fixed inset-0 z-50 bg-gray-500 bg-opacity-75 transition-opacity"
+        onClick={() => onClose()} // Обработчик закрытия на фоне
+      ></div>
       
-      {/* Modal Container */}
-      <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Modal Container с повышенным z-index */}
+      <div 
+        className="fixed inset-0 z-[999] overflow-y-auto"
+        style={{ pointerEvents: 'auto' }}
+      >
         <div className="flex min-h-full items-center justify-center p-4 text-center">
           <div 
             ref={modalRef}
-            className={`${sizeClasses} w-full transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left align-middle shadow-xl transition-all`}
+            className={`${sizeClasses} w-full transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left align-middle shadow-xl transition-all z-[9999]`}
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()} // Предотвращаем закрытие при клике на контент
+            style={{ 
+              position: 'relative',
+              display: 'block',
+              boxShadow: '0 0 0 1000px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.2)'
+            }}
           >
             {/* Header */}
             <div className="flex justify-between items-center border-b dark:border-gray-700 px-4 py-3">
@@ -73,7 +99,10 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
               <button
                 type="button"
                 className="rounded-md bg-white dark:bg-transparent text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onClick={onClose}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
               >
                 <span className="sr-only">{t('common.close')}</span>
                 <XMarkIcon className="h-6 w-6" aria-hidden="true" />
