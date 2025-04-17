@@ -201,9 +201,23 @@ def get_user_studios(user: User, db: Session = Depends(get_db)):
     
     return studios
 
-def get_studio_id_from_user(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Get the first studio ID the user is a member of or None if user isn't in any studio"""
+def get_studio_id_from_user(current_user: User = Depends(get_current_user), db: Session = Depends(get_db), selected_studio_id: Optional[int] = None):
+    """Get the studio ID from the user
+    
+    If selected_studio_id is provided and the user has access to that studio, return it.
+    Otherwise, return the first studio ID the user is a member of or None if user isn't in any studio
+    """
     user_studios = get_user_studios(current_user, db)
+    
+    # If we have a selected studio ID and user has access to it, use that
+    if selected_studio_id is not None:
+        # Check if user has access to this studio
+        for studio in user_studios:
+            if studio["id"] == selected_studio_id:
+                return selected_studio_id
+    
+    # Otherwise return the first studio or None
     if user_studios and len(user_studios) > 0:
         return user_studios[0]["id"]
+    
     return None 

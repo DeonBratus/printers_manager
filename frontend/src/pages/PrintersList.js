@@ -19,6 +19,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon
 } from '@heroicons/react/24/outline';
+import { useTranslation } from 'react-i18next';
 
 const PrintersList = () => {
   const { selectedStudio, getCurrentStudioId } = useStudio();
@@ -44,25 +45,20 @@ const PrintersList = () => {
   const [printerToDelete, setPrinterToDelete] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const { t } = useTranslation();
+
   const fetchPrinters = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      const response = await getPrinters();
-      let printersData = Array.isArray(response) ? response : (response.data || []);
-      
-      // Фильтруем принтеры по выбранной студии, если задана
-      const studioId = getCurrentStudioId();
-      if (studioId) {
-        printersData = printersData.filter(printer => 
-          printer.studio_id === studioId || printer.studio_id === null
-        );
-      }
-      
+      // Передаем ID выбранной студии
+      const selectedStudioId = selectedStudio ? selectedStudio.id : null;
+      const response = await getPrinters(selectedStudioId);
+      const printersData = Array.isArray(response) ? response : response.data || [];
       setPrinters(printersData);
     } catch (error) {
-      console.error('Error fetching printers:', error);
-      setError("Failed to fetch printers. Please try refreshing the page.");
+      console.error("Error fetching printers:", error);
+      setError(t('printersList.fetchError', 'Failed to fetch printers data'));
     } finally {
       setLoading(false);
     }

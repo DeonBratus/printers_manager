@@ -125,8 +125,14 @@ export const updateInvitationStatus = (invitationId, statusData) => api.put(`/st
 export const deleteInvitation = (invitationId) => api.delete(`/studios/invitations/${invitationId}`);
 
 // Printers API
-export const getPrinters = () => api.get('/printers/');
-export const getPrinter = (id) => api.get(`/printers/${id}`);
+export const getPrinters = (studio_id) => {
+  const url = '/printers/';
+  return studio_id ? api.get(`${url}?studio_id=${studio_id}`) : api.get(url);
+};
+export const getPrinter = (id, studio_id) => {
+  const url = `/printers/${id}`;
+  return studio_id ? api.get(`${url}?studio_id=${studio_id}`) : api.get(url);
+};
 export const createPrinter = (printerData) => api.post('/printers/', printerData);
 export const updatePrinter = (id, printerData) => api.put(`/printers/${id}`, printerData);
 export const deletePrinter = (id) => api.delete(`/printers/${id}`);
@@ -142,8 +148,14 @@ export const addPrinterParameter = (printerId, paramData) => api.post(`/printers
 export const deletePrinterParameter = (printerId, paramId) => api.delete(`/printers/${printerId}/parameters/${paramId}`);
 
 // Models API
-export const getModels = () => api.get('/models/');
-export const getModel = (id) => api.get(`/models/${id}`);
+export const getModels = (studio_id) => {
+  const url = '/models/';
+  return studio_id ? api.get(`${url}?studio_id=${studio_id}`) : api.get(url);
+};
+export const getModel = (id, studio_id) => {
+  const url = `/models/${id}`;
+  return studio_id ? api.get(`${url}?studio_id=${studio_id}`) : api.get(url);
+};
 export const createModel = (modelData) => api.post('/models/', modelData);
 export const updateModel = (id, modelData) => api.put(`/models/${id}`, modelData);
 export const deleteModel = (id) => api.delete(`/models/${id}`);

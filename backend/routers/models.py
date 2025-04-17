@@ -29,6 +29,7 @@ def read_models(
     limit: int = 100, 
     sort_by: Optional[str] = None,
     sort_desc: bool = False,
+    studio_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -36,8 +37,8 @@ def read_models(
     if current_user.is_superuser:
         models = get_models(db, skip=skip, limit=limit, sort_by=sort_by, sort_desc=sort_desc)
     else:
-        # Get the current studio ID from the user's studios
-        studio_id = get_studio_id_from_user(current_user, db)
+        # Get the current studio ID from the user's studios using the passed studio_id
+        user_studio_id = get_studio_id_from_user(current_user, db, studio_id)
         
         # Filter models by studio_id
         models = get_models(
@@ -46,13 +47,14 @@ def read_models(
             limit=limit, 
             sort_by=sort_by, 
             sort_desc=sort_desc,
-            studio_id=studio_id
+            studio_id=user_studio_id
         )
     return models
 
 @router.get("/{model_id}", response_model=Model)
 def read_model(
     model_id: int, 
+    studio_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -62,10 +64,10 @@ def read_model(
     
     # Check if user has access to this model
     if not current_user.is_superuser:
-        # Get the current studio ID from the user's studios
-        studio_id = get_studio_id_from_user(current_user, db)
+        # Get the current studio ID from the user's studios using the passed studio_id
+        user_studio_id = get_studio_id_from_user(current_user, db, studio_id)
         
-        if db_model.studio_id != studio_id:
+        if db_model.studio_id != user_studio_id:
             raise HTTPException(status_code=403, detail="Not authorized to access this model")
     
     return db_model

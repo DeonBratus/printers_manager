@@ -1,24 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getPrinters, getPrintings, getPrinterStatusReport, createPrinter, createModel } from '../services/api';
+import { getPrinters, getPrintings, getPrinterStatusReport, createPrinter, createModel, getModels } from '../services/api';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import { PrinterIcon, SquaresPlusIcon, RectangleStackIcon, PlusCircleIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, ExclamationCircleIcon, PauseCircleIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
+import { useStudio } from '../context/StudioContext';
 import { Bar, Pie } from 'react-chartjs-2';
-import { PlusCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
 const Dashboard = () => {
   const { t } = useTranslation();
-  const [printers, setPrinters] = useState([]);
-  const [printings, setPrintings] = useState([]);
-  const [statusReport, setStatusReport] = useState(null);
+  const { selectedStudio } = useStudio();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [printers, setPrinters] = useState([]);
+  const [printings, setPrintings] = useState([]);
+  const [isAddingPrinter, setIsAddingPrinter] = useState(false);
+  const [isAddingModel, setIsAddingModel] = useState(false);
+  const [models, setModels] = useState([]);
+  const [reportData, setReportData] = useState(null);
   
   // Modal states
   const [isAddPrinterModalOpen, setIsAddPrinterModalOpen] = useState(false);
@@ -40,55 +46,44 @@ const Dashboard = () => {
     filament_length: 0,
     slicing_settings: ''
   });
-  
-  // Form loading states
-  const [isAddingPrinter, setIsAddingPrinter] = useState(false);
-  const [isAddingModel, setIsAddingModel] = useState(false);
 
   useEffect(() => {
-    const loadDashboardData = async () => {
+    const fetchData = async () => {
       setLoading(true);
       setError(null);
-      
       try {
-        // Use Promise.allSettled to get all data even if some requests fail
-        const results = await Promise.allSettled([
-          getPrinters(),
+        // Передаем ID выбранной студии
+        const selectedStudioId = selectedStudio ? selectedStudio.id : null;
+        const [printersResponse, printingsResponse, modelsResponse, reportsResponse] = await Promise.all([
+          getPrinters(selectedStudioId),
           getPrintings(),
+          getModels(selectedStudioId),
           getPrinterStatusReport()
         ]);
-        
-        // Handle each result
-        const [printersResult, printingsResult, statusReportResult] = results;
-        
-        if (printersResult.status === 'fulfilled') {
-          setPrinters(printersResult.value.data);
-        } else {
-          console.error('Error fetching printers:', printersResult.reason);
-        }
-        
-        if (printingsResult.status === 'fulfilled') {
-          setPrintings(printingsResult.value.data.slice(0, 5)); // Get only 5 most recent printings
-        } else {
-          console.error('Error fetching printings:', printingsResult.reason);
-        }
-        
-        if (statusReportResult.status === 'fulfilled') {
-          setStatusReport(statusReportResult.value.data);
-        } else {
-          console.error('Error fetching status report:', statusReportResult.reason);
-        }
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Error loading dashboard data:', error);
-        setError('Failed to load dashboard data. Please try again later.');
+
+        const printersData = Array.isArray(printersResponse) ? printersResponse : printersResponse.data || [];
+        const printingsData = Array.isArray(printingsResponse) ? printingsResponse : printingsResponse.data || [];
+        const modelsData = Array.isArray(modelsResponse) ? modelsResponse : modelsResponse.data || [];
+        const reportData = Array.isArray(reportsResponse) ? reportsResponse : reportsResponse.data || {};
+
+        setPrinters(printersData);
+        setPrintings(printingsData.filter(p => p.status === 'printing' || p.status === 'paused'));
+        setModels(modelsData);
+        setReportData(reportData);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError(t('dashboard.fetchError', 'Failed to load dashboard data. Please try refreshing the page.'));
+      } finally {
         setLoading(false);
       }
     };
 
-    loadDashboardData();
-  }, []);
+    fetchData();
+    
+    // Refresh data every minute
+    const interval = setInterval(fetchData, 60000);
+    return () => clearInterval(interval);
+  }, [selectedStudio, t]); // Повторно загружаем данные при изменении выбранной студии
   
   const handleAddPrinter = async (e) => {
     e.preventDefault();
@@ -137,16 +132,17 @@ const Dashboard = () => {
   };
 
   // Generate chart data based on available data
-  const generatePrinterStatusData = () => {
+  const generateStatusData = () => {
     const statusCounts = {
       idle: 0,
       printing: 0,
       paused: 0,
-      error: 0
+      error: 0,
+      waiting: 0
     };
     
     // Count printers by status if status report is not available
-    if (!statusReport?.status_counts) {
+    if (!reportData?.status_counts) {
       printers.forEach(printer => {
         if (statusCounts.hasOwnProperty(printer.status)) {
           statusCounts[printer.status]++;
@@ -154,32 +150,29 @@ const Dashboard = () => {
       });
     } else {
       // Use status counts from report
-      Object.assign(statusCounts, statusReport.status_counts);
+      Object.assign(statusCounts, reportData.status_counts);
     }
     
+    const colors = {
+      idle: '#22C55E',     // green
+      printing: '#3B82F6',  // blue
+      paused: '#F59E0B',    // yellow
+      error: '#EF4444',     // red
+      waiting: '#A855F7'    // purple
+    };
+    
     return {
-      labels: [
-        t('printers.status.idle'), 
-        t('printers.status.printing'), 
-        t('printers.status.paused'), 
-        t('printers.status.error')
-      ],
-      datasets: [
-        {
-          data: [
-            statusCounts.idle,
-            statusCounts.printing,
-            statusCounts.paused,
-            statusCounts.error,
-          ],
-          backgroundColor: ['#10B981', '#3B82F6', '#F59E0B', '#EF4444'],
-        },
-      ],
+      labels: Object.keys(statusCounts).map(status => t(`printers.status.${status}`)),
+      datasets: [{
+        data: Object.values(statusCounts),
+        backgroundColor: Object.keys(statusCounts).map(status => colors[status]),
+        borderWidth: 0
+      }]
     };
   };
 
   const generatePrinterEfficiencyData = () => {
-    if (!statusReport || !statusReport.printers || statusReport.printers.length === 0) {
+    if (!reportData || !reportData.printers || reportData.printers.length === 0) {
       return {
         labels: [t('common.noData')],
         datasets: [{
@@ -191,10 +184,10 @@ const Dashboard = () => {
     }
     
     return {
-      labels: statusReport.printers.map(p => p.name),
+      labels: reportData.printers.map(p => p.name),
       datasets: [{
         label: t('common.efficiency') + ' (%)',
-        data: statusReport.printers.map(p => p.efficiency),
+        data: reportData.printers.map(p => p.efficiency),
         backgroundColor: '#3B82F6',
       }]
     };
@@ -222,7 +215,7 @@ const Dashboard = () => {
     );
   }
 
-  const printerStatusData = generatePrinterStatusData();
+  const printerStatusData = generateStatusData();
   const printerEfficiencyData = generatePrinterEfficiencyData();
 
   return (

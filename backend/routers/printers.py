@@ -46,6 +46,7 @@ def read_printers(
     limit: int = 100, 
     sort_by: Optional[str] = None,
     sort_desc: bool = False,
+    studio_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -55,8 +56,8 @@ def read_printers(
         
         # Filter by studio_id unless user is superuser
         if not current_user.is_superuser:
-            # Get the current studio ID from the user's studios
-            studio_id = get_studio_id_from_user(current_user, db)
+            # Get the current studio ID from the user's studios using the passed studio_id
+            studio_id = get_studio_id_from_user(current_user, db, studio_id)
             query = query.filter(models.Printer.studio_id == studio_id)
             
         # Apply sorting
@@ -75,6 +76,7 @@ def read_printers(
 @router.get("/{printer_id}", response_model=Printer)
 def read_printer(
     printer_id: int, 
+    studio_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -87,9 +89,9 @@ def read_printer(
             
         # Check if user has access to this printer
         if not current_user.is_superuser:
-            # Get the current studio ID from the user's studios
-            studio_id = get_studio_id_from_user(current_user, db)
-            if db_printer.studio_id != studio_id:
+            # Get the current studio ID from the user's studios using the passed studio_id
+            user_studio_id = get_studio_id_from_user(current_user, db, studio_id)
+            if db_printer.studio_id != user_studio_id:
                 raise HTTPException(status_code=403, detail="Not authorized to access this printer")
             
         return db_printer

@@ -1,6 +1,8 @@
 import React from 'react';
 import { useStudio } from '../context/StudioContext';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import { Cog6ToothIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 
 const StudioSelector = ({ className }) => {
   const { t } = useTranslation();
@@ -22,6 +24,9 @@ const StudioSelector = ({ className }) => {
         <span className="text-sm text-gray-500 dark:text-gray-400">
           {t('studio.noStudios', 'No studios available')}
         </span>
+        <Link to="/studios" className="ml-2 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+          {t('studios.createFirst', 'Create your first studio')}
+        </Link>
       </div>
     );
   }
@@ -36,6 +41,10 @@ const StudioSelector = ({ className }) => {
       default: return '';
     }
   };
+  
+  // Get current user's role in selected studio
+  const currentRole = selectedStudio ? getUserRole(selectedStudio.id) : null;
+  const canManageStudio = currentRole === 'owner' || currentRole === 'admin';
 
   return (
     <div className={`flex items-center ${className}`}>
@@ -59,6 +68,24 @@ const StudioSelector = ({ className }) => {
           );
         })}
       </select>
+      
+      {/* Кнопки управления студией */}
+      <div className="flex space-x-1 ml-2">
+        <Link 
+          to="/studios/manage" 
+          className="p-1 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300"
+          title={t('studioManagement.title', 'Studio Management')}
+        >
+          <UserGroupIcon className="w-5 h-5" />
+        </Link>
+        <Link 
+          to="/studios" 
+          className="p-1 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300"
+          title={t('studios.title', 'Studios')}
+        >
+          <Cog6ToothIcon className="w-5 h-5" />
+        </Link>
+      </div>
     </div>
   );
 };

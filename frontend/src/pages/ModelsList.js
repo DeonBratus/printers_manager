@@ -16,8 +16,12 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { formatMinutesToHHMM, parseHHMMToMinutes, formatDuration } from '../utils/timeFormat';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 
 const ModelsList = () => {
+  const { t } = useTranslation();
+  const { hasPermission } = useAuth();
   const { selectedStudio, getCurrentStudioId } = useStudio();
   const [models, setModels] = useState([]);
   const [studios, setStudios] = useState([]);
@@ -53,24 +57,17 @@ const ModelsList = () => {
   };
 
   const fetchModels = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      const response = await getModels();
-      let modelsData = Array.isArray(response) ? response : (response.data || []);
-      
-      // Фильтруем модели по выбранной студии, если задана
-      const studioId = getCurrentStudioId();
-      if (studioId) {
-        modelsData = modelsData.filter(model => 
-          model.studio_id === studioId || model.studio_id === null
-        );
-      }
-      
+      // Передаем ID выбранной студии
+      const selectedStudioId = selectedStudio ? selectedStudio.id : null;
+      const response = await getModels(selectedStudioId);
+      const modelsData = Array.isArray(response) ? response : response.data || [];
       setModels(modelsData);
-    } catch (error) {
-      console.error('Error fetching models:', error);
-      setError("Failed to fetch models. Please try refreshing the page.");
+    } catch (err) {
+      console.error("Error fetching models:", err);
+      setError(t('modelsList.fetchError', 'Failed to fetch models data. Please try again.'));
     } finally {
       setLoading(false);
     }
