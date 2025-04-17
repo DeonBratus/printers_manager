@@ -2,7 +2,7 @@ import React from 'react';
 import { useStudio } from '../context/StudioContext';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Cog6ToothIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { Cog6ToothIcon, UserGroupIcon, ChartBarIcon } from '@heroicons/react/24/outline';
 
 const StudioSelector = ({ className }) => {
   const { t } = useTranslation();
@@ -77,13 +77,6 @@ const StudioSelector = ({ className }) => {
           title={t('studioManagement.title', 'Studio Management')}
         >
           <UserGroupIcon className="w-5 h-5" />
-        </Link>
-        <Link 
-          to="/studios" 
-          className="p-1 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300"
-          title={t('studios.title', 'Studios')}
-        >
-          <Cog6ToothIcon className="w-5 h-5" />
         </Link>
       </div>
     </div>

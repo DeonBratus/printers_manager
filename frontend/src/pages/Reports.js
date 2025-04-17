@@ -3,8 +3,10 @@ import {
   getPrinterStatusReport, 
   getPrintingEfficiencyReport, 
   getPrinterReport, 
-  getModelReport 
+  getModelReport,
+  exportPrintersReport
 } from '../services/api';
+import { useStudio } from '../context/StudioContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { Bar, Pie, Line } from 'react-chartjs-2';
@@ -46,6 +48,7 @@ ChartJS.register(
 );
 
 const Reports = () => {
+  const { selectedStudio } = useStudio();
   const [statusReport, setStatusReport] = useState(null);
   const [efficiencyReport, setEfficiencyReport] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -86,16 +89,22 @@ const Reports = () => {
   });
 
     const fetchReportData = async () => {
+    if (!selectedStudio) {
+      setError('Please select a studio to view reports');
+      setLoading(false);
+      setIsRefreshing(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setIsRefreshing(true);
     
-      try {
-      // In a real application, we would pass the filters to the API
-      // For now, we'll just simulate a delay and use the same data
+    try {
+      // Pass studio_id to all API calls
       const results = await Promise.allSettled([
-          getPrinterStatusReport(),
-        getPrintingEfficiencyReport(dateRange.startDate, dateRange.endDate)
+        getPrinterStatusReport(selectedStudio.id),
+        getPrintingEfficiencyReport(selectedStudio.id)
       ]);
       
       const [statusReportResult, efficiencyReportResult] = results;
@@ -145,17 +154,18 @@ const Reports = () => {
     };
 
   useEffect(() => {
-    fetchReportData();
-  }, []);
+    if (selectedStudio) {
+      fetchReportData();
+    }
+  }, [selectedStudio]);
 
   // Fetch printer-specific report
   useEffect(() => {
-    if (selectedPrinterId) {
+    if (selectedPrinterId && selectedStudio) {
       const fetchPrinterReport = async () => {
         setLoadingPrinterReport(true);
         try {
-          // In a real app, we would pass the date range
-          const result = await getPrinterReport(selectedPrinterId);
+          const result = await getPrinterReport(selectedPrinterId, selectedStudio.id);
           setPrinterReport(result.data);
         } catch (error) {
           console.error('Error loading printer report:', error);
@@ -169,16 +179,15 @@ const Reports = () => {
     } else {
       setPrinterReport(null);
     }
-  }, [selectedPrinterId]);
+  }, [selectedPrinterId, selectedStudio]);
   
   // Fetch model-specific report
   useEffect(() => {
-    if (selectedModelId) {
+    if (selectedModelId && selectedStudio) {
       const fetchModelReport = async () => {
         setLoadingModelReport(true);
         try {
-          // In a real app, we would pass the date range
-          const result = await getModelReport(selectedModelId);
+          const result = await getModelReport(selectedModelId, selectedStudio.id);
           setModelReport(result.data);
         } catch (error) {
           console.error('Error loading model report:', error);
@@ -192,7 +201,7 @@ const Reports = () => {
     } else {
       setModelReport(null);
     }
-  }, [selectedModelId]);
+  }, [selectedModelId, selectedStudio]);
   
   const handleTimeframeChange = (newTimeframe) => {
     setTimeframe(newTimeframe);
@@ -272,13 +281,33 @@ const Reports = () => {
   };
   
   const exportReportCSV = async () => {
+    if (!selectedStudio) {
+      setError('Please select a studio to export reports');
+      return;
+    }
+    
     setLoadingExport(true);
     try {
-      // Directly download the file using the browser
-      window.location.href = `http://localhost:8000/reports/printers/export/`;
-      setTimeout(() => setLoadingExport(false), 1000);
+      const response = await exportPrintersReport(selectedStudio.id);
+      
+      // Create a blob from the response data
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a link and click it to download the file
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `printers_report_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
       console.error('Error exporting report:', error);
+      setError('Failed to export report');
+    } finally {
       setLoadingExport(false);
     }
   };

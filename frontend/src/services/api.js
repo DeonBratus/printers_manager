@@ -172,17 +172,32 @@ export const cancelExistingPrinting = (id) => api.post(`/printings/${id}/cancel`
 export const completeExistingPrinting = (id) => api.post(`/printings/${id}/complete`);
 
 // Reports API
-export const getReports = () => api.get('/reports/');
-export const getPrinterStatusReport = () => api.get('/reports/printer-status');
-export const getPrintingEfficiencyReport = () => api.get('/reports/printing-efficiency');
-export const getDailyReport = (date) => api.get('/reports/daily/', { params: { date } });
-export const getPrinterReport = (printerId) => api.get(`/reports/printers/${printerId}`);
-export const getModelReport = (modelId) => api.get(`/reports/models/${modelId}`);
-export const exportPrintersReport = () => api.get('/reports/printers/export/', { 
-  responseType: 'blob',
-  headers: {
-    'Accept': 'text/csv'
-  }
-});
+export const getReports = (studio_id) => {
+  return api.get('/reports/', { params: { studio_id } });
+};
+export const getPrinterStatusReport = (studio_id) => {
+  return api.get('/reports/printer-status', { params: { studio_id } });
+};
+export const getPrintingEfficiencyReport = (studio_id) => {
+  return api.get('/reports/printing-efficiency', { params: { studio_id } });
+};
+export const getDailyReport = (date, studio_id) => {
+  return api.get('/reports/daily/', { params: { date, studio_id } });
+};
+export const getPrinterReport = (printerId, studio_id) => {
+  return api.get(`/reports/printers/${printerId}`, { params: { studio_id } });
+};
+export const getModelReport = (modelId, studio_id) => {
+  return api.get(`/reports/models/${modelId}`, { params: { studio_id } });
+};
+export const exportPrintersReport = (studio_id) => {
+  return api.get('/reports/printers/export/', { 
+    params: { studio_id },
+    responseType: 'blob',
+    headers: {
+      'Accept': 'text/csv'
+    }
+  });
+};
 
 export default api; 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { SunIcon, MoonIcon, UserCircleIcon, Bars3Icon, XMarkIcon, LanguageIcon, BellIcon } from '@heroicons/react/24/outline';
+import { SunIcon, MoonIcon, UserCircleIcon, Bars3Icon, XMarkIcon, LanguageIcon, BellIcon, Cog6ToothIcon, HomeIcon, PrinterIcon, CubeIcon, ClockIcon, ChartBarIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -103,14 +103,37 @@ const Layout = ({ children }) => {
     }
   };
 
-  const navigation = [
-    { name: t('navigation.dashboard'), href: '/' },
-    { name: t('navigation.printers'), href: '/printers' },
-    { name: t('navigation.models'), href: '/models' },
-    { name: t('navigation.printings'), href: '/printings' },
-    { name: t('navigation.studioManagement'), href: '/studios/manage' },
-    { name: t('navigation.reports'), href: '/reports' },
-    { name: t('navigation.debug'), href: '/debug' },
+  const navigationItems = [
+    { 
+      name: 'dashboard',
+      to: '/dashboard',
+      icon: <HomeIcon className="h-6 w-6" />,
+      text: t('navigation.dashboard', 'Dashboard')
+    },
+    { 
+      name: 'printers',
+      to: '/printers',
+      icon: <PrinterIcon className="h-6 w-6" />,
+      text: t('navigation.printers', 'Printers')
+    },
+    { 
+      name: 'models',
+      to: '/models',
+      icon: <CubeIcon className="h-6 w-6" />,
+      text: t('navigation.models', 'Models')
+    },
+    { 
+      name: 'printings',
+      to: '/printings',
+      icon: <ClockIcon className="h-6 w-6" />,
+      text: t('navigation.printing', 'Printing')
+    },
+    {
+      name: 'reports',
+      to: '/reports',
+      icon: <ChartBarIcon className="h-6 w-6" />,
+      text: t('navigation.reports', 'Reports')
+    }
   ];
 
   return (
@@ -124,19 +147,22 @@ const Layout = ({ children }) => {
                 <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>3D Print Manager</h1>
               </div>
               <nav className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                {navigation.map((item) => (
+                {navigationItems.map((item) => (
                   <Link
                     key={item.name}
-                    to={item.href}
+                    to={item.to}
                     className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                      location.pathname === item.href || 
-                      (item.href !== '/' && location.pathname.startsWith(item.href))
+                      location.pathname === item.to || 
+                      (item.to !== '/' && location.pathname.startsWith(item.to))
                         ? isDarkMode ? 'border-blue-400 text-blue-400' : 'border-blue-600 text-blue-600'
                         : isDarkMode ? 'border-transparent text-gray-300 hover:border-gray-300 hover:text-gray-200' 
                                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     } border-b-2`}
                   >
-                    {item.name}
+                    <div className="flex items-center gap-1">
+                      {item.icon}
+                      <span>{item.text}</span>
+                    </div>
                   </Link>
                 ))}
               </nav>
@@ -148,6 +174,21 @@ const Layout = ({ children }) => {
                 <StudioSelector 
                   className={`hidden sm:flex ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} 
                 />
+              )}
+              
+              {/* Settings Icon */}
+              {isAuthenticated && (
+                <Link 
+                  to="/settings"
+                  className={`p-2 rounded-full ${
+                    location.pathname.startsWith('/settings')
+                      ? isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                      : isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                  title={t('navigation.settings', 'Settings')}
+                >
+                  <Cog6ToothIcon className="h-5 w-5" aria-hidden="true" />
+                </Link>
               )}
               
               {/* Theme toggle */}
@@ -380,23 +421,26 @@ const Layout = ({ children }) => {
                 </div>
               )}
               
-              {navigation.map((item) => (
+              {navigationItems.map((item) => (
                 <Link
                   key={item.name}
-                  to={item.href}
+                  to={item.to}
                   className={`block px-3 py-2 text-base font-medium ${
-                    location.pathname === item.href || 
-                    (item.href !== '/' && location.pathname.startsWith(item.href))
+                    location.pathname === item.to || 
+                    (item.to !== '/' && location.pathname.startsWith(item.to))
                       ? isDarkMode 
                         ? 'bg-gray-900 text-blue-400 border-l-4 border-blue-400' 
-                        : 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
+                        : 'bg-gray-100 text-blue-600 border-l-4 border-blue-600'
                       : isDarkMode
-                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white border-l-4 border-transparent'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
+                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white' 
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  {item.name}
+                  <div className="flex items-center gap-2">
+                    {item.icon}
+                    <span>{item.text}</span>
+                  </div>
                 </Link>
               ))}
             </div>

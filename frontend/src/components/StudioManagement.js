@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tab } from '@headlessui/react';
 import InvitationForm from './InvitationForm';
@@ -6,8 +6,16 @@ import InvitationsList from './InvitationsList';
 import Modal from './Modal';
 import { useStudio } from '../context/StudioContext';
 import Button from './Button';
-import { UserGroupIcon, EnvelopeIcon, PencilIcon, UserPlusIcon } from '@heroicons/react/24/outline';
-import { updateStudio } from '../services/api';
+import { 
+  UserGroupIcon, 
+  PrinterIcon, 
+  PencilIcon, 
+  UserPlusIcon, 
+  SquaresPlusIcon,
+  RectangleStackIcon,
+  ClockIcon
+} from '@heroicons/react/24/outline';
+import { updateStudio, getPrinters, getModels, getStudioInvitations, createStudioInvitation } from '../services/api';
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -17,7 +25,6 @@ const StudioManagement = () => {
   const { t } = useTranslation();
   const { selectedStudio, studioMembers, fetchStudioMembers, removeStudioMember, fetchStudios } = useStudio();
   const [isRemoving, setIsRemoving] = useState(false);
-  const [invitationsUpdated, setInvitationsUpdated] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,19 +32,54 @@ const StudioManagement = () => {
     name: '',
     description: ''
   });
-
+  
+  // Stats for the summary section
+  const [stats, setStats] = useState({
+    printers: 0,
+    models: 0,
+    pendingInvitations: 0
+  });
+  
   // Initialize form when studio changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedStudio) {
       setEditForm({
         name: selectedStudio.name || '',
         description: selectedStudio.description || ''
       });
+      fetchStats();
     }
   }, [selectedStudio]);
-
+  
+  // Fetch stats for the summary section
+  const fetchStats = async () => {
+    if (!selectedStudio) return;
+    
+    try {
+      // Fetch printers count
+      const printersResponse = await getPrinters(selectedStudio.id);
+      const printersData = Array.isArray(printersResponse) ? printersResponse : printersResponse.data || [];
+      
+      // Fetch models count
+      const modelsResponse = await getModels(selectedStudio.id);
+      const modelsData = Array.isArray(modelsResponse) ? modelsResponse : modelsResponse.data || [];
+      
+      // Fetch pending invitations
+      const invitationsResponse = await getStudioInvitations(selectedStudio.id, 'pending');
+      const invitationsData = Array.isArray(invitationsResponse) ? invitationsResponse : invitationsResponse.data || [];
+      
+      setStats({
+        printers: printersData.length,
+        models: modelsData.length,
+        pendingInvitations: invitationsData.length
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+  
   const handleInvitationSuccess = () => {
-    setInvitationsUpdated(!invitationsUpdated);
+    fetchStats();
     setIsInviteModalOpen(false);
   };
 
@@ -84,6 +126,7 @@ const StudioManagement = () => {
     try {
       await removeStudioMember(selectedStudio.id, userId);
       fetchStudioMembers(selectedStudio.id);
+      fetchStats();
     } catch (error) {
       console.error('Error removing member:', error);
     } finally {
@@ -115,7 +158,7 @@ const StudioManagement = () => {
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
       {/* Studio Details Section */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               {selectedStudio.name}
@@ -152,111 +195,113 @@ const StudioManagement = () => {
         </div>
       </div>
       
-      {/* Tabs Section */}
-      <div className="p-4">
-        <Tab.Group>
-          <Tab.List className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 mb-6">
-            <Tab
-              className={({ selected }) =>
-                classNames(
-                  'w-full rounded-lg py-2.5 text-sm font-medium leading-5',
-                  'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none',
-                  selected
-                    ? 'bg-white dark:bg-gray-700 shadow text-blue-700 dark:text-blue-300'
-                    : 'text-gray-700 dark:text-gray-200 hover:bg-white/[0.12] hover:text-blue-600'
-                )
-              }
-            >
-              <div className="flex items-center justify-center">
-                <UserGroupIcon className="w-5 h-5 mr-2" />
-                {t('studioManagement.members', 'Members')}
+      {/* Stats Summary Section */}
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+            <div className="flex items-center">
+              <UserGroupIcon className="h-8 w-8 text-blue-500 mr-3" />
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('studioManagement.members', 'Members')}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{studioMembers.length}</p>
               </div>
-            </Tab>
-            <Tab
-              className={({ selected }) =>
-                classNames(
-                  'w-full rounded-lg py-2.5 text-sm font-medium leading-5',
-                  'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none',
-                  selected
-                    ? 'bg-white dark:bg-gray-700 shadow text-blue-700 dark:text-blue-300'
-                    : 'text-gray-700 dark:text-gray-200 hover:bg-white/[0.12] hover:text-blue-600'
-                )
-              }
-            >
-              <div className="flex items-center justify-center">
-                <EnvelopeIcon className="w-5 h-5 mr-2" />
-                {t('studioManagement.invitations', 'Invitations')}
-              </div>
-            </Tab>
-          </Tab.List>
+            </div>
+          </div>
           
-          <Tab.Panels>
-            {/* Members Tab */}
-            <Tab.Panel className="rounded-xl p-3">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        {t('studioManagement.user', 'User')}
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        {t('studioManagement.email', 'Email')}
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        {t('studioManagement.role', 'Role')}
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        {t('common.actions', 'Actions')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {studioMembers.map((member) => (
-                      <tr key={member.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">{member.username}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500 dark:text-gray-400">{member.email}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeClass(member.role)}`}>
-                            {t(`roles.${member.role}`, member.role)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <Button
-                            variant="danger"
-                            size="xs"
-                            isLoading={isRemoving}
-                            disabled={isRemoving}
-                            onClick={() => handleRemoveMember(member.id)}
-                          >
-                            {t('common.remove', 'Remove')}
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                
-                {studioMembers.length === 0 && (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500 dark:text-gray-400">
-                      {t('studioManagement.noMembers', 'No members found')}
-                    </p>
-                  </div>
-                )}
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+            <div className="flex items-center">
+              <PrinterIcon className="h-8 w-8 text-green-500 mr-3" />
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('navigation.printers', 'Printers')}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.printers}</p>
               </div>
-            </Tab.Panel>
-            
-            {/* Invitations Tab */}
-            <Tab.Panel className="rounded-xl p-3">
-              <InvitationsList key={invitationsUpdated} onUpdate={handleInvitationSuccess} />
-            </Tab.Panel>
-          </Tab.Panels>
-        </Tab.Group>
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+            <div className="flex items-center">
+              <SquaresPlusIcon className="h-8 w-8 text-purple-500 mr-3" />
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('navigation.models', '3D Models')}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.models}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+            <div className="flex items-center">
+              <ClockIcon className="h-8 w-8 text-amber-500 mr-3" />
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('invitations.pending', 'Pending Invites')}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.pendingInvitations}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Members Section */}
+      <div className="p-4">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+          {t('studioManagement.membersManagement', 'Members Management')}
+        </h3>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {t('studioManagement.user', 'User')}
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {t('studioManagement.email', 'Email')}
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {t('studioManagement.role', 'Role')}
+                </th>
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {t('common.actions', 'Actions')}
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {studioMembers.map((member) => (
+                <tr key={member.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{member.username}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{member.email}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeClass(member.role)}`}>
+                      {t(`roles.${member.role}`, member.role)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <Button
+                      variant="danger"
+                      size="xs"
+                      isLoading={isRemoving}
+                      disabled={isRemoving}
+                      onClick={() => handleRemoveMember(member.id)}
+                    >
+                      {t('common.remove', 'Remove')}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          
+          {studioMembers.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-gray-500 dark:text-gray-400">
+                {t('studioManagement.noMembers', 'No members found')}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
       
       {/* Edit Studio Modal */}

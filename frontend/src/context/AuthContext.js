@@ -1,92 +1,76 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { login, register, logout, getCurrentUser } from '../services/auth';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { login as apiLogin, getProfile } from '../services/api';
 
 // Create the auth context
-const AuthContext = createContext(null);
+const AuthContext = createContext();
 
 // Create a provider component
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Check for existing token and load user on mount
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        setIsLoading(true);
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          setIsLoading(false);
-          return;
+    const initAuth = async () => {
+      if (token) {
+        try {
+          await fetchUserInfo();
+        } catch (error) {
+          console.error('Error initializing auth:', error);
+          handleLogout();
         }
-        
-        const userData = await getCurrentUser();
-        setUser(userData);
-      } catch (err) {
-        console.error('Failed to load user:', err);
-        localStorage.removeItem('token');
-      } finally {
-        setIsLoading(false);
       }
+      setLoading(false);
     };
 
-    loadUser();
+    initAuth();
   }, []);
 
-  // Login function
-  const handleLogin = async (username, password) => {
+  const fetchUserInfo = async () => {
     try {
+      const userData = await getProfile();
+      setUser(userData.data || userData);
       setError(null);
-      setIsLoading(true);
-      const { access_token, user: userData, expires_at } = await login(username, password);
-      
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('tokenExpiry', expires_at);
-      setUser(userData);
-      
-      return userData;
     } catch (err) {
-      setError(err.response?.data?.detail || 'Ошибка при входе');
-      throw err;
-    } finally {
-      setIsLoading(false);
+      console.error('Error fetching user info:', err);
+      setError('Failed to load user information');
+      handleLogout();
     }
   };
 
-  // Register function
-  const handleRegister = async (userData) => {
+  const login = async (username, password) => {
+    setError(null);
     try {
-      setError(null);
-      setIsLoading(true);
-      const newUser = await register(userData);
-      return newUser;
+      const authData = await apiLogin({ username, password });
+      const newToken = authData.data?.access_token || authData.access_token;
+
+      if (newToken) {
+        localStorage.setItem('token', newToken);
+        setToken(newToken);
+        await fetchUserInfo();
+        return true;
+      } else {
+        throw new Error('No token received');
+      }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Ошибка при регистрации');
-      throw err;
-    } finally {
-      setIsLoading(false);
+      console.error('Login error:', err);
+      setError(err.response?.data?.detail || 'Login failed, please check your credentials.');
+      return false;
     }
   };
 
-  // Logout function
-  const handleLogout = async () => {
-    try {
-      setError(null);
-      await logout();
-      localStorage.removeItem('token');
-      localStorage.removeItem('tokenExpiry');
-      localStorage.removeItem('selectedStudio');
-      setUser(null);
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('selectedStudio');
+    setToken(null);
+    setUser(null);
   };
 
-  // Get user's studios
+  // Get all studios for the user
   const getUserStudios = () => {
-    return user?.studios || [];
+    if (!user || !user.studios) return [];
+    return user.studios;
   };
 
   // Check if user has a specific role in a studio
@@ -103,21 +87,24 @@ export const AuthProvider = ({ children }) => {
     return studio.role === role;
   };
 
-  // Define the value to be provided to consumers
-  const value = {
-    user,
-    isAuthenticated: !!user,
-    isLoading,
-    error,
-    login: handleLogin,
-    register: handleRegister,
-    logout: handleLogout,
-    setUser,
-    getUserStudios,
-    hasRoleInStudio
-  };
+  const isAuthenticated = !!token && !!user;
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        login,
+        logout: handleLogout,
+        loading,
+        error,
+        getUserStudios,
+        hasRoleInStudio
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 // Hook for using the auth context
