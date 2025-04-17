@@ -1,9 +1,53 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Boolean, Table, Enum
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
 import uuid
+import enum
+
+# Define role enum
+class UserRole(str, enum.Enum):
+    OWNER = "owner"
+    ADMIN = "admin"
+    MANAGER = "manager"
+    MEMBER = "member"
+    VIEWER = "viewer"
+
+# Define permission enum
+class StudioPermission(str, enum.Enum):
+    MANAGE_USERS = "manage_users"
+    MANAGE_PRINTERS = "manage_printers"
+    MANAGE_MODELS = "manage_models"
+    MANAGE_PRINTINGS = "manage_printings"
+    VIEW_REPORTS = "view_reports"
+    EDIT_STUDIO_SETTINGS = "edit_studio_settings"
+
+# Define invitation status enum
+class InvitationStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+# Association table for User-Studio many-to-many relationship
+user_studio = Table(
+    "td_user_studio",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("td_users.id"), primary_key=True),
+    Column("studio_id", Integer, ForeignKey("td_studios.id"), primary_key=True),
+    Column("role", String, default=UserRole.MEMBER),
+    Column("created_at", DateTime, default=datetime.now),
+)
+
+# Association table for Role-Permission many-to-many relationship
+role_permission = Table(
+    "td_role_permission",
+    Base.metadata,
+    Column("role", String, primary_key=True),
+    Column("permission", String, primary_key=True),
+    Column("studio_id", Integer, ForeignKey("td_studios.id"), primary_key=True),
+)
 
 # Base database models only
 class Printer(Base):
@@ -104,10 +148,10 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.now)
-    studio_id = Column(Integer, ForeignKey("td_studios.id"))
+    # Remove the direct studio_id FK here since we're using many-to-many
     
     # Define relationships
-    studio = relationship("Studio", back_populates="users")
+    studios = relationship("Studio", secondary=user_studio, back_populates="users")
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
 
 class Studio(Base):
@@ -119,11 +163,12 @@ class Studio(Base):
     created_at = Column(DateTime, default=datetime.now)
     
     # Define relationships
-    users = relationship("User", back_populates="studio")
+    users = relationship("User", secondary=user_studio, back_populates="studios")
     printers = relationship("Printer", back_populates="studio")
     models = relationship("Model", back_populates="studio")
     printings = relationship("Printing", back_populates="studio")
     queue_items = relationship("PrintQueue", back_populates="studio")
+    invitations = relationship("StudioInvitation", back_populates="studio")
 
 class Session(Base):
     __tablename__ = "td_sessions"
@@ -136,3 +181,20 @@ class Session(Base):
     
     # Define relationships
     user = relationship("User", back_populates="sessions")
+
+class StudioInvitation(Base):
+    __tablename__ = "td_studio_invitations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, nullable=False, index=True)
+    studio_id = Column(Integer, ForeignKey("td_studios.id"), nullable=False)
+    created_by = Column(Integer, ForeignKey("td_users.id"), nullable=False)
+    role = Column(String, default=UserRole.MEMBER)
+    token = Column(String, unique=True, index=True, default=lambda: str(uuid.uuid4()))
+    status = Column(String, default=InvitationStatus.PENDING)
+    created_at = Column(DateTime, default=datetime.now)
+    expires_at = Column(DateTime, nullable=False)
+    
+    # Define relationships
+    studio = relationship("Studio", back_populates="invitations")
+    inviter = relationship("User", foreign_keys=[created_by])

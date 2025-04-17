@@ -150,25 +150,46 @@ SELECT 'admin', 'admin@example.com', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQo
 WHERE NOT EXISTS (SELECT 1 FROM td_users WHERE username = 'admin');
 """
 
-def run_migrations():
-    """Run database migrations"""
+def create_studio_invitations_table():
+    """Create the studio invitations table"""
     try:
-        print("Connecting to database...")
-        conn = engine.connect()
-        print("Running migrations...")
-        
-        # Execute the migration SQL
-        conn.execute(text(migration_sql))
-        conn.commit()
-        
-        print("Migrations completed successfully!")
-        return True
+        with engine.connect() as connection:
+            connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS td_studio_invitations (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) NOT NULL,
+                studio_id INTEGER REFERENCES td_studios(id) ON DELETE CASCADE,
+                created_by INTEGER REFERENCES td_users(id),
+                role VARCHAR(50) DEFAULT 'member',
+                token VARCHAR(255) UNIQUE,
+                status VARCHAR(50) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT NOW(),
+                expires_at TIMESTAMP NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_studio_invitations_email ON td_studio_invitations(email);
+            CREATE INDEX IF NOT EXISTS idx_studio_invitations_token ON td_studio_invitations(token);
+            CREATE INDEX IF NOT EXISTS idx_studio_invitations_status ON td_studio_invitations(status);
+            """))
+            print("Studio invitations table created or already exists")
     except Exception as e:
-        print(f"Migration error: {str(e)}")
-        return False
-    finally:
-        conn.close()
-        engine.dispose()
+        print(f"Error creating studio invitations table: {e}")
+
+# Run all migrations
+def run_migrations():
+    """Run all migrations"""
+    Base.metadata.create_all(bind=engine)
+    
+    # Create specific tables with special constraints
+    create_sessions_table()
+    
+    # Create junction tables
+    create_user_studio_table()
+    create_role_permission_table()
+    
+    # Create studio invitations table
+    create_studio_invitations_table()
+    
+    print("Migrations completed")
 
 if __name__ == "__main__":
     print(f"Running migrations on {SQLALCHEMY_DATABASE_URL}")

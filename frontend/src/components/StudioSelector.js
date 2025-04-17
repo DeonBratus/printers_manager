@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 const StudioSelector = ({ className }) => {
   const { t } = useTranslation();
-  const { studios, selectedStudio, changeStudio, loading } = useStudio();
+  const { studios, selectedStudio, changeStudio, loading, getUserRole } = useStudio();
 
   if (loading) {
     return (
@@ -26,6 +26,17 @@ const StudioSelector = ({ className }) => {
     );
   }
 
+  const getRoleBadgeText = (role) => {
+    switch(role) {
+      case 'owner': return '👑 ';
+      case 'admin': return '⚙️ ';
+      case 'manager': return '📊 ';
+      case 'member': return '👤 ';
+      case 'viewer': return '👁️ ';
+      default: return '';
+    }
+  };
+
   return (
     <div className={`flex items-center ${className}`}>
       <label htmlFor="studioSelect" className="mr-2 text-sm font-medium">
@@ -37,11 +48,16 @@ const StudioSelector = ({ className }) => {
         onChange={(e) => changeStudio(e.target.value)}
         className="rounded border border-gray-300 dark:border-gray-600 py-1 px-2 bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        {studios.map((studio) => (
-          <option key={studio.id} value={studio.id}>
-            {studio.name}
-          </option>
-        ))}
+        {studios.map((studio) => {
+          const role = getUserRole(studio.id);
+          const rolePrefix = role ? getRoleBadgeText(role) : '';
+          
+          return (
+            <option key={studio.id} value={studio.id}>
+              {rolePrefix}{studio.name}
+            </option>
+          );
+        })}
       </select>
     </div>
   );

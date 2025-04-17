@@ -18,6 +18,7 @@ import ApiDebug from './pages/ApiDebug';
 import UserSettings from './pages/UserSettings';
 import HelpSupport from './pages/HelpSupport';
 import StudiosList from './pages/StudiosList';
+import StudioManagementPage from './pages/StudioManagementPage';
 import './index.css';
 
 const App = () => {
@@ -92,6 +93,13 @@ const App = () => {
               <ProtectedRoute>
                 <Layout>
                   <StudiosList />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/studios/manage" element={
+              <ProtectedRoute>
+                <Layout>
+                  <StudioManagementPage />
                 </Layout>
               </ProtectedRoute>
             } />

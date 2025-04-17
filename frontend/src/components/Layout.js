@@ -56,6 +56,7 @@ const Layout = ({ children }) => {
     { name: t('navigation.models'), href: '/models' },
     { name: t('navigation.printings'), href: '/printings' },
     { name: t('navigation.studios'), href: '/studios' },
+    { name: t('navigation.studioManagement'), href: '/studios/manage' },
     { name: t('navigation.reports'), href: '/reports' },
     { name: t('navigation.debug'), href: '/debug' },
   ];

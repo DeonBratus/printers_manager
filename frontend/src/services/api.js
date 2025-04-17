@@ -94,10 +94,35 @@ export const register = (userData) => api.post('/auth/register', userData);
 export const login = (credentials) => api.post('/auth/login', credentials);
 export const logout = () => api.post('/auth/logout');
 export const getProfile = () => api.get('/auth/me');
-export const getStudios = () => api.get('/auth/studios');
-export const createStudio = (studioData) => api.post('/auth/studios', studioData);
-export const updateStudio = (studioId, studioData) => api.put(`/auth/studios/${studioId}`, studioData);
-export const deleteStudio = (studioId) => api.delete(`/auth/studios/${studioId}`);
+
+// Users API
+export const getUsers = () => api.get('/users/');
+export const getUser = (id) => api.get(`/users/${id}`);
+export const updateUser = (id, userData) => api.put(`/users/${id}`, userData);
+
+// Studios API
+export const getStudios = () => api.get('/studios/');
+export const getStudio = (id) => api.get(`/studios/${id}`);
+export const createStudio = (studioData) => api.post('/studios/', studioData);
+export const updateStudio = (studioId, studioData) => api.put(`/studios/${studioId}`, studioData);
+export const deleteStudio = (studioId) => api.delete(`/studios/${studioId}`);
+
+// Studio Members API
+export const getStudioMembers = (studioId) => api.get(`/studios/${studioId}/members`);
+export const addStudioMember = (studioId, memberData) => api.post(`/studios/${studioId}/members`, memberData);
+export const updateMemberRole = (studioId, userId, roleData) => api.put(`/studios/${studioId}/members/${userId}`, roleData);
+export const removeStudioMember = (studioId, userId) => api.delete(`/studios/${studioId}/members/${userId}`);
+
+// Studio Invitations API
+export const searchUsers = (query) => api.get(`/studios/users/search?query=${encodeURIComponent(query)}`);
+export const createStudioInvitation = (studioId, invitationData) => api.post(`/studios/${studioId}/invitations`, invitationData);
+export const getStudioInvitations = (studioId, status) => {
+  const url = `/studios/${studioId}/invitations`;
+  return status ? api.get(`${url}?status=${status}`) : api.get(url);
+};
+export const getUserInvitations = () => api.get('/studios/invitations/user');
+export const updateInvitationStatus = (invitationId, statusData) => api.put(`/studios/invitations/${invitationId}`, statusData);
+export const deleteInvitation = (invitationId) => api.delete(`/studios/invitations/${invitationId}`);
 
 // Printers API
 export const getPrinters = () => api.get('/printers/');

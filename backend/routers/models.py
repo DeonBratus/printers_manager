@@ -4,7 +4,7 @@ from typing import List, Optional
 from database import get_db
 from schemas import ModelCreate, Model
 from crud import create_model, get_model, get_models, update_model, delete_model
-from auth import get_current_active_user
+from auth import get_current_active_user, get_studio_id_from_user
 from models import User
 
 router = APIRouter(
@@ -20,7 +20,7 @@ def create_new_model(
 ):
     # Set studio_id if not provided
     if not model.studio_id:
-        model.studio_id = current_user.studio_id
+        model.studio_id = get_studio_id_from_user(current_user, db)
     return create_model(db, model)
 
 @router.get("/", response_model=List[Model])
@@ -36,6 +36,9 @@ def read_models(
     if current_user.is_superuser:
         models = get_models(db, skip=skip, limit=limit, sort_by=sort_by, sort_desc=sort_desc)
     else:
+        # Get the current studio ID from the user's studios
+        studio_id = get_studio_id_from_user(current_user, db)
+        
         # Filter models by studio_id
         models = get_models(
             db, 
@@ -43,7 +46,7 @@ def read_models(
             limit=limit, 
             sort_by=sort_by, 
             sort_desc=sort_desc,
-            studio_id=current_user.studio_id
+            studio_id=studio_id
         )
     return models
 
@@ -58,8 +61,12 @@ def read_model(
         raise HTTPException(status_code=404, detail="Model not found")
     
     # Check if user has access to this model
-    if not current_user.is_superuser and db_model.studio_id != current_user.studio_id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this model")
+    if not current_user.is_superuser:
+        # Get the current studio ID from the user's studios
+        studio_id = get_studio_id_from_user(current_user, db)
+        
+        if db_model.studio_id != studio_id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this model")
     
     return db_model
 
@@ -76,12 +83,16 @@ def update_existing_model(
         raise HTTPException(status_code=404, detail="Model not found")
     
     # Check permissions
-    if not current_user.is_superuser and db_model.studio_id != current_user.studio_id:
-        raise HTTPException(status_code=403, detail="Not authorized to update this model")
+    if not current_user.is_superuser:
+        # Get the current studio ID from the user's studios
+        studio_id = get_studio_id_from_user(current_user, db)
+        
+        if db_model.studio_id != studio_id:
+            raise HTTPException(status_code=403, detail="Not authorized to update this model")
     
     # Ensure studio_id is set if not provided in update
     if not model.studio_id:
-        model.studio_id = current_user.studio_id
+        model.studio_id = get_studio_id_from_user(current_user, db)
         
     db_model = update_model(db, model_id=model_id, model=model)
     return db_model
@@ -98,8 +109,12 @@ def delete_existing_model(
         raise HTTPException(status_code=404, detail="Model not found")
     
     # Check permissions
-    if not current_user.is_superuser and db_model.studio_id != current_user.studio_id:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this model")
+    if not current_user.is_superuser:
+        # Get the current studio ID from the user's studios
+        studio_id = get_studio_id_from_user(current_user, db)
+        
+        if db_model.studio_id != studio_id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this model")
         
     db_model = delete_model(db, model_id=model_id)
     return db_model

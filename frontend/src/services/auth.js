@@ -50,7 +50,7 @@ export const getCurrentUser = async () => {
 // Get studios for current user
 export const getStudios = async () => {
   try {
-    const response = await api.get('/auth/studios');
+    const response = await api.get('/studios/');
     return response.data;
   } catch (error) {
     console.error('Get studios error:', error);
@@ -61,7 +61,7 @@ export const getStudios = async () => {
 // Create a new studio (for admin users)
 export const createStudio = async (studioData) => {
   try {
-    const response = await api.post('/auth/studios', studioData);
+    const response = await api.post('/studios/', studioData);
     return response.data;
   } catch (error) {
     console.error('Create studio error:', error);

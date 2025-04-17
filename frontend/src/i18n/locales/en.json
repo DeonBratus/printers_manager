@@ -55,6 +55,8 @@
     "printers": "Printers",
     "models": "Models",
     "printings": "Printings",
+    "studios": "Studios",
+    "studioManagement": "Studio Management",
     "reports": "Reports",
     "settings": "Settings",
     "debug": "Debug"
@@ -443,5 +445,74 @@
     "loginFailed": "Login failed. Please check your credentials.",
     "registrationFailed": "Registration failed. Please try again.",
     "studio": "Studio"
+  },
+  "studios": {
+    "title": "Studios",
+    "addNew": "Add Studio",
+    "name": "Name",
+    "description": "Description",
+    "createdAt": "Created",
+    "members": "Members",
+    "manage": "Manage",
+    "noStudios": "No studios found",
+    "createFirst": "Create your first studio",
+    "fetchError": "Failed to load studios",
+    "addUsers": "Add Users to Studio",
+    "selectUser": "Select a user to add"
+  },
+  "studioManagement": {
+    "title": "Studio Management",
+    "pageTitle": "Studio Management",
+    "selectStudio": "Please select a studio to manage",
+    "members": "Members",
+    "invitations": "Invitations",
+    "user": "User",
+    "email": "Email",
+    "role": "Role",
+    "inviteUsers": "Invite Users",
+    "noMembers": "No members found",
+    "confirmRemove": "Are you sure you want to remove this member?"
+  },
+  "invitationForm": {
+    "email": "Email Address",
+    "emailPlaceholder": "Enter email address",
+    "emailRequired": "Email is required",
+    "invalidEmail": "Please enter a valid email address",
+    "role": "Role",
+    "send": "Send Invitation",
+    "success": "Invitation sent successfully",
+    "error": "Failed to send invitation"
+  },
+  "invitations": {
+    "title": "Invitations",
+    "email": "Email",
+    "role": "Role",
+    "status": "Status",
+    "sent": "Sent",
+    "expires": "Expires",
+    "noInvitations": "No invitations found",
+    "noInvitationsForYou": "You have no pending invitations",
+    "fetchError": "Failed to load invitations",
+    "deleteError": "Failed to delete invitation",
+    "confirmDelete": "Are you sure you want to delete this invitation?",
+    "statusPending": "Pending",
+    "statusAccepted": "Accepted",
+    "statusRejected": "Rejected",
+    "statusExpired": "Expired",
+    "statusAll": "All",
+    "accept": "Accept",
+    "reject": "Reject",
+    "pendingForYou": "Pending Invitations",
+    "studio": "Studio",
+    "from": "From",
+    "acceptedError": "Failed to accept invitation",
+    "rejectedError": "Failed to reject invitation"
+  },
+  "roles": {
+    "owner": "Owner",
+    "admin": "Admin",
+    "manager": "Manager",
+    "member": "Member",
+    "viewer": "Viewer"
   }
 } 

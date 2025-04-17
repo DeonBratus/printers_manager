@@ -28,7 +28,7 @@ def create_new_printer(
     try:
         # Set studio_id if not provided
         if not printer.studio_id:
-            printer.studio_id = current_user.studio_id
+            printer.studio_id = get_studio_id_from_user(current_user, db)
             
         # Create or get existing printer
         result = create_printer(db, printer)
@@ -55,7 +55,9 @@ def read_printers(
         
         # Filter by studio_id unless user is superuser
         if not current_user.is_superuser:
-            query = query.filter(models.Printer.studio_id == current_user.studio_id)
+            # Get the current studio ID from the user's studios
+            studio_id = get_studio_id_from_user(current_user, db)
+            query = query.filter(models.Printer.studio_id == studio_id)
             
         # Apply sorting
         if sort_by:
@@ -84,8 +86,11 @@ def read_printer(
             raise HTTPException(status_code=404, detail="Printer not found")
             
         # Check if user has access to this printer
-        if not current_user.is_superuser and db_printer.studio_id != current_user.studio_id:
-            raise HTTPException(status_code=403, detail="Not authorized to access this printer")
+        if not current_user.is_superuser:
+            # Get the current studio ID from the user's studios
+            studio_id = get_studio_id_from_user(current_user, db)
+            if db_printer.studio_id != studio_id:
+                raise HTTPException(status_code=403, detail="Not authorized to access this printer")
             
         return db_printer
     except ValueError:
@@ -109,8 +114,11 @@ def update_existing_printer(
         raise HTTPException(status_code=404, detail="Printer not found")
         
     # Check permissions
-    if not current_user.is_superuser and db_printer.studio_id != current_user.studio_id:
-        raise HTTPException(status_code=403, detail="Not authorized to update this printer")
+    if not current_user.is_superuser:
+        # Get the current studio ID from the user's studios
+        studio_id = get_studio_id_from_user(current_user, db)
+        if db_printer.studio_id != studio_id:
+            raise HTTPException(status_code=403, detail="Not authorized to update this printer")
         
     # Set studio_id to ensure it doesn't change
     printer.studio_id = db_printer.studio_id
@@ -130,8 +138,11 @@ def delete_existing_printer(
         raise HTTPException(status_code=404, detail="Printer not found")
         
     # Check permissions
-    if not current_user.is_superuser and db_printer.studio_id != current_user.studio_id:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this printer")
+    if not current_user.is_superuser:
+        # Get the current studio ID from the user's studios
+        studio_id = get_studio_id_from_user(current_user, db)
+        if db_printer.studio_id != studio_id:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this printer")
         
     db_printer = delete_printer(db, printer_id=printer_id)
     return db_printer
@@ -150,8 +161,11 @@ def get_printer_downtime(
             raise HTTPException(status_code=404, detail="Printer not found")
             
         # Check permissions
-        if not current_user.is_superuser and db_printer.studio_id != current_user.studio_id:
-            raise HTTPException(status_code=403, detail="Not authorized to access this printer")
+        if not current_user.is_superuser:
+            # Get the current studio ID from the user's studios
+            studio_id = get_studio_id_from_user(current_user, db)
+            if db_printer.studio_id != studio_id:
+                raise HTTPException(status_code=403, detail="Not authorized to access this printer")
             
         downtime = calculate_printer_downtime(db, printer_id)
         return {"printer_id": printer_id, "downtime": downtime}

@@ -77,10 +77,30 @@ export const AuthProvider = ({ children }) => {
       await logout();
       localStorage.removeItem('token');
       localStorage.removeItem('tokenExpiry');
+      localStorage.removeItem('selectedStudio');
       setUser(null);
     } catch (err) {
       console.error('Logout error:', err);
     }
+  };
+
+  // Get user's studios
+  const getUserStudios = () => {
+    return user?.studios || [];
+  };
+
+  // Check if user has a specific role in a studio
+  const hasRoleInStudio = (studioId, role) => {
+    if (!user || !user.studios) return false;
+    
+    const studio = user.studios.find(s => s.id === studioId);
+    if (!studio) return false;
+    
+    if (Array.isArray(role)) {
+      return role.includes(studio.role);
+    }
+    
+    return studio.role === role;
   };
 
   // Define the value to be provided to consumers
@@ -93,16 +113,17 @@ export const AuthProvider = ({ children }) => {
     register: handleRegister,
     logout: handleLogout,
     setUser,
-    studio: user?.studio_id || null,
+    getUserStudios,
+    hasRoleInStudio
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Hook for consuming the auth context
+// Hook for using the auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

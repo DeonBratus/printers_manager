@@ -6,3 +6,4 @@ from . import models
 from . import reports
 from . import printer_parameters
 from . import auth
+from . import studios
