@@ -1,9 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from typing import List
+import os
+import shutil
+from pathlib import Path
+import uuid
 
 from database import get_db
 import models
@@ -16,6 +21,10 @@ from auth import (
     get_current_active_user,
     get_user_studios
 )
+
+# Создаем директорию для аватаров, если она не существует
+AVATAR_DIR = Path("uploads/avatars")
+AVATAR_DIR.mkdir(parents=True, exist_ok=True)
 
 router = APIRouter(
     prefix="/auth",
@@ -196,7 +205,125 @@ def read_users_me(current_user: models.User = Depends(get_current_active_user), 
         "is_active": current_user.is_active,
         "is_superuser": current_user.is_superuser,
         "created_at": current_user.created_at,
-        "studios": studios_data
+        "studios": studios_data,
+        "language": getattr(current_user, "language", "russian"),
+        "default_view": getattr(current_user, "default_view", "grid")
     }
     
-    return user_data 
+    return user_data
+
+@router.put("/me/settings", response_model=schemas.UserSettings)
+def update_user_settings(
+    settings: schemas.UserSettings,
+    current_user: models.User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update the current user's settings"""
+    
+    # Only update the fields that are provided
+    if settings.username is not None:
+        # Check if username already exists for another user
+        existing_user = db.query(models.User).filter(
+            models.User.username == settings.username,
+            models.User.id != current_user.id
+        ).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username already in use")
+        current_user.username = settings.username
+    
+    if settings.email is not None:
+        # Check if email already exists for another user
+        existing_user = db.query(models.User).filter(
+            models.User.email == settings.email,
+            models.User.id != current_user.id
+        ).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        current_user.email = settings.email
+    
+    # Add new settings fields to the user
+    if settings.language is not None:
+        current_user.language = settings.language
+    
+    if settings.default_view is not None:
+        current_user.default_view = settings.default_view
+    
+    # Save changes
+    db.commit()
+    db.refresh(current_user)
+    
+    # Return updated settings
+    return {
+        "username": current_user.username,
+        "email": current_user.email,
+        "language": getattr(current_user, "language", "russian"),
+        "default_view": getattr(current_user, "default_view", "grid"),
+        "avatar": current_user.avatar
+    }
+
+@router.post("/me/avatar", response_model=schemas.UserSettings)
+async def upload_avatar(
+    avatar: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Upload user avatar"""
+    
+    # Проверяем формат файла
+    if not avatar.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    # Создаем уникальное имя файла
+    file_ext = avatar.filename.split(".")[-1]
+    unique_filename = f"{uuid.uuid4()}.{file_ext}"
+    file_path = os.path.join(AVATAR_DIR, unique_filename)
+    
+    # Сохраняем файл
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(avatar.file, buffer)
+    
+    # Обновляем путь к аватару пользователя в БД
+    # Если у пользователя уже был аватар, удаляем старый файл
+    if current_user.avatar:
+        old_avatar_path = os.path.join(AVATAR_DIR, os.path.basename(current_user.avatar))
+        if os.path.exists(old_avatar_path):
+            os.remove(old_avatar_path)
+    
+    # Сохраняем только имя файла
+    current_user.avatar = unique_filename
+    db.commit()
+    db.refresh(current_user)
+    
+    return {
+        "username": current_user.username,
+        "email": current_user.email,
+        "language": getattr(current_user, "language", "russian"),
+        "default_view": getattr(current_user, "default_view", "grid"),
+        "avatar": current_user.avatar
+    }
+
+@router.get("/avatar/{user_id}")
+async def get_avatar(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get user avatar by user_id"""
+    
+    # Получаем данные пользователя
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Если у пользователя нет аватара, возвращаем стандартный
+    if not user.avatar:
+        raise HTTPException(status_code=404, detail="Avatar not found")
+    
+    # Формируем путь к файлу аватара
+    avatar_path = os.path.join(AVATAR_DIR, user.avatar)
+    
+    # Проверяем существование файла
+    if not os.path.exists(avatar_path):
+        raise HTTPException(status_code=404, detail="Avatar file not found")
+    
+    # Возвращаем файл
+    return FileResponse(avatar_path, media_type="image/*") 

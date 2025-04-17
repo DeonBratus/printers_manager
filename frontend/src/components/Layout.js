@@ -303,16 +303,21 @@ const Layout = ({ children }) => {
                 <div>
                   <button
                     className={`flex rounded-full focus:outline-none focus:ring-2 ${isDarkMode ? 'focus:ring-white' : 'focus:ring-blue-500'}`}
-                    onClick={() => {
-                      setIsProfileMenuOpen(!isProfileMenuOpen);
-                      if (isNotificationsOpen) setIsNotificationsOpen(false);
-                    }}
+                    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                   >
-                    <UserCircleIcon className={`h-8 w-8 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`} />
-                    {isAuthenticated && user && (
-                      <span className={`ml-1.5 mt-1 text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        {user.username}
-                      </span>
+                    {user?.id ? (
+                      <img
+                        src={`${process.env.REACT_APP_API_URL || ''}/auth/avatar/${user.id}`}
+                        alt={user?.username || 'Profile'}
+                        className="h-8 w-8 rounded-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.style.display = 'none';
+                          e.target.parentElement.innerHTML = `<svg class="h-8 w-8 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}" fill="currentColor" viewBox="0 0 24 24"><path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" /></svg>`;
+                        }}
+                      />
+                    ) : (
+                      <UserCircleIcon className={`h-8 w-8 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`} />
                     )}
                   </button>
                 </div>
@@ -564,4 +569,4 @@ const Layout = ({ children }) => {
   );
 };
 
-export default Layout; 
+export default Layout;

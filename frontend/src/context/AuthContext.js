@@ -10,15 +10,31 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Add this function to check if a token is expired
+  const isTokenExpired = () => {
+    const tokenExpiry = localStorage.getItem('tokenExpiry');
+    if (!tokenExpiry) return true;
+    
+    return new Date(tokenExpiry) < new Date();
+  };
 
   useEffect(() => {
     const initAuth = async () => {
       if (token) {
         try {
-          await fetchUserInfo();
+          if (!isTokenExpired()) {
+            await fetchUserInfo();
+          } else {
+            // Token exists but expired
+            handleLogout();
+          }
         } catch (error) {
           console.error('Error initializing auth:', error);
-          handleLogout();
+          // Only logout on authentication errors, not network errors
+          if (error.response && error.response.status === 401) {
+            handleLogout();
+          }
         }
       }
       setLoading(false);
@@ -28,14 +44,41 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const fetchUserInfo = async () => {
+    if (!token) return;
+    
     try {
       const userData = await getProfile();
-      setUser(userData.data || userData);
+      const userInfo = userData.data || userData;
+      
+      if (!userInfo) {
+        throw new Error('Invalid user data received');
+      }
+      
+      setUser(userInfo);
       setError(null);
+      
+      // Store user settings in localStorage
+      const userSettings = {
+        name: userInfo.username,
+        email: userInfo.email,
+        defaultPrinterView: userInfo.default_view || 'grid',
+        language: userInfo.language || 'russian',
+        avatar: userInfo.avatar || null,
+      };
+      
+      localStorage.setItem('userSettings', JSON.stringify(userSettings));
+      
+      return userInfo;
     } catch (err) {
       console.error('Error fetching user info:', err);
       setError('Failed to load user information');
-      handleLogout();
+      
+      // Only logout on authentication errors (401), not on network or server errors
+      if (err.response && err.response.status === 401) {
+        handleLogout();
+      }
+      
+      throw err;
     }
   };
 
@@ -46,7 +89,13 @@ export const AuthProvider = ({ children }) => {
       const newToken = authData.data?.access_token || authData.access_token;
 
       if (newToken) {
+        // Set token expiry to 30 days from now
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        
         localStorage.setItem('token', newToken);
+        localStorage.setItem('tokenExpiry', expiryDate.toISOString());
+        
         setToken(newToken);
         await fetchUserInfo();
         return true;
@@ -62,6 +111,7 @@ export const AuthProvider = ({ children }) => {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('tokenExpiry');
     localStorage.removeItem('selectedStudio');
     setToken(null);
     setUser(null);
@@ -87,7 +137,12 @@ export const AuthProvider = ({ children }) => {
     return studio.role === role;
   };
 
-  const isAuthenticated = !!token && !!user;
+  // Force refresh user data
+  const refreshUserInfo = async () => {
+    return await fetchUserInfo();
+  };
+
+  const isAuthenticated = !!token && !!user && !isTokenExpired();
 
   return (
     <AuthContext.Provider
@@ -99,7 +154,8 @@ export const AuthProvider = ({ children }) => {
         loading,
         error,
         getUserStudios,
-        hasRoleInStudio
+        hasRoleInStudio,
+        refreshUserInfo
       }}
     >
       {children}
@@ -116,4 +172,4 @@ export const useAuth = () => {
   return context;
 };
 
-export default AuthContext; 
+export default AuthContext;

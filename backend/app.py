@@ -8,6 +8,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi.requests import Request
 from background_tasks import start_scheduler
+import os
+from pathlib import Path
 
 from database import get_db, engine
 from models import Base
@@ -33,6 +35,12 @@ app.add_middleware(
 # Инициализация базы данных
 Base.metadata.create_all(bind=engine)
 
+# Создаем директорию для аватаров, если она не существует
+AVATAR_DIR = Path("uploads/avatars")
+AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+
+# Добавляем статические файлы для аватаров
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Подключаем роутеры
 app.include_router(printers.router)

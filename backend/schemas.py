@@ -147,6 +147,13 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
 
+class UserSettings(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    language: Optional[str] = None
+    default_view: Optional[str] = None
+    avatar: Optional[str] = None
+
 class UserStudioInfo(BaseModel):
     id: int
     name: str
@@ -159,6 +166,7 @@ class User(UserBase):
     id: int
     created_at: datetime
     studios: Optional[List[UserStudioInfo]] = []
+    avatar: Optional[str] = None
     
     class Config:
         from_attributes = True
