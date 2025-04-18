@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from typing import List
 
 from database import get_db
-import routers.tdim_models as tdim_models
+from models import User, Studio, Session as UserSession, user_studio, UserRole
 import schemas
 from auth.auth import (
     verify_password, 
@@ -26,9 +26,9 @@ router = APIRouter(
 @router.post("/register", response_model=schemas.User)
 def register_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     # Check if user with this username or email already exists
-    existing_user = db.query(tdim_models.User).filter(
-        (tdim_models.User.username == user_data.username) | 
-        (tdim_models.User.email == user_data.email)
+    existing_user = db.query(User).filter(
+        (User.username == user_data.username) | 
+        (User.email == user_data.email)
     ).first()
     
     if existing_user:
@@ -39,7 +39,7 @@ def register_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     
     # Create the new user (without studio_id since we're using many-to-many now)
     hashed_password = get_password_hash(user_data.password)
-    db_user = tdim_models.User(
+    db_user = User(
         username=user_data.username,
         email=user_data.email,
         hashed_password=hashed_password,
@@ -56,7 +56,7 @@ def register_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
         # Create default studio if initial_studio_id is not provided
         if not user_data.initial_studio_id:
             # Create a personal studio for the user
-            default_studio = tdim_models.Studio(
+            default_studio = Studio(
                 name=f"{user_data.username}'s Studio", 
                 description="Personal studio"
             )
@@ -65,23 +65,23 @@ def register_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
             
             # Add user to studio as owner
             db.execute(
-                tdim_models.user_studio.insert().values(
+                user_studio.insert().values(
                     user_id=db_user.id,
                     studio_id=default_studio.id,
-                    role=tdim_models.UserRole.OWNER
+                    role=UserRole.OWNER
                 )
             )
             
             studio_id = default_studio.id
         else:
             # Verify that the studio exists
-            studio = db.query(tdim_models.Studio).filter(tdim_models.Studio.id == user_data.initial_studio_id).first()
+            studio = db.query(Studio).filter(Studio.id == user_data.initial_studio_id).first()
             if not studio:
                 raise HTTPException(status_code=404, detail="Studio not found")
             
             # Add user to the specified studio with the specified role
             db.execute(
-                tdim_models.user_studio.insert().values(
+                user_studio.insert().values(
                     user_id=db_user.id,
                     studio_id=user_data.initial_studio_id,
                     role=user_data.initial_role
@@ -94,8 +94,8 @@ def register_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
         db.refresh(db_user)
         
         # Manually construct the user response with studios data
-        studio_name = db.query(tdim_models.Studio.name).filter(tdim_models.Studio.id == studio_id).scalar()
-        role = user_data.initial_role if user_data.initial_studio_id else tdim_models.UserRole.OWNER
+        studio_name = db.query(Studio.name).filter(Studio.id == studio_id).scalar()
+        role = user_data.initial_role if user_data.initial_studio_id else UserRole.OWNER
         
         return {
             "id": db_user.id,
@@ -119,7 +119,7 @@ def register_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=schemas.Token)
 def login(form_data: schemas.LoginRequest, db: Session = Depends(get_db)):
     # Authenticate the user
-    user = db.query(tdim_models.User).filter(tdim_models.User.username == form_data.username).first()
+    user = db.query(User).filter(User.username == form_data.username).first()
     
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
@@ -168,14 +168,14 @@ def login(form_data: schemas.LoginRequest, db: Session = Depends(get_db)):
     }
 
 @router.post("/logout")
-def logout(current_user: tdim_models.User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+def logout(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
     # Invalidate all sessions for this user
-    db.query(tdim_models.Session).filter(tdim_models.Session.user_id == current_user.id).delete()
+    db.query(Session).filter(Session.user_id == current_user.id).delete()
     db.commit()
     return {"message": "Successfully logged out"}
 
 @router.get("/me", response_model=schemas.User)
-def read_users_me(current_user: tdim_models.User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+def read_users_me(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
     # Get user studios info
     studios_info = get_user_studios(current_user, db)
     
