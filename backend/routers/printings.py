@@ -1,7 +1,7 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime, timedelta
 from database import get_db
 from schemas import PrintingCreate, Printing
 from services import (
@@ -9,6 +9,7 @@ from services import (
     printing as printing_service,
     model as model_service
 )
+from dal import printing as printings_dal
 from printer_control import complete_printing, pause_printing, resume_printing, cancel_printing
 from models import Printing as PrintingModel
 
@@ -54,10 +55,11 @@ def read_printings(
     limit: int = 100, 
     sort_by: Optional[str] = None,
     sort_desc: bool = False,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    studio_id: int = None
 ):
     try:
-        printings = printing_service.get_printings(db, skip=skip, limit=limit, sort_by=sort_by, sort_desc=sort_desc)
+        printings = printing_service.get_printings(db, skip=skip, limit=limit, sort_by=sort_by, sort_desc=sort_desc, studio_id=studio_id)
         return printings
     except Exception as e:
         print(f"Error in read_printings: {str(e)}")
@@ -144,14 +146,15 @@ def cancel_existing_printing(printing_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{printing_id}/confirm", response_model=Printing)
 def confirm_printing(printing_id: int, db: Session = Depends(get_db)):
-    # Use the model class for database operations
-    printing = db.query(PrintingModel).filter(PrintingModel.id == printing_id).first()
-    if not printing:
-        raise HTTPException(status_code=404, detail="Printing not found")
-    
-    # Logic to confirm the print job
-    printing.status = "confirmed"  # Example status change
-    db.commit()
-    db.refresh(printing)
-    
-    return printing
+    """Complete print job and update statuses"""
+    try:
+        db_printing = printings_dal.confirm(db, printing_id)
+        if not db_printing:
+            raise HTTPException(status_code=404, detail="Printing not found")
+            
+        # Get full details for response
+        return printing_service.get_printing_with_details(db, printing_id)
+    except Exception as e:
+        db.rollback()
+        print(f"Error confirming print job: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -1,18 +1,14 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime, timedelta
-from typing import List, Optional
+
 import uvicorn
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
-from fastapi.requests import Request
+from auth.router import router as auth_router
+from routers import tdim_models
 from background_tasks import start_scheduler
 
-from database import get_db, engine
+from database import engine
 from models import Base
-from sqlalchemy.orm import Session
-from routers import printers, printings, models, reports, printer_parameters, auth, studios
+from routers import printers, printings, reports, printer_parameters, studios
 
 app = FastAPI(
     title="3D Printer Management API",
@@ -37,10 +33,10 @@ Base.metadata.create_all(bind=engine)
 # Подключаем роутеры
 app.include_router(printers.router)
 app.include_router(printings.router)
-app.include_router(models.router)
+app.include_router(tdim_models.router)
 app.include_router(reports.router)
 app.include_router(printer_parameters.router)
-app.include_router(auth.router)
+app.include_router(auth_router)
 app.include_router(studios.router)
 
 # Запускаем планировщик при старте приложения

@@ -3,6 +3,8 @@ from sqlalchemy import desc
 import models
 from schemas import PrinterCreate
 from sqlalchemy.exc import IntegrityError
+from datetime import datetime
+from models import Printer, Printing
 
 def create(db: Session, printer: PrinterCreate):
     # Always create new printer (removed check for existing printer with same name)
@@ -93,3 +95,30 @@ def delete_parameter(db: Session, param_id: int):
         db.commit()
     
     return db_param
+
+def stop_printer(db: Session, printer_id: int, stop_reason: str = None):
+    """Stop printer and update current printing"""
+    printer = db.query(Printer).filter(Printer.id == printer_id).first()
+    if not printer:
+        return None
+        
+    # Find active printing for this printer
+    active_printing = db.query(Printing).filter(
+        Printing.printer_id == printer_id,
+        Printing.status.in_(['printing', 'paused'])
+    ).first()
+
+    if active_printing:
+        current_time = datetime.now()
+        active_printing.status = 'cancelled'
+        active_printing.real_time_stop = current_time
+        if stop_reason:
+            active_printing.stop_reason = stop_reason
+        db.add(active_printing)
+
+    # Update printer status
+    printer.status = 'idle'
+    db.add(printer)
+    db.commit()
+    db.refresh(printer)
+    return printer

@@ -45,7 +45,19 @@ export const StudioProvider = ({ children }) => {
 
   // Получить ID текущей студии
   const getCurrentStudioId = () => {
-    return selectedStudio ? selectedStudio.id : null;
+    if (!selectedStudio) {
+      console.warn('No studio selected');
+      return null;
+    }
+    return selectedStudio.id;
+  };
+
+  // Add validation helper
+  const validateStudioSelected = () => {
+    if (!selectedStudio) {
+      throw new Error('No studio selected');
+    }
+    return true;
   };
 
   // Получить роль пользователя в студии
@@ -129,7 +141,8 @@ export const StudioProvider = ({ children }) => {
         studioMembers,
         membersLoading,
         fetchStudioMembers,
-        removeStudioMember: removeMember
+        removeStudioMember: removeMember,
+        validateStudioSelected
       }}
     >
       {children}

@@ -126,9 +126,9 @@ def get_printing_with_details(db: Session, printing_id: int):
         print(f"Unexpected error in get_printing_with_details for printing {printing_id}: {str(e)}")
         return None
 
-def get_printings(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False):
+def get_printings(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False, studio_id: int = None):
     try:
-        printings = printing_dal.get_all(db, skip, limit, sort_by, sort_desc)
+        printings = printing_dal.get_all(db, skip, limit, sort_by, sort_desc, studio_id)
         result = []
         
         for p in printings:
