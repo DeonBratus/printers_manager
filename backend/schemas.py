@@ -46,7 +46,7 @@ class PrinterParameter(PrinterParameterBase):
     class Config:
         from_attributes = True
 
-class Printer(PrinterBase):
+class BaseSchemaPrinter(PrinterBase):
     id: Union[int, str]
     parameters: Optional[List[PrinterParameter]] = []
     
@@ -76,6 +76,7 @@ class PrintingBase(BaseModel):
     studio_id: Optional[int] = None
 
 class PrintingCreate(BaseModel):
+    
     model_id: int    # Required
     printer_id: Optional[int] = None  # Made optional since it's set in the route
     printing_time: Optional[float] = None  # в минутах

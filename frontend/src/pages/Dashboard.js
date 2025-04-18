@@ -47,44 +47,38 @@ const Dashboard = () => {
     slicing_settings: ''
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+  const fetchData = async () => {
+    if (!selectedStudio) return;
+    
+    setLoading(true);
+    try {
+      // Fetch all data with selected studio ID
+      const printersRes = await getPrinters(selectedStudio.id);
+      setPrinters(Array.isArray(printersRes) ? printersRes : printersRes.data || []);
+
+      const modelsRes = await getModels(selectedStudio.id);
+      setModels(Array.isArray(modelsRes) ? modelsRes : modelsRes.data || []);
+
+      const printingsRes = await getPrintings(selectedStudio.id);
+      setPrintings(Array.isArray(printingsRes) ? printingsRes : printingsRes.data || []);
+      
       setError(null);
-      try {
-        // Передаем ID выбранной студии
-        const selectedStudioId = selectedStudio ? selectedStudio.id : null;
-        const [printersResponse, printingsResponse, modelsResponse, reportsResponse] = await Promise.all([
-          getPrinters(selectedStudioId),
-          getPrintings(),
-          getModels(selectedStudioId),
-          getPrinterStatusReport()
-        ]);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(t('dashboard.fetchError', 'Failed to load data'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        const printersData = Array.isArray(printersResponse) ? printersResponse : printersResponse.data || [];
-        const printingsData = Array.isArray(printingsResponse) ? printingsResponse : printingsResponse.data || [];
-        const modelsData = Array.isArray(modelsResponse) ? modelsResponse : modelsResponse.data || [];
-        const reportData = Array.isArray(reportsResponse) ? reportsResponse : reportsResponse.data || {};
-
-        setPrinters(printersData);
-        setPrintings(printingsData.filter(p => p.status === 'printing' || p.status === 'paused'));
-        setModels(modelsData);
-        setReportData(reportData);
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError(t('dashboard.fetchError', 'Failed to load dashboard data. Please try refreshing the page.'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
+  useEffect(() => {
     fetchData();
     
-    // Refresh data every minute
-    const interval = setInterval(fetchData, 60000);
-    return () => clearInterval(interval);
-  }, [selectedStudio, t]); // Повторно загружаем данные при изменении выбранной студии
-  
+    // Set up periodic refresh
+    const refreshInterval = setInterval(fetchData, 30000);
+    return () => clearInterval(refreshInterval);
+  }, [selectedStudio]); // Re-fetch when selected studio changes
+
   const handleAddPrinter = async (e) => {
     e.preventDefault();
     setIsAddingPrinter(true);
@@ -496,4 +490,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

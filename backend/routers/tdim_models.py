@@ -4,7 +4,7 @@ from typing import List, Optional
 from database import get_db
 from schemas import ModelCreate, Model
 from crud import create_model, get_model, get_models, update_model, delete_model
-from auth import get_current_active_user, get_studio_id_from_user
+from auth.auth import get_current_active_user, get_studio_id_from_user
 from models import User
 
 router = APIRouter(

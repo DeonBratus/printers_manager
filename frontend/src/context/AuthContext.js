@@ -1,126 +1,92 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { login as apiLogin, getProfile } from '../services/api';
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { login, register, logout, getCurrentUser } from '../services/auth';
 
 // Create the auth context
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
 // Create a provider component
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token') || null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Add this function to check if a token is expired
-  const isTokenExpired = () => {
-    const tokenExpiry = localStorage.getItem('tokenExpiry');
-    if (!tokenExpiry) return true;
-    
-    return new Date(tokenExpiry) < new Date();
-  };
 
+  // Check for existing token and load user on mount
   useEffect(() => {
-    const initAuth = async () => {
-      if (token) {
-        try {
-          if (!isTokenExpired()) {
-            await fetchUserInfo();
-          } else {
-            // Token exists but expired
-            handleLogout();
-          }
-        } catch (error) {
-          console.error('Error initializing auth:', error);
-          // Only logout on authentication errors, not network errors
-          if (error.response && error.response.status === 401) {
-            handleLogout();
-          }
+    const loadUser = async () => {
+      try {
+        setIsLoading(true);
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          setIsLoading(false);
+          return;
         }
+        
+        const userData = await getCurrentUser();
+        setUser(userData);
+      } catch (err) {
+        console.error('Failed to load user:', err);
+        localStorage.removeItem('token');
+      } finally {
+        setIsLoading(false);
       }
-      setLoading(false);
     };
 
-    initAuth();
+    loadUser();
   }, []);
 
-  const fetchUserInfo = async () => {
-    if (!token) return;
-    
+  // Login function
+  const handleLogin = async (username, password) => {
     try {
-      const userData = await getProfile();
-      const userInfo = userData.data || userData;
-      
-      if (!userInfo) {
-        throw new Error('Invalid user data received');
-      }
-      
-      setUser(userInfo);
       setError(null);
+      setIsLoading(true);
+      const { access_token, user: userData, expires_at } = await login(username, password);
       
-      // Store user settings in localStorage
-      const userSettings = {
-        name: userInfo.username,
-        email: userInfo.email,
-        defaultPrinterView: userInfo.default_view || 'grid',
-        language: userInfo.language || 'russian',
-        avatar: userInfo.avatar || null,
-      };
+      localStorage.setItem('token', access_token);
+      localStorage.setItem('tokenExpiry', expires_at);
+      setUser(userData);
       
-      localStorage.setItem('userSettings', JSON.stringify(userSettings));
-      
-      return userInfo;
+      return userData;
     } catch (err) {
-      console.error('Error fetching user info:', err);
-      setError('Failed to load user information');
-      
-      // Only logout on authentication errors (401), not on network or server errors
-      if (err.response && err.response.status === 401) {
-        handleLogout();
-      }
-      
+      setError(err.response?.data?.detail || 'Ошибка при входе');
       throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const login = async (username, password) => {
-    setError(null);
+  // Register function
+  const handleRegister = async (userData) => {
     try {
-      const authData = await apiLogin({ username, password });
-      const newToken = authData.data?.access_token || authData.access_token;
-
-      if (newToken) {
-        // Set token expiry to 30 days from now
-        const expiryDate = new Date();
-        expiryDate.setDate(expiryDate.getDate() + 30);
-        
-        localStorage.setItem('token', newToken);
-        localStorage.setItem('tokenExpiry', expiryDate.toISOString());
-        
-        setToken(newToken);
-        await fetchUserInfo();
-        return true;
-      } else {
-        throw new Error('No token received');
-      }
+      setError(null);
+      setIsLoading(true);
+      const newUser = await register(userData);
+      return newUser;
     } catch (err) {
-      console.error('Login error:', err);
-      setError(err.response?.data?.detail || 'Login failed, please check your credentials.');
-      return false;
+      setError(err.response?.data?.detail || 'Ошибка при регистрации');
+      throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('tokenExpiry');
-    localStorage.removeItem('selectedStudio');
-    setToken(null);
-    setUser(null);
+  // Logout function
+  const handleLogout = async () => {
+    try {
+      setError(null);
+      await logout();
+      localStorage.removeItem('token');
+      localStorage.removeItem('tokenExpiry');
+      localStorage.removeItem('selectedStudio');
+      setUser(null);
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
   };
 
-  // Get all studios for the user
+  // Get user's studios
   const getUserStudios = () => {
-    if (!user || !user.studios) return [];
-    return user.studios;
+    return user?.studios || [];
   };
 
   // Check if user has a specific role in a studio
@@ -137,30 +103,21 @@ export const AuthProvider = ({ children }) => {
     return studio.role === role;
   };
 
-  // Force refresh user data
-  const refreshUserInfo = async () => {
-    return await fetchUserInfo();
+  // Define the value to be provided to consumers
+  const value = {
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    error,
+    login: handleLogin,
+    register: handleRegister,
+    logout: handleLogout,
+    setUser,
+    getUserStudios,
+    hasRoleInStudio
   };
 
-  const isAuthenticated = !!token && !!user && !isTokenExpired();
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated,
-        login,
-        logout: handleLogout,
-        loading,
-        error,
-        getUserStudios,
-        hasRoleInStudio,
-        refreshUserInfo
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 // Hook for using the auth context
@@ -172,4 +129,4 @@ export const useAuth = () => {
   return context;
 };
 
-export default AuthContext;
+export default AuthContext; 
