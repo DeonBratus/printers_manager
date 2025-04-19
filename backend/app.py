@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 from db.database import engine
-from models import Base
+from models.models import Base
 from routers.printings import router as printings_router
 
 app = FastAPI(

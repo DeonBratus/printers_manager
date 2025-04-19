@@ -10,7 +10,7 @@ import os
 from dotenv import load_dotenv
 from typing import Optional, List
 from db.database import get_db
-from models import User, Session as UserSession, UserRole, StudioPermission, role_permission
+from models import User, Session as UserSession, UserRole, StudioPermission
 import uuid
 
 # Load environment variables

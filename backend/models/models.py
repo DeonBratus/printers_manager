@@ -95,7 +95,7 @@ class Printing(Base):
     stop_reason = Column(String, nullable=True)
     
     printer_id = Column(Integer, ForeignKey("td_printers.id"))
-    model_id = Column(Integer, ForeignKey("td_id"))
+    model_id = Column(Integer, ForeignKey("td_models.id"))
     studio_id = Column(Integer, ForeignKey("td_studios.id"), nullable=True)
     
     printer = relationship("Printer", back_populates="printings")
@@ -114,7 +114,7 @@ class PrintQueue(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     printer_id = Column(Integer, ForeignKey("td_printers.id"))
-    model_id = Column(Integer, ForeignKey("td_id"))
+    model_id = Column(Integer, ForeignKey("td_models.id"))
     quantity = Column(Integer, default=1)
     priority = Column(Integer, default=0)
     status = Column(String, default="queued")

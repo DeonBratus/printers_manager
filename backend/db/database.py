@@ -7,8 +7,8 @@ from dotenv import load_dotenv  # Для загрузки .env
 # Загружаем переменные окружения из .env
 load_dotenv()
 
-db_user = os.getenv("POSTGRES_USER", "postgres")
-db_pass = os.getenv("POSTGRES_PASSWORD", "postgres")
+db_user = os.getenv("POSTGRES_USER", "tdim_manager_user")
+db_pass = os.getenv("POSTGRES_PASSWORD", "password")
 db_name = os.getenv("POSTGRES_DB", "3d_printer_db")
 db_host = os.getenv("POSTGRES_HOST", "localhost")
 db_port = os.getenv("POSTGRES_PORT", "5432")
