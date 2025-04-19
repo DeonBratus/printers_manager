@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
-import models
-from services.printer import format_minutes_to_hhmm, get_printers, get_printer
-from services.printing import get_printings, get_printing
+from models.models import Printer, Printing
+from services.printers.printer import format_minutes_to_hhmm, get_printer
+from services import PrintingService
 from dal import printer as printer_dal
 
 
@@ -20,9 +20,9 @@ def calculate_printer_downtime(db: Session, printer_id: int, current_time: datet
         return 0.0
         
     # Получаем время последней активности принтера
-    last_printing = db.query(models.Printing).filter(
-        models.Printing.printer_id == printer_id
-    ).order_by(models.Printing.real_time_stop.desc()).first()
+    last_printing = db.query(Printing).filter(
+        Printing.printer_id == printer_id
+    ).order_by(Printing.real_time_stop.desc()).first()
     
     if last_printing and last_printing.real_time_stop:
         # Время простоя от завершения последней печати до текущего момента в минутах
@@ -35,7 +35,7 @@ def calculate_printer_downtime(db: Session, printer_id: int, current_time: datet
         print(f"Printer {printer_id} idle time since creation: {format_minutes_to_hhmm(idle_time)}")
         return idle_time
 
-def update_printer_status(db: Session, printer_id: int, new_status: str) -> models.Printer:
+def update_printer_status(db: Session, printer_id: int, new_status: str) -> Printer:
     """
     Обновляет статус принтера с учётом изменения режима работы.
     При переходе из активного состояния в неактивное, обновляет время простоя.
@@ -60,7 +60,7 @@ def update_printer_status(db: Session, printer_id: int, new_status: str) -> mode
     return printer
 
 def complete_printing(db: Session, printing_id: int, auto_complete: bool = False):
-    printing = get_printing(db, printing_id)
+    printing = PrintingService.get_printing(db, printing_id)
     if not printing:
         return None
     
@@ -102,7 +102,7 @@ def complete_printing(db: Session, printing_id: int, auto_complete: bool = False
     return printing
 
 def pause_printing(db: Session, printing_id: int):
-    printing = get_printing(db, printing_id)
+    printing = PrintingService.get_printing(db, printing_id)
     if not printing or printing.real_time_stop is not None:
         return None
     
@@ -122,7 +122,7 @@ def pause_printing(db: Session, printing_id: int):
     return printing
 
 def resume_printing(db: Session, printing_id: int):
-    printing = get_printing(db, printing_id)
+    printing = PrintingService.get_printing(db, printing_id)
     if not printing or printing.real_time_stop is not None:
         return None
     
@@ -152,7 +152,7 @@ def resume_printing(db: Session, printing_id: int):
     return printing
 
 def cancel_printing(db: Session, printing_id: int):
-    printing = get_printing(db, printing_id)
+    printing = PrintingService.get_printing(db, printing_id)
     if not printing or printing.real_time_stop is not None:
         return None
     

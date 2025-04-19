@@ -2,17 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
-from database import get_db
-from schemas import PrinterCreate, BaseSchemaPrinter, Printing, PrintingCreate
-from crud import (
-    create_printer, get_printer, get_printers, 
-    update_printer, delete_printer
-)
-from services import printer as printer_service
-from printer_control import calculate_printer_downtime
+from pydantic import BaseModel
+
+from db.database import get_db
+from schemas.printers_schemas import PrinterCreate, BaseSchemaPrinter
+from schemas.printings_schemas import Printing, PrintingCreate
+
+from services.printers.printer_control import calculate_printer_downtime
+from services.printers.printer import create_printer, get_printer, delete_printer, update_printer
+
 from models import Model, Printer, User
 from auth.auth import get_current_active_user, get_studio_id_from_user
-from pydantic import BaseModel
 
 router = APIRouter(
     prefix="/printers",
@@ -338,7 +338,7 @@ def stop_printer(
 ):
     """Stop printer and cancel current printing"""
     try:
-        printer = printer_service.stop_printer(db, printer_id, stop_data.stop_reason)
+        printer = stop_printer(db, printer_id, stop_data.stop_reason)
         if not printer:
             raise HTTPException(status_code=404, detail="Printer not found")
         return printer

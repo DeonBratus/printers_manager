@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List, Optional
-from database import get_db
-from schemas import PrinterParameter, PrinterParameterCreate
-from dal import printer as printer_dal
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.orm import Session
+from typing import List
+
+from db.database import get_db
+from dal import printer as printer_dal
+
+from schemas.printers_params import PrinterParameter, PrinterParameterCreate
+
 
 router = APIRouter(
     prefix="/printers",

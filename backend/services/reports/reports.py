@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from datetime import datetime, timedelta
-from crud import get_model
+from services import ModelService
 import models
 from typing import Dict, Any
 from models import Printer, Model, Printing
@@ -34,12 +34,12 @@ def get_printer_report(db: Session, printer_id: int):
     if printer_id is None:
         return None
 
-    printer = db.query(models.Printer).filter(models.Printer.id == printer_id).first()
+    printer = db.query(Printer).filter(Printer.id == printer_id).first()
     if not printer:
         return None
     
-    printings = db.query(models.Printing).filter(
-        models.Printing.printer_id == printer_id
+    printings = db.query(Printing).filter(
+        Printing.printer_id == printer_id
     ).all()
     
     return {
@@ -47,7 +47,7 @@ def get_printer_report(db: Session, printer_id: int):
         "printings": [
             {
                 "id": p.id,
-                "model_name": get_model(db, p.model_id).name if p.model_id else "Unknown Model",
+                "model_name": ModelService.get_model(db, p.model_id).name if p.model_id else "Unknown Model",
                 "start_time": p.start_time,
                 "status": "Completed" if p.real_time_stop else "Active"
             }
@@ -65,12 +65,12 @@ def get_model_report(db: Session, model_id: int):
     if model_id is None:
         return None
 
-    model = db.query(models.Model).filter(models.Model.id == model_id).first()
+    model = db.query(Model).filter(Model.id == model_id).first()
     if not model:
         return None
     
-    printings = db.query(models.Printing).filter(
-        models.Printing.model_id == model_id
+    printings = db.query(Printing).filter(
+        Printing.model_id == model_id
     ).all()
     
     return {

@@ -5,9 +5,9 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 import uuid
 
-from database import get_db
-import models
-import schemas
+from db.database import get_db
+import models as models
+import schemas.schemas as schemas
 from auth.auth import get_current_active_user, check_user_permission, get_user_studio_role
 
 router = APIRouter(
@@ -19,20 +19,20 @@ router = APIRouter(
 @router.get("/", response_model=List[schemas.Studio])
 def get_studios(
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Get all studios that the current user has access to"""
     # Superusers can see all studios
     if current_user.is_superuser:
-        studios = db.query(models.Studio).all()
+        studios = db.query(Studio).all()
     else:
         # Regular users see the studios they are members of
         # We use a direct query on the association table
-        studios = db.query(models.Studio).join(
-            models.user_studio, 
-            models.Studio.id == models.user_studio.c.studio_id
+        studios = db.query(Studio).join(
+            user_studio, 
+            Studio.id == user_studio.c.studio_id
         ).filter(
-            models.user_studio.c.user_id == current_user.id
+            user_studio.c.user_id == current_user.id
         ).all()
     
     # Manually build the response with users and their roles
@@ -76,10 +76,10 @@ def get_studios(
 def get_studio(
     studio_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Get a specific studio by ID"""
-    db_studio = db.query(models.Studio).filter(models.Studio.id == studio_id).first()
+    db_studio = db.query(Studio).filter(Studio.id == studio_id).first()
     if not db_studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     
@@ -88,7 +88,7 @@ def get_studio(
         has_permission = check_user_permission(
             current_user, 
             studio_id, 
-            models.StudioPermission.VIEW_STUDIO,
+            StudioPermission.VIEW_STUDIO,
             db
         )
         if not has_permission:
@@ -130,7 +130,7 @@ def get_studio(
 def create_studio(
     studio_data: schemas.StudioCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Create a new studio with the current user as owner"""
     # Only superusers and users with active accounts can create studios
@@ -138,16 +138,16 @@ def create_studio(
         raise HTTPException(status_code=403, detail="Account not active")
     
     # Create new studio
-    db_studio = models.Studio(**studio_data.dict(exclude={"initial_users"}))
+    db_studio = Studio(**studio_data.dict(exclude={"initial_users"}))
     db.add(db_studio)
     db.flush()  # Get the studio ID without committing
     
     # Add the current user as owner of the studio
     db.execute(
-        models.user_studio.insert().values(
+        user_studio.insert().values(
             user_id=current_user.id,
             studio_id=db_studio.id,
-            role=models.UserRole.OWNER
+            role=UserRole.OWNER
         )
     )
     
@@ -155,20 +155,20 @@ def create_studio(
     if studio_data.initial_users:
         for user_data in studio_data.initial_users:
             user_id = user_data.get("user_id")
-            role = user_data.get("role", models.UserRole.MEMBER)
+            role = user_data.get("role", UserRole.MEMBER)
             
             # Skip if user_id is not provided or is the current user (already added)
             if not user_id or user_id == current_user.id:
                 continue
             
             # Verify the user exists
-            user = db.query(models.User).filter(models.User.id == user_id).first()
+            user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 continue  # Skip this user if not found
                 
             # Add user to studio with specified role
             db.execute(
-                models.user_studio.insert().values(
+                user_studio.insert().values(
                     user_id=user_id,
                     studio_id=db_studio.id,
                     role=role
@@ -215,11 +215,11 @@ def update_studio(
     studio_id: int,
     studio_data: schemas.StudioUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Update a studio's information"""
     # Check if studio exists
-    db_studio = db.query(models.Studio).filter(models.Studio.id == studio_id).first()
+    db_studio = db.query(Studio).filter(Studio.id == studio_id).first()
     if not db_studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     
@@ -228,7 +228,7 @@ def update_studio(
         has_permission = check_user_permission(
             current_user, 
             studio_id, 
-            models.StudioPermission.EDIT_STUDIO_SETTINGS,
+            StudioPermission.EDIT_STUDIO_SETTINGS,
             db
         )
         if not has_permission:
@@ -278,23 +278,23 @@ def update_studio(
 def delete_studio(
     studio_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Delete a studio if it has no associated resources"""
     # Check if studio exists
-    db_studio = db.query(models.Studio).filter(models.Studio.id == studio_id).first()
+    db_studio = db.query(Studio).filter(Studio.id == studio_id).first()
     if not db_studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     
     # Only superusers or owners can delete a studio
     if not current_user.is_superuser:
         role = get_user_studio_role(current_user, studio_id, db)
-        if role != models.UserRole.OWNER:
+        if role != UserRole.OWNER:
             raise HTTPException(status_code=403, detail="Not authorized to delete this studio")
     
     # Check if any printers, or models are using this studio
-    printers_count = db.query(models.Printer).filter(models.Printer.studio_id == studio_id).count()
-    models_count = db.query(models.Model).filter(models.Model.studio_id == studio_id).count()
+    printers_count = db.query(Printer).filter(Printer.studio_id == studio_id).count()
+    models_count = db.query(Model).filter(Model.studio_id == studio_id).count()
     
     if printers_count > 0 or models_count > 0:
         raise HTTPException(
@@ -343,15 +343,15 @@ def delete_studio(
     
     # Delete all user-studio associations
     db.execute(
-        models.user_studio.delete().where(
-            models.user_studio.c.studio_id == studio_id
+        user_studio.delete().where(
+            user_studio.c.studio_id == studio_id
         )
     )
     
     # Delete all role-permission customizations for this studio
     db.execute(
-        models.role_permission.delete().where(
-            models.role_permission.c.studio_id == studio_id
+        role_permission.delete().where(
+            role_permission.c.studio_id == studio_id
         )
     )
     
@@ -367,11 +367,11 @@ def delete_studio(
 def get_studio_members(
     studio_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Get all members of a studio"""
     # Check if studio exists
-    db_studio = db.query(models.Studio).filter(models.Studio.id == studio_id).first()
+    db_studio = db.query(Studio).filter(Studio.id == studio_id).first()
     if not db_studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     
@@ -408,11 +408,11 @@ def add_studio_member(
     studio_id: int,
     member_data: schemas.UserStudioCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Add a new member to the studio"""
     # Check if studio exists
-    db_studio = db.query(models.Studio).filter(models.Studio.id == studio_id).first()
+    db_studio = db.query(Studio).filter(Studio.id == studio_id).first()
     if not db_studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     
@@ -421,14 +421,14 @@ def add_studio_member(
         has_permission = check_user_permission(
             current_user, 
             studio_id, 
-            models.StudioPermission.MANAGE_USERS,
+            StudioPermission.MANAGE_USERS,
             db
         )
         if not has_permission:
             raise HTTPException(status_code=403, detail="Not authorized to add members to this studio")
     
     # Check if user exists
-    user = db.query(models.User).filter(models.User.id == member_data.user_id).first()
+    user = db.query(User).filter(User.id == member_data.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -446,7 +446,7 @@ def add_studio_member(
     
     # Add user to studio
     db.execute(
-        models.user_studio.insert().values(
+        user_studio.insert().values(
             user_id=member_data.user_id,
             studio_id=studio_id,
             role=member_data.role
@@ -469,11 +469,11 @@ def update_member_role(
     user_id: int,
     role_data: schemas.UserStudioBase,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Update a member's role in the studio"""
     # Check if studio exists
-    db_studio = db.query(models.Studio).filter(models.Studio.id == studio_id).first()
+    db_studio = db.query(Studio).filter(Studio.id == studio_id).first()
     if not db_studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     
@@ -482,14 +482,14 @@ def update_member_role(
         has_permission = check_user_permission(
             current_user, 
             studio_id, 
-            models.StudioPermission.MANAGE_USERS,
+            StudioPermission.MANAGE_USERS,
             db
         )
         if not has_permission:
             raise HTTPException(status_code=403, detail="Not authorized to update member roles in this studio")
     
     # Check if user exists
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -506,9 +506,9 @@ def update_member_role(
         raise HTTPException(status_code=404, detail="User is not a member of this studio")
     
     # Can't change the role of the owner (only one owner per studio)
-    if membership[0] == models.UserRole.OWNER:
+    if membership[0] == UserRole.OWNER:
         # Check if we're trying to change the owner's role
-        if role_data.role != models.UserRole.OWNER:
+        if role_data.role != UserRole.OWNER:
             raise HTTPException(
                 status_code=400, 
                 detail="Cannot change the role of the studio owner - transfer ownership first"
@@ -516,9 +516,9 @@ def update_member_role(
     
     # Update user's role
     db.execute(
-        models.user_studio.update().where(
-            models.user_studio.c.user_id == user_id,
-            models.user_studio.c.studio_id == studio_id
+        user_studio.update().where(
+            user_studio.c.user_id == user_id,
+            user_studio.c.studio_id == studio_id
         ).values(
             role=role_data.role
         )
@@ -539,11 +539,11 @@ def remove_studio_member(
     studio_id: int,
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Remove a member from the studio"""
     # Check if studio exists
-    db_studio = db.query(models.Studio).filter(models.Studio.id == studio_id).first()
+    db_studio = db.query(Studio).filter(Studio.id == studio_id).first()
     if not db_studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     
@@ -552,14 +552,14 @@ def remove_studio_member(
         has_permission = check_user_permission(
             current_user, 
             studio_id, 
-            models.StudioPermission.MANAGE_USERS,
+            StudioPermission.MANAGE_USERS,
             db
         )
         if not has_permission:
             raise HTTPException(status_code=403, detail="Not authorized to remove members from this studio")
     
     # Check if user exists
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -576,7 +576,7 @@ def remove_studio_member(
         raise HTTPException(status_code=404, detail="User is not a member of this studio")
     
     # Can't remove the owner
-    if membership[0] == models.UserRole.OWNER:
+    if membership[0] == UserRole.OWNER:
         raise HTTPException(
             status_code=400, 
             detail="Cannot remove the studio owner - transfer ownership first"
@@ -584,9 +584,9 @@ def remove_studio_member(
     
     # Remove user from studio
     db.execute(
-        models.user_studio.delete().where(
-            models.user_studio.c.user_id == user_id,
-            models.user_studio.c.studio_id == studio_id
+        user_studio.delete().where(
+            user_studio.c.user_id == user_id,
+            user_studio.c.studio_id == studio_id
         )
     )
     
@@ -600,11 +600,11 @@ def create_studio_invitation(
     studio_id: int,
     invitation_data: schemas.StudioInvitationCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Create a new invitation to the studio"""
     # Check if studio exists
-    db_studio = db.query(models.Studio).filter(models.Studio.id == studio_id).first()
+    db_studio = db.query(Studio).filter(Studio.id == studio_id).first()
     if not db_studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     
@@ -613,14 +613,14 @@ def create_studio_invitation(
         has_permission = check_user_permission(
             current_user, 
             studio_id, 
-            models.StudioPermission.MANAGE_USERS,
+            StudioPermission.MANAGE_USERS,
             db
         )
         if not has_permission:
             raise HTTPException(status_code=403, detail="Not authorized to invite users to this studio")
     
     # Check if user with this email already exists
-    user = db.query(models.User).filter(models.User.email == invitation_data.email).first()
+    user = db.query(User).filter(User.email == invitation_data.email).first()
     if user:
         # Check if user is already a member
         membership = db.execute(
@@ -635,10 +635,10 @@ def create_studio_invitation(
             raise HTTPException(status_code=400, detail="User is already a member of this studio")
     
     # Check if an invitation already exists and is pending
-    existing_invitation = db.query(models.StudioInvitation).filter(
-        models.StudioInvitation.email == invitation_data.email,
-        models.StudioInvitation.studio_id == studio_id,
-        models.StudioInvitation.status == models.InvitationStatus.PENDING
+    existing_invitation = db.query(StudioInvitation).filter(
+        StudioInvitation.email == invitation_data.email,
+        StudioInvitation.studio_id == studio_id,
+        StudioInvitation.status == InvitationStatus.PENDING
     ).first()
     
     if existing_invitation:
@@ -651,13 +651,13 @@ def create_studio_invitation(
     expires_at = datetime.now() + timedelta(days=30)
     
     # Create new invitation
-    invitation = models.StudioInvitation(
+    invitation = StudioInvitation(
         email=invitation_data.email,
         studio_id=studio_id,
         created_by=current_user.id,
         role=invitation_data.role,
         token=str(uuid.uuid4()),
-        status=models.InvitationStatus.PENDING,
+        status=InvitationStatus.PENDING,
         expires_at=expires_at
     )
     
@@ -678,11 +678,11 @@ def get_studio_invitations(
     studio_id: int,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Get all invitations for a studio"""
     # Check if studio exists
-    db_studio = db.query(models.Studio).filter(models.Studio.id == studio_id).first()
+    db_studio = db.query(Studio).filter(Studio.id == studio_id).first()
     if not db_studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     
@@ -691,25 +691,25 @@ def get_studio_invitations(
         has_permission = check_user_permission(
             current_user, 
             studio_id, 
-            models.StudioPermission.MANAGE_USERS,
+            StudioPermission.MANAGE_USERS,
             db
         )
         if not has_permission:
             raise HTTPException(status_code=403, detail="Not authorized to view invitations for this studio")
     
     # Query invitations
-    query = db.query(models.StudioInvitation).filter(models.StudioInvitation.studio_id == studio_id)
+    query = db.query(StudioInvitation).filter(StudioInvitation.studio_id == studio_id)
     
     # Filter by status if provided
     if status:
-        query = query.filter(models.StudioInvitation.status == status)
+        query = query.filter(StudioInvitation.status == status)
     
     invitations = query.all()
     
     # Add additional data for each invitation
     for invitation in invitations:
         invitation.studio_name = db_studio.name
-        inviter = db.query(models.User).filter(models.User.id == invitation.created_by).first()
+        inviter = db.query(User).filter(User.id == invitation.created_by).first()
         invitation.inviter_name = inviter.username if inviter else None
     
     return invitations
@@ -717,22 +717,22 @@ def get_studio_invitations(
 @router.get("/invitations/user", response_model=List[schemas.StudioInvitation])
 def get_user_invitations(
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Get all pending invitations for the current user"""
     # Query invitations for the user's email
-    invitations = db.query(models.StudioInvitation).filter(
-        models.StudioInvitation.email == current_user.email,
-        models.StudioInvitation.status == models.InvitationStatus.PENDING,
-        models.StudioInvitation.expires_at > datetime.now()
+    invitations = db.query(StudioInvitation).filter(
+        StudioInvitation.email == current_user.email,
+        StudioInvitation.status == InvitationStatus.PENDING,
+        StudioInvitation.expires_at > datetime.now()
     ).all()
     
     # Add additional data for each invitation
     for invitation in invitations:
-        studio = db.query(models.Studio).filter(models.Studio.id == invitation.studio_id).first()
+        studio = db.query(Studio).filter(Studio.id == invitation.studio_id).first()
         invitation.studio_name = studio.name if studio else None
         
-        inviter = db.query(models.User).filter(models.User.id == invitation.created_by).first()
+        inviter = db.query(User).filter(User.id == invitation.created_by).first()
         invitation.inviter_name = inviter.username if inviter else None
     
     return invitations
@@ -742,11 +742,11 @@ def update_invitation_status(
     invitation_id: int,
     status_data: schemas.StudioInvitationUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Accept or reject a studio invitation"""
     # Find the invitation
-    invitation = db.query(models.StudioInvitation).filter(models.StudioInvitation.id == invitation_id).first()
+    invitation = db.query(StudioInvitation).filter(StudioInvitation.id == invitation_id).first()
     if not invitation:
         raise HTTPException(status_code=404, detail="Invitation not found")
     
@@ -762,7 +762,7 @@ def update_invitation_status(
             has_manage_permission = check_user_permission(
                 current_user, 
                 invitation.studio_id, 
-                models.StudioPermission.MANAGE_USERS,
+                StudioPermission.MANAGE_USERS,
                 db
             )
     
@@ -771,23 +771,23 @@ def update_invitation_status(
     
     # Check if invitation is expired
     if invitation.expires_at < datetime.now():
-        invitation.status = models.InvitationStatus.EXPIRED
+        invitation.status = InvitationStatus.EXPIRED
         db.add(invitation)
         db.commit()
         raise HTTPException(status_code=400, detail="Invitation has expired")
     
     # Check if invitation is pending
-    if invitation.status != models.InvitationStatus.PENDING:
+    if invitation.status != InvitationStatus.PENDING:
         raise HTTPException(status_code=400, detail=f"Invitation is already {invitation.status}")
     
     # Update invitation status
     invitation.status = status_data.status
     
     # If accepting, add user to studio
-    if status_data.status == models.InvitationStatus.ACCEPTED and is_invitee:
+    if status_data.status == InvitationStatus.ACCEPTED and is_invitee:
         # Add user to studio with specified role
         db.execute(
-            models.user_studio.insert().values(
+            user_studio.insert().values(
                 user_id=current_user.id,
                 studio_id=invitation.studio_id,
                 role=invitation.role
@@ -799,10 +799,10 @@ def update_invitation_status(
     db.refresh(invitation)
     
     # Add additional fields for response
-    studio = db.query(models.Studio).filter(models.Studio.id == invitation.studio_id).first()
+    studio = db.query(Studio).filter(Studio.id == invitation.studio_id).first()
     invitation.studio_name = studio.name if studio else None
     
-    inviter = db.query(models.User).filter(models.User.id == invitation.created_by).first()
+    inviter = db.query(User).filter(User.id == invitation.created_by).first()
     invitation.inviter_name = inviter.username if inviter else None
     
     return invitation
@@ -811,11 +811,11 @@ def update_invitation_status(
 def delete_invitation(
     invitation_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Delete a studio invitation"""
     # Find the invitation
-    invitation = db.query(models.StudioInvitation).filter(models.StudioInvitation.id == invitation_id).first()
+    invitation = db.query(StudioInvitation).filter(StudioInvitation.id == invitation_id).first()
     if not invitation:
         raise HTTPException(status_code=404, detail="Invitation not found")
     
@@ -831,7 +831,7 @@ def delete_invitation(
             has_manage_permission = check_user_permission(
                 current_user, 
                 invitation.studio_id, 
-                models.StudioPermission.MANAGE_USERS,
+                StudioPermission.MANAGE_USERS,
                 db
             )
     
@@ -848,7 +848,7 @@ def delete_invitation(
 def search_users(
     query: str = Query(..., min_length=3),
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Search for users by email or username"""
     # Only allow search for users with manage permission in at least one studio
@@ -867,7 +867,7 @@ def search_users(
             studio_id = studio_data[0]
             role = studio_data[1]
             
-            if role in [models.UserRole.OWNER, models.UserRole.ADMIN]:
+            if role in [UserRole.OWNER, UserRole.ADMIN]:
                 has_permission = True
                 break
         
@@ -875,11 +875,11 @@ def search_users(
             raise HTTPException(status_code=403, detail="Not authorized to search users")
     
     # Search for users by email or username, excluding the current user
-    users = db.query(models.User).filter(
-        models.User.id != current_user.id,
+    users = db.query(User).filter(
+        User.id != current_user.id,
         or_(
-            models.User.email.ilike(f"%{query}%"),
-            models.User.username.ilike(f"%{query}%")
+            User.email.ilike(f"%{query}%"),
+            User.username.ilike(f"%{query}%")
         )
     ).limit(10).all()
     

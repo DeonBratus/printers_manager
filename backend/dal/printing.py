@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from models import Printing, Printer  # Добавляем импорт модели Printer
-from schemas import PrintingCreate
+from schemas.printings_schemas import PrintingCreate
 from datetime import datetime
 from typing import Optional
 

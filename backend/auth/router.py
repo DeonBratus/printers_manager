@@ -1,18 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
-from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-from typing import List
 import os
 import shutil
 from pathlib import Path
 import uuid
 
-from database import get_db
-from models import User, Studio, Session as UserSession, user_studio, UserRole
-import schemas
+from db.database import get_db
+from models import User, Studio, user_studio, UserRole, Session as UserSession
+from schemas.users_schemas import UserBase, UserCreate, UserSettings
+from schemas.auth_schemas import Token, LoginRequest
+
 from auth.auth import (
     verify_password, 
     get_password_hash, 
@@ -32,8 +32,8 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.post("/register", response_model=schemas.User)
-def register_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
+@router.post("/register", response_model=UserBase)
+def register_user(user_data: UserCreate, db: SQLAlchemySession = Depends(get_db)):
     # Check if user with this username or email already exists
     existing_user = db.query(User).filter(
         (User.username == user_data.username) | 
@@ -125,8 +125,8 @@ def register_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=400, detail="Registration failed")
 
-@router.post("/login", response_model=schemas.Token)
-def login(form_data: schemas.LoginRequest, db: Session = Depends(get_db)):
+@router.post("/login", response_model=Token)
+def login(form_data: LoginRequest, db: SQLAlchemySession = Depends(get_db)):
     # Authenticate the user
     user = db.query(User).filter(User.username == form_data.username).first()
     
@@ -140,25 +140,22 @@ def login(form_data: schemas.LoginRequest, db: Session = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     
-    # Create session token
+    # Create session token first
     session_token = create_session_token(user.id, db)
     
-    # Create access token
+    # Then create access token 
     access_token, expires_at = create_access_token(data={"sub": str(user.id)})
     
     # Get user studios info
     studios_info = get_user_studios(user, db)
     
     # Convert to the format expected by the schema
-    studios_data = []
-    for studio in studios_info:
-        studios_data.append({
-            "id": studio["id"],
-            "name": studio["name"],
-            "role": studio["role"]
-        })
+    studios_data = [
+        {"id": studio["id"], "name": studio["name"], "role": studio["role"]}
+        for studio in studios_info
+    ]
     
-    # Create user data with studios
+    # Create user data with all required fields
     user_data = {
         "id": user.id,
         "username": user.username,
@@ -166,25 +163,30 @@ def login(form_data: schemas.LoginRequest, db: Session = Depends(get_db)):
         "is_active": user.is_active,
         "is_superuser": user.is_superuser,
         "created_at": user.created_at,
-        "studios": studios_data
+        "studios": studios_data,
+        "language": getattr(user, "language", "russian"),
+        "default_view": getattr(user, "default_view", "grid"),
+        "avatar": getattr(user, "avatar", None)
     }
     
+    # Return full response with all tokens
     return {
-        "access_token": session_token,
+        "access_token": access_token,
+        "session_token": session_token,
         "token_type": "bearer",
         "expires_at": expires_at,
         "user": user_data
     }
 
 @router.post("/logout")
-def logout(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+def logout(current_user: UserBase = Depends(get_current_active_user), db: SQLAlchemySession = Depends(get_db)):
     # Invalidate all sessions for this user
-    db.query(Session).filter(Session.user_id == current_user.id).delete()
+    db.query(UserSession).filter(UserSession.user_id == current_user.id).delete()
     db.commit()
     return {"message": "Successfully logged out"}
 
-@router.get("/me", response_model=schemas.User)
-def read_users_me(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+@router.get("/me", response_model=UserBase)
+def read_users_me(current_user: User = Depends(get_current_active_user), db: SQLAlchemySession = Depends(get_db)):
     # Get user studios info
     studios_info = get_user_studios(current_user, db)
     
@@ -212,11 +214,11 @@ def read_users_me(current_user: User = Depends(get_current_active_user), db: Ses
     
     return user_data
 
-@router.put("/me/settings", response_model=schemas.UserSettings)
+@router.put("/me/settings", response_model=UserSettings)
 def update_user_settings(
-    settings: schemas.UserSettings,
+    settings: UserSettings,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: SQLAlchemySession = Depends(get_db)
 ):
     """Update the current user's settings"""
     
@@ -261,11 +263,11 @@ def update_user_settings(
         "avatar": current_user.avatar
     }
 
-@router.post("/me/avatar", response_model=schemas.UserSettings)
+@router.post("/me/avatar", response_model=UserSettings)
 async def upload_avatar(
     avatar: UploadFile = File(...),
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: SQLAlchemySession = Depends(get_db)
 ):
     """Upload user avatar"""
     
@@ -305,7 +307,7 @@ async def upload_avatar(
 @router.get("/avatar/{user_id}")
 async def get_avatar(
     user_id: int,
-    db: Session = Depends(get_db)
+    db: SQLAlchemySession = Depends(get_db)
 ):
     """Get user avatar by user_id"""
     
@@ -326,4 +328,4 @@ async def get_avatar(
         raise HTTPException(status_code=404, detail="Avatar file not found")
     
     # Возвращаем файл
-    return FileResponse(avatar_path, media_type="image/*") 
+    return FileResponse(avatar_path, media_type="image/*")

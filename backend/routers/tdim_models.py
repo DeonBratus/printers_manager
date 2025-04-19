@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from database import get_db
+from db.database import get_db
 from schemas import ModelCreate, Model
-from crud import create_model, get_model, get_models, update_model, delete_model
+from services import ModelService
 from auth.auth import get_current_active_user, get_studio_id_from_user
 from models import User
 
@@ -21,7 +21,7 @@ def create_new_model(
     # Set studio_id if not provided
     if not model.studio_id:
         model.studio_id = get_studio_id_from_user(current_user, db)
-    return create_model(db, model)
+    return ModelService.create_model(db, model)
 
 @router.get("/", response_model=List[Model])
 def read_models(
@@ -35,13 +35,13 @@ def read_models(
 ):
     # Get models filtered by studio_id unless user is superuser
     if current_user.is_superuser:
-        models = get_models(db, skip=skip, limit=limit, sort_by=sort_by, sort_desc=sort_desc)
+        models = ModelService.get_models(db, skip=skip, limit=limit, sort_by=sort_by, sort_desc=sort_desc)
     else:
         # Get the current studio ID from the user's studios using the passed studio_id
         user_studio_id = get_studio_id_from_user(current_user, db, studio_id)
         
         # Filter models by studio_id
-        models = get_models(
+        models = ModelService.get_models(
             db, 
             skip=skip, 
             limit=limit, 
@@ -58,7 +58,7 @@ def read_model(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    db_model = get_model(db, model_id=model_id)
+    db_model = ModelService.get_model(db, model_id=model_id)
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
     
@@ -80,7 +80,7 @@ def update_existing_model(
     current_user: User = Depends(get_current_active_user)
 ):
     # Check if model exists and user has access
-    db_model = get_model(db, model_id=model_id)
+    db_model = ModelService.get_model(db, model_id=model_id)
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
     
@@ -96,7 +96,7 @@ def update_existing_model(
     if not model.studio_id:
         model.studio_id = get_studio_id_from_user(current_user, db)
         
-    db_model = update_model(db, model_id=model_id, model=model)
+    db_model = ModelService.update_model(db, model_id=model_id, model=model)
     return db_model
 
 @router.delete("/{model_id}", response_model=Model)
@@ -106,7 +106,7 @@ def delete_existing_model(
     current_user: User = Depends(get_current_active_user)
 ):
     # Check if model exists and user has access
-    db_model = get_model(db, model_id=model_id)
+    db_model = ModelService.get_model(db, model_id=model_id)
     if db_model is None:
         raise HTTPException(status_code=404, detail="Model not found")
     
@@ -118,5 +118,5 @@ def delete_existing_model(
         if db_model.studio_id != studio_id:
             raise HTTPException(status_code=403, detail="Not authorized to delete this model")
         
-    db_model = delete_model(db, model_id=model_id)
+    db_model = ModelService.delete_model(db, model_id=model_id)
     return db_model

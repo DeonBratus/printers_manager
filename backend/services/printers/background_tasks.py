@@ -1,9 +1,9 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session
 from datetime import datetime
-from database import SessionLocal
-from printer_control import calculate_printer_downtime
-from services.printer import get_printers, format_hours_to_hhmm
+from db.database import SessionLocal
+from services.printers.printer_control import calculate_printer_downtime
+from services.printers.printer import get_printers, format_hours_to_hhmm
 from dal import printer as printer_dal
 
 def update_printer_downtimes():

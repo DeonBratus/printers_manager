@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy import text
 from datetime import datetime, timedelta
@@ -9,8 +9,8 @@ from jose import JWTError, jwt
 import os
 from dotenv import load_dotenv
 from typing import Optional, List
-from database import get_db
-from models import User, Session as DbSession, UserRole, StudioPermission, role_permission
+from db.database import get_db
+from models import User, Session as UserSession, UserRole, StudioPermission, role_permission
 import uuid
 
 # Load environment variables
@@ -68,10 +68,10 @@ def get_password_hash(password):
     """Generate a hash from the password"""
     return pwd_context.hash(password)
 
-def create_session_token(user_id: int, db: Session) -> str:
+def create_session_token(user_id: int, db: SQLAlchemySession) -> str:
     """Create a new session token for a user"""
     expires_at = datetime.now() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
-    session = DbSession(
+    session = UserSession(
         user_id=user_id,
         token=str(uuid.uuid4()),
         expires_at=expires_at
@@ -89,7 +89,7 @@ def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt, expire
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_current_user(token: str = Depends(oauth2_scheme), db: SQLAlchemySession = Depends(get_db)):
     """Get the current user from the session token"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -99,9 +99,9 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     
     try:
         # Try to find a valid session with this token
-        session = db.query(DbSession).filter(
-            DbSession.token == token,
-            DbSession.expires_at > datetime.now()
+        session = db.query(UserSession).filter(
+            UserSession.token == token,
+            UserSession.expires_at > datetime.now()
         ).first()
         
         if not session:
@@ -122,7 +122,7 @@ def get_current_active_user(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
-def get_user_studio_role(user: User, studio_id: int, db: Session = Depends(get_db)):
+def get_user_studio_role(user: User, studio_id: int, db: SQLAlchemySession = Depends(get_db)):
     """Get user's role in a specific studio"""
     # Query the user_studio table to get the user's role in this studio
     result = db.execute(
@@ -142,7 +142,7 @@ def check_user_permission(
     user: User, 
     studio_id: int, 
     required_permission: StudioPermission,
-    db: Session = Depends(get_db)
+    db: SQLAlchemySession = Depends(get_db)
 ):
     """Check if a user has a specific permission in a studio"""
     # Superusers have all permissions
@@ -173,7 +173,7 @@ def check_user_permission(
     
     return False
 
-def get_user_studios(user: User, db: Session = Depends(get_db)):
+def get_user_studios(user: User, db: SQLAlchemySession = Depends(get_db)):
     """Get all studios a user is a member of"""
     # For superusers, we could return all studios if needed
     if user.is_superuser:
@@ -201,7 +201,7 @@ def get_user_studios(user: User, db: Session = Depends(get_db)):
     
     return studios
 
-def get_studio_id_from_user(current_user: User = Depends(get_current_user), db: Session = Depends(get_db), selected_studio_id: Optional[int] = None):
+def get_studio_id_from_user(current_user: User = Depends(get_current_user), db: SQLAlchemySession = Depends(get_db), selected_studio_id: Optional[int] = None):
     """Get the studio ID from the user
     
     If selected_studio_id is provided and the user has access to that studio, return it.
@@ -220,4 +220,4 @@ def get_studio_id_from_user(current_user: User = Depends(get_current_user), db: 
     if user_studios and len(user_studios) > 0:
         return user_studios[0]["id"]
     
-    return None 
+    return None

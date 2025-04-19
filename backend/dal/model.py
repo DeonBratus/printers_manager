@@ -1,27 +1,27 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-import models
-from schemas import ModelCreate
+from models import Model
+from schemas.models_schemas import ModelCreate
 
 def create(db: Session, model: ModelCreate):
-    db_model = models.Model(**model.dict())
+    db_model = Model(**model.dict())
     db.add(db_model)
     db.commit()
     db.refresh(db_model)
     return db_model
 
 def get(db: Session, model_id: int):
-    return db.query(models.Model).filter(models.Model.id == model_id).first()
+    return db.query(Model).filter(Model.id == model_id).first()
 
 def get_all(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False, studio_id: int = None):
-    query = db.query(models.Model)
+    query = db.query(Model)
     
     # Filter by studio_id if provided
     if studio_id is not None:
-        query = query.filter(models.Model.studio_id == studio_id)
+        query = query.filter(Model.studio_id == studio_id)
         
-    if sort_by and hasattr(models.Model, sort_by):
-        order_by = desc(getattr(models.Model, sort_by)) if sort_desc else getattr(models.Model, sort_by)
+    if sort_by and hasattr(Model, sort_by):
+        order_by = desc(getattr(Model, sort_by)) if sort_desc else getattr(Model, sort_by)
         query = query.order_by(order_by)
     return query.offset(skip).limit(limit).all()
 

@@ -1,6 +1,6 @@
 # 3D Printer Management Frontend
 
-A modern React frontend for managing 3D printers, print jobs, and models.
+A modern React frontend for managing 3D printers, print jobs, and 
 
 ## Features
 

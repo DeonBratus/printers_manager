@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Boolean, Table, Enum
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from database import Base
+from db.database import Base
 from datetime import datetime
 import uuid
 import enum
@@ -95,7 +95,7 @@ class Printing(Base):
     stop_reason = Column(String, nullable=True)
     
     printer_id = Column(Integer, ForeignKey("td_printers.id"))
-    model_id = Column(Integer, ForeignKey("td_models.id"))
+    model_id = Column(Integer, ForeignKey("td_id"))
     studio_id = Column(Integer, ForeignKey("td_studios.id"), nullable=True)
     
     printer = relationship("Printer", back_populates="printings")
@@ -114,7 +114,7 @@ class PrintQueue(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     printer_id = Column(Integer, ForeignKey("td_printers.id"))
-    model_id = Column(Integer, ForeignKey("td_models.id"))
+    model_id = Column(Integer, ForeignKey("td_id"))
     quantity = Column(Integer, default=1)
     priority = Column(Integer, default=0)
     status = Column(String, default="queued")

@@ -1,14 +1,15 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-import models
-from schemas import PrinterCreate
+
+from models import Printer, Printing, PrinterParameter
+from schemas.printers_schemas import PrinterCreate
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 from models import Printer, Printing
 
 def create(db: Session, printer: PrinterCreate):
     # Always create new printer (removed check for existing printer with same name)
-    db_printer = models.Printer(
+    db_printer = Printer(
         name=printer.name,
         model=printer.model,
         status=printer.status,
@@ -27,15 +28,15 @@ def create(db: Session, printer: PrinterCreate):
 
 def get(db: Session, printer_id: int):
     try:
-        return db.query(models.Printer).filter(models.Printer.id == printer_id).first()
+        return db.query(Printer).filter(Printer.id == printer_id).first()
     except Exception as e:
         print(f"Database error in printer.get: {str(e)}")
         return None
 
 def get_all(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False):
-    query = db.query(models.Printer)
-    if sort_by and hasattr(models.Printer, sort_by):
-        order_by = desc(getattr(models.Printer, sort_by)) if sort_desc else getattr(models.Printer, sort_by)
+    query = db.query(Printer)
+    if sort_by and hasattr(Printer, sort_by):
+        order_by = desc(getattr(Printer, sort_by)) if sort_desc else getattr(Printer, sort_by)
         query = query.order_by(order_by)
     return query.offset(skip).limit(limit).all()
 
@@ -57,9 +58,9 @@ def delete(db: Session, printer_id: int):
 
 def add_parameter(db: Session, printer_id: int, param_name: str, param_value: str):
     # Check if parameter already exists
-    existing_param = db.query(models.PrinterParameter).filter(
-        models.PrinterParameter.printer_id == printer_id,
-        models.PrinterParameter.name == param_name
+    existing_param = db.query(PrinterParameter).filter(
+        PrinterParameter.printer_id == printer_id,
+        PrinterParameter.name == param_name
     ).first()
     
     if existing_param:
@@ -70,7 +71,7 @@ def add_parameter(db: Session, printer_id: int, param_name: str, param_value: st
         return existing_param
     
     # Create new parameter
-    db_param = models.PrinterParameter(
+    db_param = PrinterParameter(
         printer_id=printer_id,
         name=param_name,
         value=param_value
@@ -81,13 +82,13 @@ def add_parameter(db: Session, printer_id: int, param_name: str, param_value: st
     return db_param
 
 def get_parameters(db: Session, printer_id: int):
-    return db.query(models.PrinterParameter).filter(
-        models.PrinterParameter.printer_id == printer_id
+    return db.query(PrinterParameter).filter(
+        PrinterParameter.printer_id == printer_id
     ).all()
 
 def delete_parameter(db: Session, param_id: int):
-    db_param = db.query(models.PrinterParameter).filter(
-        models.PrinterParameter.id == param_id
+    db_param = db.query(PrinterParameter).filter(
+        PrinterParameter.id == param_id
     ).first()
     
     if db_param:

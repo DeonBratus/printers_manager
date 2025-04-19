@@ -4,14 +4,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 from auth.router import router as auth_router
-from routers import tdim_models
-from background_tasks import start_scheduler
+from routers.tdim_models import router as models_router
+#from services.printers.background_tasks import start_scheduler
 import os
 from pathlib import Path
 
-from database import engine
+from db.database import engine
 from models import Base
-from routers import printers, printings, reports, printer_parameters, studios
+from routers.printings import router as printings_router
 
 app = FastAPI(
     title="3D Printer Management API",
@@ -40,18 +40,19 @@ AVATAR_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Подключаем роутеры
-app.include_router(printers.router)
-app.include_router(printings.router)
-app.include_router(tdim_models.router)
-app.include_router(reports.router)
-app.include_router(printer_parameters.router)
+# app.include_router(printers.router)
+app.include_router(printings_router)
+app.include_router(models_router)
+# app.include_router(reports.router)
+# app.include_router(printer_parameters.router)
 app.include_router(auth_router)
-app.include_router(studios.router)
+# app.include_router(studios.router)
 
 # Запускаем планировщик при старте приложения
 @app.on_event("startup")
 async def startup_event():
-    start_scheduler()
+    #start_scheduler()
+    ...
 
 
 if __name__ == "__main__":
