@@ -4,22 +4,22 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from db.database import get_db
 from schemas.printings_schemas import PrintingCreate, Printing
-from services.printers.printer import get_printer, get_printers
 from services import PrintingService
+from services import PrinterService
 from services import ModelService
 from dal import printing as printings_dal
-from services.printers.printer_control import complete_printing, pause_printing, resume_printing, cancel_printing
 
 router = APIRouter(
     prefix="/printings",
     tags=["printings"]
 )
 
+
 @router.post("/", response_model=Printing)
 def create_new_printing(printing: PrintingCreate, db: Session = Depends(get_db)):
     try:
         # Проверяем доступность принтера
-        printer = get_printer(db, printing.printer_id)
+        printer = PrinterService.get_printer(db, printing.printer_id)
         if not printer:
             raise HTTPException(status_code=404, detail="Printer not found")
         if printer.status != "idle":
@@ -46,6 +46,7 @@ def create_new_printing(printing: PrintingCreate, db: Session = Depends(get_db))
         print(f"Error creating printing: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/", response_model=List[Printing])
 def read_printings(
     skip: int = 0, 
@@ -62,6 +63,7 @@ def read_printings(
         print(f"Error in read_printings: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+
 @router.get("/{printing_id}", response_model=Printing)
 def read_printing(printing_id: int, db: Session = Depends(get_db)):
     try:
@@ -75,6 +77,7 @@ def read_printing(printing_id: int, db: Session = Depends(get_db)):
         print(f"Error in read_printing: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+
 @router.put("/{printing_id}", response_model=Printing)
 def update_existing_printing(printing_id: int, printing: PrintingCreate, db: Session = Depends(get_db)):
     try:
@@ -85,6 +88,7 @@ def update_existing_printing(printing_id: int, printing: PrintingCreate, db: Ses
     except Exception as e:
         print(f"Error updating printing: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.delete("/{printing_id}", response_model=Printing)
 def delete_existing_printing(printing_id: int, db: Session = Depends(get_db)):
@@ -97,10 +101,11 @@ def delete_existing_printing(printing_id: int, db: Session = Depends(get_db)):
         print(f"Error deleting printing: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/{printing_id}/complete", response_model=Printing)
 def complete_existing_printing(printing_id: int, db: Session = Depends(get_db)):
     try:
-        db_printing = complete_printing(db, printing_id=printing_id)
+        db_printing = PrintingService.complete_printing(db, printing_id=printing_id)
         if db_printing is None:
             raise HTTPException(status_code=404, detail="Printing not found or already completed")
         return db_printing
@@ -108,10 +113,11 @@ def complete_existing_printing(printing_id: int, db: Session = Depends(get_db)):
         print(f"Error completing printing: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/{printing_id}/pause", response_model=Printing)
 def pause_existing_printing(printing_id: int, db: Session = Depends(get_db)):
     try:
-        db_printing = pause_printing(db, printing_id=printing_id)
+        db_printing = PrintingService.pause_printing(db, printing_id=printing_id)
         if db_printing is None:
             raise HTTPException(status_code=404, detail="Printing not found or already completed")
         return db_printing
@@ -122,7 +128,7 @@ def pause_existing_printing(printing_id: int, db: Session = Depends(get_db)):
 @router.post("/{printing_id}/resume", response_model=Printing)
 def resume_existing_printing(printing_id: int, db: Session = Depends(get_db)):
     try:
-        db_printing = resume_printing(db, printing_id=printing_id)
+        db_printing = PrintingService.resume_printing(db, printing_id=printing_id)
         if db_printing is None:
             raise HTTPException(status_code=404, detail="Printing not found or already completed")
         return db_printing
@@ -130,16 +136,18 @@ def resume_existing_printing(printing_id: int, db: Session = Depends(get_db)):
         print(f"Error resuming printing: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/{printing_id}/cancel", response_model=Printing)
 def cancel_existing_printing(printing_id: int, db: Session = Depends(get_db)):
     try:
-        db_printing = cancel_printing(db, printing_id=printing_id)
+        db_printing = PrintingService.cancel_printing(db, printing_id=printing_id)
         if db_printing is None:
             raise HTTPException(status_code=404, detail="Printing not found or already completed")
         return db_printing
     except Exception as e:
         print(f"Error canceling printing: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/{printing_id}/confirm", response_model=Printing)
 def confirm_printing(printing_id: int, db: Session = Depends(get_db)):

@@ -27,7 +27,7 @@ class StudioUserInfo(BaseModel):
     class Config:
         from_attributes = True
 
-class Studio(StudioBase):
+class StudioSchema(StudioBase):
     id: int
     created_at: datetime
     users: Optional[List[StudioUserInfo]] = []

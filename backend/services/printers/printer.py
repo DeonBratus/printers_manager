@@ -1,101 +1,86 @@
 from sqlalchemy.orm import Session
 from dal import printer as printer_dal
 from schemas import PrinterCreate
+from models.models import Printer, Printing
 
-def format_hours_to_hhmm(hours: float) -> str:
-    """Конвертирует часы в формат HH:mm"""
-    if hours is None:
-        return "00:00"
-    total_minutes = int(hours * 60)
-    hours = total_minutes // 60
-    minutes = total_minutes % 60
-    return f"{hours:02d}:{minutes:02d}"
+class PrinterService():
 
-def format_minutes_to_hhmm(minutes: float) -> str:
-    """Конвертирует минуты в формат HH:mm"""
-    if minutes is None:
-        return "00:00"
-    hours = int(minutes // 60)
-    mins = int(minutes % 60)
-    return f"{hours:02d}:{mins:02d}"
+    def create_printer(db: Session, printer: PrinterCreate):
+        try:
+            result = printer_dal.create(db, printer)
+            if isinstance(result, list) and len(result) > 0:
+                return result[0]
+            # Convert ID to string
+            if result and hasattr(result, 'id'):
+                result.id = str(result.id)
+            return result
+        except Exception as e:
+            print(f"Error in create_printer: {str(e)}")
+            raise
 
-def parse_hhmm_to_minutes(time_str: str) -> float:
-    """Конвертирует строку в формате HH:mm в минуты"""
-    if not time_str or ":" not in time_str:
-        return 0.0
-    parts = time_str.split(":")
-    if len(parts) != 2:
-        return 0.0
-    try:
-        hours = int(parts[0])
-        minutes = int(parts[1])
-        return hours * 60 + minutes
-    except ValueError:
-        return 0.0
 
-def hours_to_minutes(hours: float) -> float:
-    """Конвертирует часы в минуты"""
-    if hours is None:
-        return 0.0
-    return hours * 60
+    def get_printer(db: Session, printer_id: int):
+        try:
+            result = printer_dal.get(db, printer_id)
+            # Convert ID to string
+            if result and hasattr(result, 'id'):
+                result.id = str(result.id)
+            return result
+        except Exception as e:
+            print(f"Error in get_printer: {str(e)}")
+            return None
 
-def minutes_to_hours(minutes: float) -> float:
-    """Конвертирует минуты в часы"""
-    if minutes is None:
-        return 0.0
-    return minutes / 60
 
-def create_printer(db: Session, printer: PrinterCreate):
-    try:
-        result = printer_dal.create(db, printer)
-        # If result is a list (from old code), take the first item
-        if isinstance(result, list) and len(result) > 0:
-            return result[0]
+    def get_printers(db: Session, studio_id: int, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False):
+        try:
+            printers = printer_dal.get_all(db, skip, limit, sort_by, sort_desc)
+            for printer in printers:
+                if hasattr(printer, 'id'):
+                    printer.id = str(printer.id)
+            return printers
+        except Exception as e:
+            print(f"Error in get_printers: {str(e)}")
+            return []
+
+
+    def update_printer(db: Session, printer_id: int, printer: PrinterCreate):
+        result = printer_dal.update(db, printer_id, printer.dict())
         # Convert ID to string
         if result and hasattr(result, 'id'):
             result.id = str(result.id)
         return result
-    except Exception as e:
-        print(f"Error in create_printer: {str(e)}")
-        raise
 
-def get_printer(db: Session, printer_id: int):
-    try:
-        result = printer_dal.get(db, printer_id)
+
+    def delete_printer(db: Session, printer_id: int):
+        result = printer_dal.delete(db, printer_id)
         # Convert ID to string
         if result and hasattr(result, 'id'):
             result.id = str(result.id)
         return result
-    except Exception as e:
-        print(f"Error in get_printer: {str(e)}")
-        return None
 
-def get_printers(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False):
-    try:
-        printers = printer_dal.get_all(db, skip, limit, sort_by, sort_desc)
-        # Convert ID to string for each printer
-        for printer in printers:
-            if hasattr(printer, 'id'):
-                printer.id = str(printer.id)
-        return printers
-    except Exception as e:
-        print(f"Error in get_printers: {str(e)}")
-        return []
 
-def update_printer(db: Session, printer_id: int, printer: PrinterCreate):
-    result = printer_dal.update(db, printer_id, printer.dict())
-    # Convert ID to string
-    if result and hasattr(result, 'id'):
-        result.id = str(result.id)
-    return result
+    def stop_printer(db: Session, printer_id: int, stop_reason: str = None):
+        """Stop printer and handle related updates"""
+        return printer_dal.stop_printer(db, printer_id, stop_reason)
+    
 
-def delete_printer(db: Session, printer_id: int):
-    result = printer_dal.delete(db, printer_id)
-    # Convert ID to string
-    if result and hasattr(result, 'id'):
-        result.id = str(result.id)
-    return result
-
-def stop_printer(db: Session, printer_id: int, stop_reason: str = None):
-    """Stop printer and handle related updates"""
-    return printer_dal.stop_printer(db, printer_id, stop_reason)
+    def update_printer_status(db: Session, printer_id: int, new_status: str) -> Printer:
+        """
+        Обновляет статус принтера с учётом изменения режима работы.
+        При переходе из активного состояния в неактивное, обновляет время простоя.
+        """
+        printer = __class__.get_printer(db, printer_id)
+        if not printer:
+            return None
+            
+        # Если статус не изменился, просто возвращаем принтер
+        if printer.status == new_status:
+            return printer
+            
+        
+        # Обновляем статус
+        printer_dal.update(db, printer_id, {"status": new_status})
+        
+        # Обновляем принтер из базы данных
+        db.refresh(printer)
+        return printer

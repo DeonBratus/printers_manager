@@ -3,15 +3,23 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi.staticfiles import StaticFiles
 import uvicorn
-from auth.router import router as auth_router
+
 from routers.tdim_models import router as models_router
-#from services.printers.background_tasks import start_scheduler
-import os
+from routers.printers import router as printer_router
+from routers.printings import router as printings_router
+from routers.printer_parameters import router as printer_params_router
+from routers.reports import router as report_router
+
+from auth.router import router as auth_router
+from routers.studios import router as studio_router
+from routers.invitations import router as invitations_router
+from routers.members import router as members_router
+
+from services.printers.background_tasks import start_scheduler
 from pathlib import Path
 
 from db.database import engine
 from models.models import Base
-from routers.printings import router as printings_router
 
 app = FastAPI(
     title="3D Printer Management API",
@@ -40,18 +48,22 @@ AVATAR_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Подключаем роутеры
-# app.include_router(printers.router)
+app.include_router(printer_router)
+
 app.include_router(printings_router)
 app.include_router(models_router)
-# app.include_router(reports.router)
-# app.include_router(printer_parameters.router)
+app.include_router(printer_params_router)
+app.include_router(report_router)
+app.include_router(members_router)
+app.include_router(invitations_router)
+app.include_router(studio_router)
 app.include_router(auth_router)
-# app.include_router(studios.router)
+
 
 # Запускаем планировщик при старте приложения
 @app.on_event("startup")
 async def startup_event():
-    #start_scheduler()
+    start_scheduler()
     ...
 
 

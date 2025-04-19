@@ -8,8 +8,8 @@ from db.database import get_db
 from schemas.printers_schemas import PrinterCreate, BaseSchemaPrinter
 from schemas.printings_schemas import Printing, PrintingCreate
 
-from services.printers.printer_control import calculate_printer_downtime
-from services.printers.printer import create_printer, get_printer, delete_printer, update_printer
+from services.printers.background_tasks import calculate_printer_downtime
+from services import PrinterService, PrintingService, ModelService
 
 from models import Model, Printer, User
 from auth.auth import get_current_active_user, get_studio_id_from_user
@@ -30,11 +30,7 @@ def create_new_printer(
         if not printer.studio_id:
             printer.studio_id = get_studio_id_from_user(current_user, db)
             
-        # Create or get existing printer
-        result = create_printer(db, printer)
-        # If result is a list (from old code), take the first item
-        if isinstance(result, list) and len(result) > 0:
-            return result[0]
+        result = PrinterService.create_printer(db, printer)
         return result
     except Exception as e:
         db.rollback()
@@ -51,23 +47,24 @@ def read_printers(
     current_user: User = Depends(get_current_active_user)
 ):
     try:
-        # Get printers for this studio
-        query = db.query(Printer)
-        
-        # Filter by studio_id unless user is superuser
-        if not current_user.is_superuser:
-            # Get the current studio ID from the user's studios using the passed studio_id
-            studio_id = get_studio_id_from_user(current_user, db, studio_id)
-            query = query.filter(Printer.studio_id == studio_id)  # Changed from BaseSchemaPrinter to Printer
+        result = PrinterService.get_printers(
+            db=db,
+            studio_id=studio_id,
+            skip=skip,
+            sort_by=sort_by,
+            sort_desc=sort_desc
+        )
+        studio_id = get_studio_id_from_user(current_user, db, studio_id)
+        result = db.query(Printer).filter(Printer.studio_id == studio_id)
             
         # Apply sorting
         if sort_by:
             sort_col = getattr(Printer, sort_by, None)  # Changed from BaseSchemaPrinter to Printer
             if sort_col:
-                query = query.order_by(sort_col.desc() if sort_desc else sort_col.asc())
+                result = result.order_by(sort_col.desc() if sort_desc else sort_col.asc())
         
         # Apply pagination
-        printers = query.offset(skip).limit(limit).all()
+        printers = result.offset(skip).limit(limit).all()
         return printers
     except Exception as e:
         print(f"Error in read_printers: {str(e)}")
@@ -83,7 +80,7 @@ def read_printer(
     try:
         # Convert printer_id to int in case it's coming as a string
         printer_id = int(printer_id)
-        db_printer = get_printer(db, printer_id=printer_id)
+        db_printer = PrinterService.get_printer(db, printer_id=printer_id)
         if db_printer is None:
             raise HTTPException(status_code=404, detail="Printer not found")
             
@@ -111,7 +108,7 @@ def update_existing_printer(
     current_user: User = Depends(get_current_active_user)
 ):
     # Check if printer exists and user has access
-    db_printer = get_printer(db, printer_id=printer_id)
+    db_printer = PrinterService.get_printer(db, printer_id=printer_id)
     if db_printer is None:
         raise HTTPException(status_code=404, detail="Printer not found")
         
@@ -125,7 +122,7 @@ def update_existing_printer(
     # Set studio_id to ensure it doesn't change
     printer.studio_id = db_printer.studio_id
     
-    db_printer = update_printer(db, printer_id=printer_id, printer=printer)
+    db_printer = PrinterService.update_printer(db, printer_id=printer_id, printer=printer)
     return db_printer
 
 @router.delete("/{printer_id}", response_model=BaseSchemaPrinter)
@@ -135,7 +132,7 @@ def delete_existing_printer(
     current_user: User = Depends(get_current_active_user)
 ):
     # Check if printer exists and user has access
-    db_printer = get_printer(db, printer_id=printer_id)
+    db_printer = PrinterService.get_printer(db, printer_id=printer_id)
     if db_printer is None:
         raise HTTPException(status_code=404, detail="Printer not found")
         
@@ -146,7 +143,7 @@ def delete_existing_printer(
         if db_printer.studio_id != studio_id:
             raise HTTPException(status_code=403, detail="Not authorized to delete this printer")
         
-    db_printer = delete_printer(db, printer_id=printer_id)
+    db_printer = PrinterService.delete_printer(db, printer_id=printer_id)
     return db_printer
 
 @router.get("/{printer_id}/downtime")
@@ -158,7 +155,7 @@ def get_printer_downtime(
     """Получение текущего времени простоя принтера"""
     try:
         # Check access
-        db_printer = get_printer(db, printer_id=printer_id)
+        db_printer = PrinterService.get_printer(db, printer_id=printer_id)
         if db_printer is None:
             raise HTTPException(status_code=404, detail="Printer not found")
             
@@ -178,7 +175,7 @@ def get_printer_downtime(
 def resume_printer(printer_id: int, db: Session = Depends(get_db)):
     """Возобновление печати на принтере"""
     try:
-        printer = get_printer(db, printer_id)
+        printer = PrinterService.get_printer(db, printer_id)
         if not printer:
             raise HTTPException(status_code=404, detail="Printer not found")
         
@@ -211,7 +208,7 @@ def resume_printer(printer_id: int, db: Session = Depends(get_db)):
 def confirm_printing(printer_id: int, db: Session = Depends(get_db)):
     """Подтверждение завершения печати"""
     try:
-        printer = get_printer(db, printer_id)
+        printer = PrinterService.get_printer(db, printer_id)
         if not printer:
             raise HTTPException(status_code=404, detail="Printer not found")
         
@@ -253,39 +250,23 @@ def start_printer(printer_id: int, printing_data: PrintingCreate, db: Session = 
     """Начать печать на принтере"""
     try:
         # Check if printer exists
-        printer = get_printer(db, printer_id)
+        printer: Printer = PrinterService.get_printer(db, printer_id)
         if not printer:
             raise HTTPException(status_code=404, detail="Printer not found")
         
         # Check if printer is available
         if printer.status != "idle":
             raise HTTPException(status_code=400, detail=f"Printer is not idle, current status: {printer.status}")
-        
-        # Check if model exists
-        model = db.query(Model).filter(Model.id == printing_data.model_id).first()
+        model: Model = ModelService.get_model(db, printing_data.model_id)
         if not model:
             raise HTTPException(status_code=404, detail="Model not found")
+        printing_data.printer_id = printer_id
+        new_printing: Printing = PrintingService.create_printing(db=db, printing=printing_data)
         
-        # Create new printing record
-        new_printing = Printing(
-            printer_id=printer_id,
-            model_id=printing_data.model_id,
-            status="printing",
-            start_time=datetime.now(),
-            printing_time=model.printing_time,
-            studio_id=printing_data.studio_id
-        )
         
         # Calculate expected end time based on model printing time
         new_printing.calculated_time_stop = new_printing.start_time + timedelta(minutes=model.printing_time)
-        
-        # Update printer status
-        printer.status = "printing"
-        
-        db.add(new_printing)
-        db.add(printer)
-        db.commit()
-        db.refresh(printer)
+        PrinterService.update_printer_status(db=db, printer_id=printing_data.printer_id, new_status="printing")
         
         return printer
     except Exception as e:
@@ -297,7 +278,7 @@ def start_printer(printer_id: int, printing_data: PrintingCreate, db: Session = 
 def pause_printer(printer_id: int, db: Session = Depends(get_db)):
     """Приостановить работу принтера"""
     try:
-        printer = get_printer(db, printer_id)
+        printer = PrinterService.get_printer(db, printer_id)
         if not printer:
             raise HTTPException(status_code=404, detail="Printer not found")
         
@@ -338,7 +319,7 @@ def stop_printer(
 ):
     """Stop printer and cancel current printing"""
     try:
-        printer = stop_printer(db, printer_id, stop_data.stop_reason)
+        printer = PrinterService.stop_printer(db, printer_id, stop_data.stop_reason)
         if not printer:
             raise HTTPException(status_code=404, detail="Printer not found")
         return printer

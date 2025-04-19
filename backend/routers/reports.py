@@ -7,9 +7,9 @@ import csv
 from io import StringIO
 
 from db.database import get_db
-from crud import get_printers
-from reports import get_daily_report, get_printer_report, get_model_report
-from models import Printer, Model, Printing
+from services import PrinterService
+from services.reports.reports import get_daily_report, get_printer_report, get_model_report
+from models.models import Printer, Model, Printing
 
 router = APIRouter(
     prefix="/reports",
@@ -145,7 +145,7 @@ def get_printing_efficiency_report(db: Session = Depends(get_db),
 @router.get("/printers/export/", response_class=StreamingResponse)
 def export_printers_report(db: Session = Depends(get_db)):
     """Экспорт отчета по всем принтерам в формате CSV"""
-    printers = get_printers(db)
+    printers = PrinterService.get_printers(db)
     
     output = StringIO()
     writer = csv.writer(output)

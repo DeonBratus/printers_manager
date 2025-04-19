@@ -3,16 +3,18 @@ from datetime import datetime, timedelta
 from dal import printing as printing_dal
 from dal import printer as printer_dal
 from schemas import PrintingCreate
-from services.printers.printer import get_printer
+from services import PrinterService
 from services import ModelService
-from models.models import Printer, Printing
+from models.models import Printer, Printing, Model
 
 class PrintingService():
-    def create_printing(self, db: Session, printing: PrintingCreate):
+
+    def create_printing(db: Session, printing: PrintingCreate):
         try:
-            printer = get_printer(self, db, printing.printer_id)
-            model = ModelService.get_model(self, db, printing.model_id)
-            
+            print(printing.printer_id, printing.model_id)
+            printer: Printer = PrinterService.get_printer(db, printing.printer_id)
+            model: Model = ModelService.get_model(db, printing.model_id)
+            print(f"{printer.name} and {model.name}")
             if not printer or not model:
                 return None
                 
@@ -32,27 +34,27 @@ class PrintingService():
                 seconds = printing_data['printing_time'] * 60
                 printing_data['calculated_time_stop'] = printing_data['start_time'] + timedelta(seconds=seconds)
             
-            self, db_printing = printing_dal.create(self, db, printing_data)
+            db_printing = printing_dal.create(db, printing_data)
             
             # Обновляем статус принтера
-            printer_dal.update(self, db, printer.id, {"status": "printing"})
+            printer_dal.update(db, printer.id, {"status": "printing"})
             
             # Добавляем дополнительные поля для ответа
-            self, db_printing.printer_name = printer.name
-            self, db_printing.model_name = model.name
-            self, db_printing.progress = 0
+            db_printing.printer_name = printer.name
+            db_printing.model_name = model.name
+            db_printing.progress = 0
             
-            return self, db_printing
+            return db_printing
         except Exception as e:
             print(f"Error in create_printing: {str(e)}")
             raise
 
-    def get_printing(self, db: Session, printing_id: int):
-        return printing_dal.get(self, db, printing_id)
+    def get_printing(db: Session, printing_id: int):
+        return printing_dal.get(db, printing_id)
 
-    def get_printing_with_details(self, db: Session, printing_id: int):
+    def get_printing_with_details(db: Session, printing_id: int):
         try:
-            printing = printing_dal.get(self, db, printing_id)
+            printing = printing_dal.get(db, printing_id)
             if not printing:
                 return None
                 
@@ -61,8 +63,8 @@ class PrintingService():
                 
             # Добавляем имена принтера и модели
             try:
-                printer = get_printer(self, db, printing.printer_id) if printing.printer_id else None
-                model = ModelService.get_model(self, db, printing.model_id) if printing.model_id else None
+                printer = PrinterService.get_printer(db, printing.printer_id) if printing.printer_id else None
+                model = ModelService.get_model(db, printing.model_id) if printing.model_id else None
                 printing.printer_name = printer.name if printer else "Unknown Printer"
                 printing.model_name = model.name if model else "Unknown Model"
             except Exception as e:
@@ -105,15 +107,14 @@ class PrintingService():
                     # Автоматически завершаем печать при достижении 100%
                     if printing.progress >= 100 and printing.status == "printing":
                         try:
-                            from services.printers.printer_control import complete_printing
-                            complete_printing(self, db, printing.id, auto_complete=True)
+                            __class__.complete_printing(db, printing.id, auto_complete=True)
                             # Перезагружаем данные печати после автозавершения
-                            printing = printing_dal.get(self, db, printing_id)
+                            printing = printing_dal.get(db, printing_id)
                             if printing:
                                 printing.progress = 100
                                 # Повторно получаем имена принтера и модели
-                                printer = get_printer(self, db, printing.printer_id) if printing.printer_id else None
-                                model = ModelService.get_model(self, db, printing.model_id) if printing.model_id else None
+                                printer = PrinterService.get_printer(db, printing.printer_id) if printing.printer_id else None
+                                model = ModelService.get_model(db, printing.model_id) if printing.model_id else None
                                 printing.printer_name = printer.name if printer else "Unknown Printer"
                                 printing.model_name = model.name if model else "Unknown Model"
                         except Exception as e:
@@ -128,14 +129,14 @@ class PrintingService():
             print(f"Unexpected error in get_printing_with_details for printing {printing_id}: {str(e)}")
             return None
 
-    def get_printings(self, db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False, studio_id: int = None):
+    def get_printings(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False, studio_id: int = None):
         try:
-            printings: Printing = printing_dal.get_all(self, db, skip, limit, sort_by, sort_desc, studio_id)
+            printings: Printing = printing_dal.get_all(db, skip, limit, sort_by, sort_desc, studio_id)
             result = []
             
             for p in printings:
                 try:
-                    printing_with_details = self.get_printing_with_details(self, db, p.id)
+                    printing_with_details = __class__.get_printing_with_details(db, p.id)
                     if printing_with_details:
                         result.append(printing_with_details)
                 except Exception as e:
@@ -151,8 +152,140 @@ class PrintingService():
             print(f"Error in get_printings: {str(e)}")
             return []
 
-    def update_printing(self, db: Session, printing_id: int, printing: PrintingCreate):
-        return printing_dal.update(self, db, printing_id, printing.dict())
+    def update_printing(db: Session, printing_id: int, printing: PrintingCreate):
+        return printing_dal.update(db, printing_id, printing.dict())
 
-    def delete_printing(self, db: Session, printing_id: int):
-        return printing_dal.delete(self, db, printing_id)
+    def delete_printing(db: Session, printing_id: int):
+        return printing_dal.delete(db, printing_id)
+    
+
+
+    def complete_printing(db: Session, printing_id: int, auto_complete: bool = False):
+        printing = PrintingService.get_printing(db, printing_id)
+        if not printing:
+            return None
+        
+        printer = PrinterService.get_printer(db, printing.printer_id)
+        if not printer:
+            return None
+        
+        current_time = datetime.now()
+        # Always set the real_time_stop field
+        if not printing.real_time_stop:
+            printing.real_time_stop = current_time
+        
+        # Обновляем статус печати
+        if auto_complete:
+            printing.status = "completed"
+            PrinterService.update_printer_status(db, printer.id, "waiting")
+        else:
+            printing.status = "completed"
+            # Вычисляем фактическое время печати без учета простоев в минутах
+            actual_printing_time = (current_time - printing.start_time).total_seconds() / 60
+            
+            if printing.downtime:
+                actual_printing_time -= printing.downtime
+            
+            # Обновляем общее время работы принтера
+            total_print_time = (printer.total_print_time or 0) + actual_printing_time
+            
+            # Обновляем статус принтера на idle и общее время печати
+            printer_dal.update(db, printer.id, {
+                "status": "idle",
+                "total_print_time": total_print_time
+            })
+        
+        # Сохраняем изменения в печати
+        db.add(printing)
+        db.commit()
+        db.refresh(printing)
+            
+        return printing
+        
+
+    def pause_printing(db: Session, printing_id: int):
+        printing = PrintingService.get_printing(db, printing_id)
+        if not printing or printing.real_time_stop is not None:
+            return None
+        
+        printer =PrinterService. get_printer(db, printing.printer_id)
+        if not printer:
+            return None
+        
+        # Обновляем статус принтера на "paused"
+        PrinterService.update_printer_status(db, printer.id, "paused")
+        
+        printing.status = "paused"
+        printing.pause_time = datetime.now()
+        
+        db.add(printing)
+        db.commit()
+        db.refresh(printing)
+        return printing
+
+    def resume_printing(db: Session, printing_id: int):
+        printing = PrintingService.get_printing(db, printing_id)
+        if not printing or printing.real_time_stop is not None:
+            return None
+        
+        printer = PrinterService.get_printer(db, printing.printer_id)
+        if not printer:
+            return None
+        
+        current_time = datetime.now()
+        if printing.pause_time:
+            # Обновляем время простоя (в минутах)
+            pause_duration = (current_time - printing.pause_time).total_seconds() / 60
+            printing.downtime = (printing.downtime or 0) + pause_duration
+            # Корректируем ожидаемое время завершения
+            if printing.calculated_time_stop:
+                printing.calculated_time_stop = printing.calculated_time_stop + \
+                    (current_time - printing.pause_time)
+        
+        # Обновляем статус принтера на "printing"
+        PrinterService.update_printer_status(db, printer.id, "printing")
+        
+        printing.status = "printing"
+        printing.pause_time = None
+        
+        db.add(printing)
+        db.commit()
+        db.refresh(printing)
+        return printing
+
+    def cancel_printing(db: Session, printing_id: int):
+        printing = PrintingService.get_printing(db, printing_id)
+        if not printing or printing.real_time_stop is not None:
+            return None
+        
+        printer = PrinterService.get_printer(db, printing.printer_id)
+        if not printer:
+            return None
+        
+        current_time = datetime.now()
+        printing.real_time_stop = current_time
+        printing.status = "cancelled"  # Изменено с "aborted" на "cancelled" для соответствия с фронтендом
+        
+        # Вычисляем фактическое время печати (в минутах)
+        actual_printing_time = (current_time - printing.start_time).total_seconds() / 60
+        
+        # Вычитаем время простоя
+        if printing.downtime:
+            actual_printing_time -= printing.downtime
+        
+        # Обновляем статистику принтера
+        total_print_time = (printer.total_print_time or 0) + actual_printing_time
+        
+        # Обновляем статус принтера на "idle" и общее время печати
+        printer_dal.update(db, printer.id, {
+            "status": "idle",
+            "total_print_time": total_print_time
+        })
+        
+        # Сохраняем изменения
+        db.add(printing)
+        db.commit()
+        
+        # Обновляем объект печати из базы данных
+        db.refresh(printing)
+        return printing
