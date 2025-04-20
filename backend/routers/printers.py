@@ -214,13 +214,11 @@ def confirm_printing(printer_id: int, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="Printer not found")
         print(printer.name)
         # Find the most recent printing that needs confirmation
-        current_printing: Printing = db.query(Printing).filter(Printing.printer_id == printer_id).first()
-        
+        current_printing: Printing = db.query(Printing).filter(Printing.printer_id == printer_id, Printing.status == "wait-confirm").first()
+        print(current_printing.id)
+        PrintingService.confirm_printing(db, current_printing.id)
         if not current_printing:
             raise HTTPException(status_code=404, detail="No printings found for this printer")
-        
-        # Mark as completed
-        current_printing.status = "completed"
         
         # Set real_time_stop if it's not already set to ensure cards disappear
         if not current_printing.real_time_stop:
@@ -231,7 +229,6 @@ def confirm_printing(printer_id: int, db: Session = Depends(get_db)):
         
         # Save changes
         db.add(printer)
-        db.add(current_printing)
         db.commit()
         db.refresh(printer)
         

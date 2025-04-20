@@ -53,16 +53,33 @@ def delete(db: Session, printing_id: int):
     return db_printing
 
 def confirm(db: Session, printing_id: int):
-    """Mark printing as confirmed and update related printer"""
+    """Mark printing as completed and update related printer"""
     db_printing = get(db, printing_id)
     if db_printing:
-        current_time = datetime.now()
+        # Update printing status to wait-confirm
+        db_printing.status = "wait-confirm"
+
+        # Set printer status to waiting
+        if db_printing.printer_id:
+            printer = db.query(Printer).filter(Printer.id == db_printing.printer_id).first()
+            if printer:
+                printer.status = "waiting"
+                db.add(printer)
+
+        db.add(db_printing)
+        db.commit()
+        db.refresh(db_printing)
+    return db_printing
+
+def complete_confirmation(db: Session, printing_id: int):
+    """Complete the printing after confirmation"""
+    db_printing = get(db, printing_id)
+    if db_printing:
         # Update printing
         db_printing.status = "completed"
-        if not db_printing.real_time_stop:
-            db_printing.real_time_stop = current_time
+        db_printing.real_time_stop = datetime.now()
 
-        # Update associated printer status
+        # Update printer status to idle
         if db_printing.printer_id:
             printer = db.query(Printer).filter(Printer.id == db_printing.printer_id).first()
             if printer:

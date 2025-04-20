@@ -164,7 +164,8 @@ export const stopPrinter = (id, data = {}) => {
   };
   return api.post(`/printers/${id}/stop`, payload);
 };
-export const confirmPrinting = (id) => api.post(`/printers/${id}/confirm`);
+export const confirmPrinting = (id) => api.post(`/printings/${id}/confirm`);
+export const confirmPrintingInPrinter = (id) => api.post(`/printers/${id}/confirm`);
 
 // Printer Parameters API
 export const getPrinterParameters = (printerId) => api.get(`/printers/${printerId}/parameters`);

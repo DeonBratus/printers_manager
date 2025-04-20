@@ -153,7 +153,7 @@ def cancel_existing_printing(printing_id: int, db: Session = Depends(get_db)):
 def confirm_printing(printing_id: int, db: Session = Depends(get_db)):
     """Complete print job and update statuses"""
     try:
-        db_printing = printings_dal.confirm(db, printing_id)
+        db_printing = PrintingService.confirm_printing(db, printing_id)
         if not db_printing:
             raise HTTPException(status_code=404, detail="Printing not found")
             

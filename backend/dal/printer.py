@@ -105,16 +105,16 @@ def stop_printer(db: Session, printer_id: int, stop_reason: str = None):
     # Find active printing for this printer
     active_printing = db.query(Printing).filter(
         Printing.printer_id == printer_id,
-        Printing.status.in_(['printing', 'paused'])
+        Printing.real_time_stop.is_(None)  # Важно: ищем печать без real_time_stop
     ).first()
 
     if active_printing:
         current_time = datetime.now()
+        active_printing.real_time_stop = current_time  # Устанавливаем real_time_stop
         if stop_reason == 'finished-early':
             active_printing.status = 'completed'
         else:
             active_printing.status = 'cancelled'
-        active_printing.real_time_stop = current_time
         if stop_reason:
             active_printing.stop_reason = stop_reason
         db.add(active_printing)

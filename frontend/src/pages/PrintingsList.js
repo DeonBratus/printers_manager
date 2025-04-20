@@ -163,16 +163,15 @@ const PrintingsList = () => {
     }
   };
   
-  const handleConfirmPrinting = async (printerId) => {
+  const handleConfirmPrinting = async (printingId) => {
     try {
       setIsSubmitting(true);
       setError(null);
       
-      await confirmPrinting(printerId);
-      // Force a complete refresh to ensure the cards disappear
+      await confirmPrinting(printingId);
       await forceRefreshData();
     } catch (error) {
-      console.error('Error confirming print job completion:', error);
+      console.error('Error confirming print job:', error);
       setError('Failed to confirm print job. ' + (error.response?.data?.detail || 'Please try again.'));
     } finally {
       setIsSubmitting(false);
@@ -270,21 +269,19 @@ const PrintingsList = () => {
 
   // Filter active printings
   const activePrintings = printings.filter(printing => 
+    // Активные печати
     printing.status === 'printing' || 
-    printing.status === 'paused' || 
-    printing.status === 'waiting' || 
-    // Show all completed prints that haven't been confirmed yet
-    (printing.status === 'completed' && !printing.real_time_stop) ||
-    // Also show completed prints waiting for confirmation
-    (printing.status === 'completed' && printing.printer_id && 
-      printers.find(p => p.id === printing.printer_id)?.status === 'waiting')
+    printing.status === 'paused' ||
+    // Или печати ожидающие подтверждения
+    printing.status === 'wait-confirm'
   );
 
   // Filter completed/cancelled printings for history
   const completedPrintings = allPrintings.filter(printing => 
-    printing.status === 'completed' || printing.status === 'cancelled'
+    printing.status === 'cancelled' || 
+    (printing.status === 'completed' && printing.real_time_stop)
   );
-  
+
   // Get recent completed printings
   const recentCompletedPrintings = completedPrintings
     .sort((a, b) => new Date(b.real_time_stop || b.start_time) - new Date(a.real_time_stop || a.start_time))
@@ -431,14 +428,13 @@ const PrintingsList = () => {
                           <PlayIcon className="h-4 w-4 mr-1" />
                           Resume
                         </Button>
-                      ) : (printing.status === 'waiting' || printing.status === 'completed') && 
-                           (printers.find(p => p.id === printing.printer_id)?.status === 'waiting' || !printing.real_time_stop) ? (
+                      ) : printing.status === 'wait-confirm' && (
                         <div className="flex space-x-2">
                           <Button 
                             size="sm" 
                             variant="success" 
                             disabled={isSubmitting}
-                            onClick={() => handleConfirmPrinting(printing.printer_id)}
+                            onClick={() => handleConfirmPrinting(printing.id)} // Передаем printing.id вместо printing.printer_id
                           >
                             <CheckIcon className="h-4 w-4 mr-1" />
                             Confirm
@@ -453,7 +449,7 @@ const PrintingsList = () => {
                             Failure
                           </Button>
                         </div>
-                      ) : null}
+                      )}
                       {(printing.status === 'printing' || printing.status === 'paused') && (
                         <Button 
                           size="sm" 
@@ -550,14 +546,13 @@ const PrintingsList = () => {
                             >
                               <PlayIcon className="h-4 w-4" />
                             </Button>
-                          ) : (printing.status === 'waiting' || printing.status === 'completed') && 
-                               (printers.find(p => p.id === printing.printer_id)?.status === 'waiting' || !printing.real_time_stop) ? (
+                          ) : printing.status === 'wait-confirm' && (
                             <div className="flex space-x-2">
                               <Button 
                                 size="xs" 
                                 variant="success" 
                                 disabled={isSubmitting}
-                                onClick={() => handleConfirmPrinting(printing.printer_id)}
+                                onClick={() => handleConfirmPrinting(printing.id)} // Передаем printing.id вместо printing.printer_id
                                 title="Confirm"
                               >
                                 <CheckIcon className="h-4 w-4" />
@@ -572,7 +567,7 @@ const PrintingsList = () => {
                                 <XMarkIcon className="h-4 w-4" />
                               </Button>
                             </div>
-                          ) : null}
+                          )}
                           {(printing.status === 'printing' || printing.status === 'paused') && (
                             <Button 
                               size="xs" 

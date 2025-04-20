@@ -9,7 +9,7 @@ import {
   pausePrinter, 
   resumePrinter, 
   stopPrinter, 
-  confirmPrinting,
+  confirmPrintingInPrinter,
   getPrinterParameters,
   addPrinterParameter,
   deletePrinterParameter
@@ -263,7 +263,7 @@ const PrinterDetail = () => {
       setIsSubmitting(true);
       setError(null);
       
-      await confirmPrinting(id);
+      await confirmPrintingInPrinter(id);
       setShowConfirmModal(false);
       await fetchPrinterData();
     } catch (error) {

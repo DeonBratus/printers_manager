@@ -90,7 +90,7 @@ class Printing(Base):
     calculated_time_stop = Column(DateTime)
     real_time_stop = Column(DateTime, nullable=True)
     downtime = Column(Float, default=0.0)  # Stored in minutes
-    status = Column(String, default="printing")  # printing, paused, completed, cancelled, pending_completion
+    status = Column(String, default="printing")  # printing, paused, completed, cancelled, wait-confirm
     pause_time = Column(DateTime, nullable=True)
     stop_reason = Column(String, nullable=True)
     

@@ -169,37 +169,29 @@ class PrintingService():
         if not printer:
             return None
         
-        current_time = datetime.now()
-        # Always set the real_time_stop field
-        if not printing.real_time_stop:
-            printing.real_time_stop = current_time
-        
         # Обновляем статус печати
         if auto_complete:
-            printing.status = "completed"
+            printing.status = "wait-confirm"
             PrinterService.update_printer_status(db, printer.id, "waiting")
         else:
+            # Это случай ручного завершения
             printing.status = "completed"
-            # Вычисляем фактическое время печати без учета простоев в минутах
-            actual_printing_time = (current_time - printing.start_time).total_seconds() / 60
+            printing.real_time_stop = datetime.now()
             
+            # Вычисляем время и обновляем статистику
+            actual_printing_time = (datetime.now() - printing.start_time).total_seconds() / 60
             if printing.downtime:
                 actual_printing_time -= printing.downtime
             
-            # Обновляем общее время работы принтера
             total_print_time = (printer.total_print_time or 0) + actual_printing_time
-            
-            # Обновляем статус принтера на idle и общее время печати
             printer_dal.update(db, printer.id, {
                 "status": "idle",
                 "total_print_time": total_print_time
             })
         
-        # Сохраняем изменения в печати
         db.add(printing)
         db.commit()
         db.refresh(printing)
-            
         return printing
         
 
@@ -289,3 +281,49 @@ class PrintingService():
         # Обновляем объект печати из базы данных
         db.refresh(printing)
         return printing
+
+    def confirm_printing(db: Session, printing_id: int):
+        """Подтвердить завершение печати"""
+        try:
+            printing = printing_dal.get(db, printing_id)
+            if not printing:
+                print(f"Printing {printing_id} not found")
+                return None
+            
+            if not printing.printer_id:
+                print(f"Printing {printing_id} has no associated printer")
+                return None
+            
+            printer = printer_dal.get(db, printing.printer_id)
+            if not printer:
+                print(f"Printer {printing.printer_id} not found for printing {printing_id}")
+                return None
+
+            current_time = datetime.now()
+            
+            # Устанавливаем real_time_stop и статус completed
+            printing.status = "completed"
+            printing.real_time_stop = current_time
+            
+            # Вычисляем фактическое время печати
+            actual_printing_time = (current_time - printing.start_time).total_seconds() / 60
+            if printing.downtime:
+                actual_printing_time -= printing.downtime
+            
+            # Обновляем статистику принтера
+            total_print_time = (printer.total_print_time or 0) + actual_printing_time
+            
+            # Обновляем статус принтера на idle и общее время печати
+            printer_dal.update(db, printer.id, {
+                "status": "idle",
+                "total_print_time": total_print_time
+            })
+            
+            db.add(printing)
+            db.commit()
+            db.refresh(printing)
+            return printing
+        except Exception as e:
+            print(f"Error in confirm_printing: {str(e)}")
+            db.rollback()
+            raise e
