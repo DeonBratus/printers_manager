@@ -8,7 +8,6 @@ from datetime import datetime
 from models import Printer, Printing
 
 def create(db: Session, printer: PrinterCreate):
-    # Always create new printer (removed check for existing printer with same name)
     db_printer = Printer(
         name=printer.name,
         model=printer.model,
@@ -111,7 +110,10 @@ def stop_printer(db: Session, printer_id: int, stop_reason: str = None):
 
     if active_printing:
         current_time = datetime.now()
-        active_printing.status = 'cancelled'
+        if stop_reason == 'finished-early':
+            active_printing.status = 'completed'
+        else:
+            active_printing.status = 'cancelled'
         active_printing.real_time_stop = current_time
         if stop_reason:
             active_printing.stop_reason = stop_reason

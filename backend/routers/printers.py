@@ -6,12 +6,12 @@ from pydantic import BaseModel
 
 from db.database import get_db
 from schemas.printers_schemas import PrinterCreate, BaseSchemaPrinter
-from schemas.printings_schemas import Printing, PrintingCreate
+from schemas.printings_schemas import Printing as PrintingSchema, PrintingCreate
 
 from services.printers.background_tasks import calculate_printer_downtime
 from services import PrinterService, PrintingService, ModelService
 
-from models import Model, Printer, User
+from models import Model, Printer, User, Printing
 from auth.auth import get_current_active_user, get_studio_id_from_user
 
 router = APIRouter(
@@ -55,6 +55,7 @@ def read_printers(
             sort_desc=sort_desc
         )
         studio_id = get_studio_id_from_user(current_user, db, studio_id)
+        
         result = db.query(Printer).filter(Printer.studio_id == studio_id)
             
         # Apply sorting
@@ -208,17 +209,12 @@ def resume_printer(printer_id: int, db: Session = Depends(get_db)):
 def confirm_printing(printer_id: int, db: Session = Depends(get_db)):
     """Подтверждение завершения печати"""
     try:
-        printer = PrinterService.get_printer(db, printer_id)
+        printer: Printer = PrinterService.get_printer(db, printer_id)
         if not printer:
             raise HTTPException(status_code=404, detail="Printer not found")
-        
-        # Allow confirmation from any state to handle race conditions
-        # Printer status might have been changed but the UI still shows it as waiting
-        
+        print(printer.name)
         # Find the most recent printing that needs confirmation
-        current_printing = db.query(Printing).filter(
-            Printing.printer_id == printer_id
-        ).order_by(Printing.real_time_stop.desc() if Printing.real_time_stop else Printing.start_time.desc()).first()
+        current_printing: Printing = db.query(Printing).filter(Printing.printer_id == printer_id).first()
         
         if not current_printing:
             raise HTTPException(status_code=404, detail="No printings found for this printer")
@@ -257,12 +253,14 @@ def start_printer(printer_id: int, printing_data: PrintingCreate, db: Session = 
         # Check if printer is available
         if printer.status != "idle":
             raise HTTPException(status_code=400, detail=f"Printer is not idle, current status: {printer.status}")
+        
+        # Check if model exists
         model: Model = ModelService.get_model(db, printing_data.model_id)
         if not model:
             raise HTTPException(status_code=404, detail="Model not found")
+        
         printing_data.printer_id = printer_id
         new_printing: Printing = PrintingService.create_printing(db=db, printing=printing_data)
-        
         
         # Calculate expected end time based on model printing time
         new_printing.calculated_time_stop = new_printing.start_time + timedelta(minutes=model.printing_time)
@@ -273,6 +271,7 @@ def start_printer(printer_id: int, printing_data: PrintingCreate, db: Session = 
         print(f"Error in start_printer: {str(e)}")
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 
 @router.post("/{printer_id}/pause", response_model=BaseSchemaPrinter)
 def pause_printer(printer_id: int, db: Session = Depends(get_db)):
@@ -308,8 +307,10 @@ def pause_printer(printer_id: int, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+
 class StopPrinterRequest(BaseModel):
     stop_reason: Optional[str] = None
+
 
 @router.post("/{printer_id}/stop")
 def stop_printer(

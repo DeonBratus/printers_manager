@@ -906,13 +906,13 @@ const PrintingsList = () => {
                 id="defect"
                 name="stop-reason"
                 type="radio"
-                checked={stopReason === 'defect'}
-                onChange={() => setStopReason('defect')}
+                checked={stopReason === 'changed-mind'}
+                onChange={() => setStopReason('changed-mind')}
                 className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300"
               />
               <label htmlFor="defect" className="ml-3 flex flex-col cursor-pointer">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Дефект печати
+                  Передумал
                 </span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                   Модель печатается с проблемами качества
