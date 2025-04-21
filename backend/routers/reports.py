@@ -48,32 +48,39 @@ def get_printer_status_report(studio_id: Optional[int] = None, db: Session = Dep
         "idle": 0,
         "printing": 0,
         "paused": 0,
-        "error": 0
+        "error": 0,
+        "waiting": 0
     }
     
     printer_data = []
     total_efficiency = 0
+    printers_with_data = 0
     
     for printer in printers:
         # Count by status
-        if printer.status in status_counts:
-            status_counts[printer.status] += 1
+        status = printer.status.lower() if printer.status else "idle"
+        if status in status_counts:
+            status_counts[status] += 1
         
         # Calculate printer efficiency (time printing vs. total time available)
         total_time = printer.total_print_time + printer.total_downtime
-        efficiency = (printer.total_print_time / total_time * 100) if total_time > 0 else 0
-        total_efficiency += efficiency
+        efficiency = 0
+        
+        if total_time > 0:
+            efficiency = (printer.total_print_time / total_time * 100)
+            total_efficiency += efficiency
+            printers_with_data += 1
         
         printer_data.append({
             "id": printer.id,
             "name": printer.name,
-            "status": printer.status,
+            "status": status,
             "efficiency": round(efficiency, 1),
-            "total_print_time": round(printer.total_print_time, 1),
-            "total_downtime": round(printer.total_downtime, 1)
+            "total_print_time": printer.total_print_time,  # Already in hours
+            "total_downtime": printer.total_downtime  # Already in hours
         })
     
-    average_efficiency = total_efficiency / len(printers) if printers else 0
+    average_efficiency = total_efficiency / printers_with_data if printers_with_data > 0 else 0
     
     return {
         "total_printers": len(printers),
@@ -120,17 +127,32 @@ def get_printing_efficiency_report(studio_id: Optional[int] = None, db: Session 
     
     # Calculate downtime by printer
     downtime_by_printer = {}
+    print_time_by_printer = {}
     if studio_id:
         printers = db.query(Printer).filter(Printer.studio_id == studio_id).all()
     else:
         printers = db.query(Printer).all()
     
+    # Calculate total print time and total downtime
+    total_print_time = 0
+    total_downtime = 0
+    
     for printer in printers:
         if printer.name not in downtime_by_printer:
             downtime_by_printer[printer.name] = 0
+            print_time_by_printer[printer.name] = 0
         
-        # Add current downtime
-        downtime_by_printer[printer.name] += printer.total_downtime * 60  # Convert to minutes
+        # Add current downtime - convert to hours
+        downtime_by_printer[printer.name] = printer.total_downtime/60
+        print_time_by_printer[printer.name] = printer.total_print_time/60
+        
+        # Add to totals
+        total_print_time += printer.total_print_time
+        total_downtime += printer.total_downtime
+    
+    # Calculate estimated material consumption
+    # Assume 50g of material per hour of printing on average
+    total_material_kg = total_print_time * 0.05  # 50g per hour
     
     # Get model data for the report
     model_data = []
@@ -154,6 +176,10 @@ def get_printing_efficiency_report(studio_id: Optional[int] = None, db: Session 
         "total_printings": len(printings),
         "daily_printings": daily_printings,
         "downtime_by_printer": downtime_by_printer,
+        "print_time_by_printer": print_time_by_printer,
+        "total_print_time": total_print_time/60,
+        "total_downtime": total_downtime/60,
+        "estimated_material_usage": round(total_material_kg, 2),
         "models": model_data
     }
 

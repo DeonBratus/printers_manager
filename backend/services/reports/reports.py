@@ -47,23 +47,39 @@ def get_printer_report(db: Session, printer_id: int):
         Printing.printer_id == printer_id
     ).all()
     
+    # Calculate success rate
+    completed_printings = [p for p in printings if p.real_time_stop]
+    success_rate = 0
+    if completed_printings:
+        successful_prints = len([p for p in completed_printings if p.status == 'completed'])
+        success_rate = (successful_prints / len(completed_printings)) * 100
+    
+    # Convert time values to hours for frontend display
+    total_print_time = printer.total_print_time  
+    total_downtime = printer.total_downtime
+    
+    # Get recent printings with dates for activity timeline
+    all_printings = []
+    for p in printings:
+        all_printings.append({
+            "id": p.id,
+            "model_name": db.query(Model).filter(Model.id == p.model_id).first().name if p.model_id else "Unknown Model",
+            "start_time": p.start_time.isoformat(),
+            "end_time": p.real_time_stop.isoformat() if p.real_time_stop else None,
+            "status": p.status
+        })
+    
     return {
         "printer": printer,
-        "printings": [
-            {
-                "id": p.id,
-                "model_name": ModelService.get_model(db, p.model_id).name if p.model_id else "Unknown Model",
-                "start_time": p.start_time,
-                "status": "Completed" if p.real_time_stop else "Active"
-            }
-            for p in printings
-        ],
+        "printings": all_printings,
         "total_prints": len(printings),
         "successful_prints": len([p for p in printings if p.real_time_stop and 
                                  (p.real_time_stop - p.start_time).total_seconds() / 3600 <= p.printing_time * 1.1]),
         "failed_prints": len([p for p in printings if p.real_time_stop and 
                             (p.real_time_stop - p.start_time).total_seconds() / 3600 > p.printing_time * 1.1]),
-        "total_downtime": printer.total_downtime
+        "total_downtime": total_downtime,
+        "total_print_time": total_print_time,
+        "success_rate": round(success_rate, 1)
     }
 
 def get_model_report(db: Session, model_id: int, studio_id: int = None):
@@ -83,15 +99,28 @@ def get_model_report(db: Session, model_id: int, studio_id: int = None):
         
     printings = query.all()
     
+    # Calculate average print time in hours
+    completed_printings = [p for p in printings if p.real_time_stop]
+    average_print_time = 0
+    if completed_printings:
+        total_hours = sum((p.real_time_stop - p.start_time).total_seconds() / 3600 for p in completed_printings)
+        average_print_time = total_hours / len(completed_printings)
+    
+    # Calculate success rate
+    success_rate = 0
+    if completed_printings:
+        successful_prints = len([p for p in completed_printings if p.status == 'completed'])
+        success_rate = (successful_prints / len(completed_printings)) * 100
+    
+    # Estimate material usage based on print time (placeholder)
+    # Assume 50g of material per hour of printing on average
+    estimated_material_per_print = average_print_time * 0.05  # kg
+    
     return {
         "model": model,
-        "printings": printings,
         "total_prints": len(printings),
-        "average_print_time": sum(
-            (p.real_time_stop - p.start_time).total_seconds() / 3600 
-            for p in printings if p.real_time_stop
-        ) / len([p for p in printings if p.real_time_stop]) if [p for p in printings if p.real_time_stop] else 0,
-        "success_rate": len([p for p in printings if p.real_time_stop and 
-                           (p.real_time_stop - p.start_time).total_seconds() / 3600 <= model.printing_time * 1.1]) / 
-                       len([p for p in printings if p.real_time_stop]) * 100 if [p for p in printings if p.real_time_stop] else 0
+        "average_print_time": round(average_print_time, 2),
+        "success_rate": round(success_rate, 1),
+        "estimated_material": round(estimated_material_per_print, 2),
+        "total_estimated_material": round(estimated_material_per_print * len(completed_printings), 2)
     }
