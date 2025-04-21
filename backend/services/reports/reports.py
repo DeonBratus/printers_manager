@@ -6,14 +6,19 @@ import models
 from typing import Dict, Any
 from models import Printer, Model, Printing
 
-def get_daily_report(db: Session, date: datetime.date) -> Dict[str, Any]:
+def get_daily_report(db: Session, date: datetime.date, studio_id: int = None) -> Dict[str, Any]:
     start_datetime = datetime.combine(date, datetime.min.time())
     end_datetime = datetime.combine(date + timedelta(days=1), datetime.min.time())
     
-    printings = db.query(Printing).filter(
+    query = db.query(Printing).filter(
         Printing.start_time >= start_datetime,
         Printing.start_time < end_datetime
-    ).all()
+    )
+    
+    if studio_id is not None:
+        query = query.join(Printer).filter(Printer.studio_id == studio_id)
+        
+    printings = query.all()
     
     total_prints = len(printings)
     completed_prints = len([p for p in printings if p.real_time_stop])
@@ -61,7 +66,7 @@ def get_printer_report(db: Session, printer_id: int):
         "total_downtime": printer.total_downtime
     }
 
-def get_model_report(db: Session, model_id: int):
+def get_model_report(db: Session, model_id: int, studio_id: int = None):
     if model_id is None:
         return None
 
@@ -69,9 +74,14 @@ def get_model_report(db: Session, model_id: int):
     if not model:
         return None
     
-    printings = db.query(Printing).filter(
-        Printing.model_id == model_id
-    ).all()
+    # Get printings for this model
+    query = db.query(Printing).filter(Printing.model_id == model_id)
+    
+    # Filter by studio if specified
+    if studio_id is not None:
+        query = query.join(Printer).filter(Printer.studio_id == studio_id)
+        
+    printings = query.all()
     
     return {
         "model": model,

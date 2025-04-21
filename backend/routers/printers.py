@@ -175,33 +175,10 @@ def get_printer_downtime(
 def resume_printer(printer_id: int, db: Session = Depends(get_db)):
     """Возобновление печати на принтере"""
     try:
-        printer = PrinterService.get_printer(db, printer_id)
-        if not printer:
-            raise HTTPException(status_code=404, detail="Printer not found")
-        
-        if printer.status not in ["paused", "waiting"]:
-            raise HTTPException(status_code=400, detail="Printer is not in paused or waiting state")
-        
-        # Find current printing
-        current_printing = db.query(Printing).filter(
-            Printing.printer_id == printer_id,
-            Printing.real_time_stop == None
-        ).first()
-        
-        if current_printing:
-            if current_printing.status == "paused":
-                current_printing.status = "printing"
-                current_printing.pause_time = None
-                db.add(current_printing)
-        
-        printer.status = "printing"
-        db.add(printer)
-        db.commit()
-        db.refresh(printer)
-        return printer
+       result = PrinterService.resume_printer(db, printer_id)
+       return result
     except Exception as e:
         print(f"Error in resume_printer: {str(e)}")
-        db.rollback()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.post("/{printer_id}/confirm", response_model=BaseSchemaPrinter)

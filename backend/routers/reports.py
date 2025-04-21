@@ -17,9 +17,9 @@ router = APIRouter(
 )
 
 @router.get("/daily/")
-def get_daily_report_endpoint(date: Optional[str] = None, db: Session = Depends(get_db)):
+def get_daily_report_endpoint(date: Optional[str] = None, studio_id: Optional[int] = None, db: Session = Depends(get_db)):
     report_date = datetime.strptime(date, "%Y-%m-%d").date() if date else datetime.now().date()
-    return get_daily_report(db, report_date)
+    return get_daily_report(db, report_date, studio_id)
 
 @router.get("/printers/{printer_id}")
 def get_printer_report_endpoint(printer_id: int, db: Session = Depends(get_db)):
@@ -29,16 +29,19 @@ def get_printer_report_endpoint(printer_id: int, db: Session = Depends(get_db)):
     return report
 
 @router.get("/models/{model_id}")
-def get_model_report_endpoint(model_id: int, db: Session = Depends(get_db)):
-    report = get_model_report(db, model_id)
+def get_model_report_endpoint(model_id: int, studio_id: Optional[int] = None, db: Session = Depends(get_db)):
+    report = get_model_report(db, model_id, studio_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Model not found")
     return report
 
 @router.get("/printer-status")
-def get_printer_status_report(db: Session = Depends(get_db)) -> Dict[str, Any]:
+def get_printer_status_report(studio_id: Optional[int] = None, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """Get a comprehensive report on the status of all printers"""
-    printers = db.query(Printer).all()
+    if studio_id:
+        printers = db.query(Printer).filter(Printer.studio_id == studio_id).all()
+    else:
+        printers = db.query(Printer).all()
     
     # Count printers by status
     status_counts = {
@@ -80,14 +83,23 @@ def get_printer_status_report(db: Session = Depends(get_db)) -> Dict[str, Any]:
     }
 
 @router.get("/printing-efficiency")
-def get_printing_efficiency_report(db: Session = Depends(get_db),
+def get_printing_efficiency_report(studio_id: Optional[int] = None, db: Session = Depends(get_db),
                                   days: int = 30) -> Dict[str, Any]:
     """Get report on printing efficiency over time"""
     # Get data for the specified time period
     start_date = datetime.now() - timedelta(days=days)
     
-    printings = db.query(Printing).filter(Printing.start_time >= start_date).all()
-    models = db.query(Model).all()
+    # Filter printings by studio if specified
+    query = db.query(Printing).filter(Printing.start_time >= start_date)
+    if studio_id:
+        query = query.join(Printer).filter(Printer.studio_id == studio_id)
+    printings = query.all()
+    
+    # Filter models by studio if specified
+    if studio_id:
+        models = db.query(Model).filter(Model.studio_id == studio_id).all()
+    else:
+        models = db.query(Model).all()
     
     # Group printings by day
     daily_printings = {}
@@ -108,7 +120,10 @@ def get_printing_efficiency_report(db: Session = Depends(get_db),
     
     # Calculate downtime by printer
     downtime_by_printer = {}
-    printers = db.query(Printer).all()
+    if studio_id:
+        printers = db.query(Printer).filter(Printer.studio_id == studio_id).all()
+    else:
+        printers = db.query(Printer).all()
     
     for printer in printers:
         if printer.name not in downtime_by_printer:
@@ -143,9 +158,9 @@ def get_printing_efficiency_report(db: Session = Depends(get_db),
     }
 
 @router.get("/printers/export/", response_class=StreamingResponse)
-def export_printers_report(db: Session = Depends(get_db)):
+def export_printers_report(studio_id: Optional[int] = None, db: Session = Depends(get_db)):
     """Экспорт отчета по всем принтерам в формате CSV"""
-    printers = PrinterService.get_printers(db)
+    printers = PrinterService.get_printers(db, studio_id)
     
     output = StringIO()
     writer = csv.writer(output)
