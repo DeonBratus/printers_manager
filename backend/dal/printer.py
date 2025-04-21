@@ -33,7 +33,9 @@ def get(db: Session, printer_id: int):
         return None
 
 def get_all(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False, studio_id: int = None):
-    query = db.query(Printer).where(Printer.studio_id==studio_id)
+    query = db.query(Printer)
+    if studio_id is not None:
+        query = query.filter(Printer.studio_id == studio_id)
     if sort_by and hasattr(Printer, sort_by):
         order_by = desc(getattr(Printer, sort_by)) if sort_desc else getattr(Printer, sort_by)
         query = query.order_by(order_by)

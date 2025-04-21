@@ -196,7 +196,7 @@ def remove_studio_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Remove a member from the studio"""
+    """ Remove a member from the studio"""
     # Check if studio exists
     db_studio = db.query(Studio).filter(Studio.id == studio_id).first()
     if not db_studio:

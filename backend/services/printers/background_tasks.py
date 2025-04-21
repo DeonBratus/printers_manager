@@ -20,7 +20,7 @@ def calculate_printer_downtime(db: Session, printer_id: int, current_time: datet
     printer = PrinterService.get_printer(db, printer_id)
     if not printer:
         return 0.0
-        
+    
     # Получаем время последней активности принтера
     last_printing = db.query(Printing).filter(
         Printing.printer_id == printer_id
@@ -31,6 +31,9 @@ def calculate_printer_downtime(db: Session, printer_id: int, current_time: datet
         idle_time = (current_time - last_printing.real_time_stop).total_seconds() / 60
         print(f"Printer {printer_id} idle time since last print: {format_minutes_to_hhmm(idle_time)}")
         return idle_time
+    elif last_printing and not last_printing.real_time_stop:
+        # Если есть активная печать, то простоя нет
+        return 0.0
     else:
         # Если печатей не было или нет завершенных, считаем с момента добавления принтера в систему
         idle_time = (current_time - printer.created_at).total_seconds() / 60
@@ -42,13 +45,24 @@ def update_printer_downtimes():
     """Обновляет время простоя для всех принтеров в неактивном состоянии"""
     db = SessionLocal()
     try:
-        printers = PrinterService.get_printers(db, None)
+        printers = printer_dal.get_all(db)
         current_time = datetime.now()
         print(f"[{current_time}] Checking printer downtimes...")
         
         for printer in printers:
+            printer_id = printer.id
             # Обновляем время простоя только для принтеров в неактивном состоянии
             if printer.status in ["idle", "waiting", "error"]:
+                # Проверяем, есть ли активная печать
+                active_printing = db.query(Printing).filter(
+                    Printing.printer_id == printer_id,
+                    Printing.real_time_stop == None
+                ).first()
+                
+                if active_printing:
+                    # Если есть активная печать, не увеличиваем время простоя
+                    continue
+                
                 # Добавляем инкрементальное время простоя
                 # Используем 0.5 минуты (30 секунд) как стандартный интервал планировщика
                 increment_minutes = 0.5  # 30 секунд в минутах
