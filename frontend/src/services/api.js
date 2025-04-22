@@ -173,9 +173,10 @@ export const addPrinterParameter = (printerId, paramData) => api.post(`/printers
 export const deletePrinterParameter = (printerId, paramId) => api.delete(`/printers/${printerId}/parameters/${paramId}`);
 
 // Models API
-export const getModels = (studio_id) => {
+export const getModels = (studio_id, parent_id) => {
   const params = new URLSearchParams();
   if (studio_id) params.append('studio_id', studio_id);
+  if (parent_id) params.append('parent_id', parent_id);
   return api.get(`/models/?${params.toString()}`);
 };
 
@@ -186,6 +187,37 @@ export const getModel = (id, studio_id) => {
 export const createModel = (modelData) => api.post('/models/', modelData);
 export const updateModel = (id, modelData) => api.put(`/models/${id}`, modelData);
 export const deleteModel = (id) => api.delete(`/models/${id}`);
+
+// Model files API
+export const uploadModelFile = (modelId, file, fileType) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('file_type', fileType);
+  return api.post(`/models/${modelId}/files`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
+export const getModelFiles = (modelId) => api.get(`/models/${modelId}/files`);
+export const downloadModelFile = (fileId) => api.get(`/models/files/${fileId}`, { responseType: 'blob' });
+export const deleteModelFile = (fileId) => api.delete(`/models/files/${fileId}`);
+
+// G-code files API
+export const uploadGCodeFile = (file, modelId, printerId, estimatedPrintTime) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (modelId) formData.append('model_id', modelId);
+  if (printerId) formData.append('printer_id', printerId);
+  if (estimatedPrintTime) formData.append('estimated_print_time', estimatedPrintTime);
+  return api.post('/models/gcode', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
+export const getModelGCodeFiles = (modelId) => api.get(`/models/model/${modelId}/gcode`);
+export const getPrinterGCodeFiles = (printerId) => api.get(`/models/printer/${printerId}/gcode`);
+export const downloadGCodeFile = (fileId) => api.get(`/models/gcode/${fileId}`, { responseType: 'blob' });
+export const deleteGCodeFile = (fileId) => api.delete(`/models/gcode/${fileId}`);
 
 // Printings API
 export const getPrintings = (studio_id) => {

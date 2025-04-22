@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Boolean, Table, Enum
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from db.database import Base
 from datetime import datetime
 import uuid
@@ -13,6 +13,14 @@ class UserRole(str, enum.Enum):
     MANAGER = "manager"
     MEMBER = "member"
     VIEWER = "viewer"
+
+# Define model file type enum
+class ModelFileType(str, enum.Enum):
+    STL = "stl"
+    OBJ = "obj"
+    AMF = "amf"
+    THREEMF = "3mf"
+    OTHER = "other"
 
 # Define permission enum
 class StudioPermission(str, enum.Enum):
@@ -67,19 +75,60 @@ class Printer(Base):
     queue_items = relationship("PrintQueue", back_populates="printer")
     parameters = relationship("PrinterParameter", back_populates="printer", cascade="all, delete-orphan")
     studio = relationship("Studio", back_populates="printers")
+    gcode_files = relationship("GCodeFile", back_populates="printer")
 
 class Model(Base):
     __tablename__ = "td_models"
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
+    description = Column(String, nullable=True)
     printing_time = Column(Float)
     studio_id = Column(Integer, ForeignKey("td_studios.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    parent_id = Column(Integer, ForeignKey("td_models.id"), nullable=True)
     
     # Define relationships
     printings = relationship("Printing", back_populates="model")
     queue_items = relationship("PrintQueue", back_populates="model")
     studio = relationship("Studio", back_populates="models")
+    files = relationship("ModelFile", back_populates="model", cascade="all, delete-orphan")
+    gcode_files = relationship("GCodeFile", back_populates="model", cascade="all, delete-orphan")
+    
+    # Self-referential relationship for composite models
+    children = relationship("Model", backref=backref("parent", remote_side=[id]), cascade="all, delete-orphan")
+
+class ModelFile(Base):
+    __tablename__ = "td_model_files"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    file_size = Column(Integer, nullable=False)  # Size in bytes
+    file_type = Column(String, default=ModelFileType.STL)
+    created_at = Column(DateTime, default=datetime.now)
+    model_id = Column(Integer, ForeignKey("td_models.id"), nullable=False)
+    
+    # Define relationships
+    model = relationship("Model", back_populates="files")
+
+class GCodeFile(Base):
+    __tablename__ = "td_gcode_files"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    file_size = Column(Integer, nullable=False)  # Size in bytes
+    created_at = Column(DateTime, default=datetime.now)
+    model_id = Column(Integer, ForeignKey("td_models.id"), nullable=True)
+    printer_id = Column(Integer, ForeignKey("td_printers.id"), nullable=True)
+    studio_id = Column(Integer, ForeignKey("td_studios.id"), nullable=True)
+    estimated_print_time = Column(Float, nullable=True)  # In minutes
+    
+    # Define relationships
+    model = relationship("Model", back_populates="gcode_files")
+    printer = relationship("Printer", back_populates="gcode_files")
+    studio = relationship("Studio", back_populates="gcode_files")
 
 class Printing(Base):
     __tablename__ = "td_printings"
@@ -175,6 +224,7 @@ class Studio(Base):
     printings = relationship("Printing", back_populates="studio")
     queue_items = relationship("PrintQueue", back_populates="studio")
     invitations = relationship("StudioInvitation", back_populates="studio")
+    gcode_files = relationship("GCodeFile", back_populates="studio")
 
 class Session(Base):
     __tablename__ = "td_sessions"
@@ -203,4 +253,4 @@ class StudioInvitation(Base):
     
     # Define relationships
     studio = relationship("Studio", back_populates="invitations")
-    inviter = relationship("User", foreign_keys=[created_by])
+    inviter = relationship("User", foreign_keys=[created_by]) 
