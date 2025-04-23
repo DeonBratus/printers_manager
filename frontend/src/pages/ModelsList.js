@@ -66,7 +66,7 @@ const ModelsList = () => {
     name: '', 
     printing_time: '01:00'
   });
-  const [viewMode, setViewMode] = useState(localStorage.getItem('modelsViewMode') || 'network'); // 'grid', 'list', or 'network'
+  const [viewMode, setViewMode] = useState(localStorage.getItem('modelsViewMode') || 'grid'); // 'grid', 'list', or 'network'
   const [searchQuery, setSearchQuery] = useState('');
   const networkContainerRef = useRef(null);
   
@@ -469,30 +469,6 @@ const ModelsList = () => {
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* View Title */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-        <div className="border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex justify-between items-center">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
-            <ViewIcon type={viewMode} />
-            <span className="ml-2">
-              {viewMode === 'network' ? t('models.viewMode.network', 'Сетевой вид') : 
-               viewMode === 'grid' ? t('models.viewMode.grid', 'Вид сеткой') : 
-               t('models.viewMode.list', 'Вид списком')}
-            </span>
-          </h2>
-        </div>
-        
-        {/* Error Message */}
-        {error && (
-          <div className="p-4 m-4 bg-red-50 border-l-4 border-red-400 dark:bg-red-900/30 dark:border-red-500 text-red-700 dark:text-red-400 rounded-md">
-            <div className="flex items-center">
-              <ExclamationCircleIcon className="h-6 w-6 mr-2 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          </div>
-        )}
       </div>
       
       {/* View Content */}
