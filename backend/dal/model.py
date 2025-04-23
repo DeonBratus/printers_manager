@@ -26,20 +26,23 @@ def create(db: Session, model: ModelCreate):
 def get(db: Session, model_id: int):
     return db.query(Model).filter(Model.id == model_id).first()
 
-def get_all(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False, studio_id: int = None, parent_id: int = None):
+def get_all(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False, studio_id: int = None, related_to_id: int = None):
     query = db.query(Model)
     
     # Filter by studio_id if provided
     if studio_id is not None:
         query = query.filter(Model.studio_id == studio_id)
         
-    # Filter by parent_id if provided (for composite models)
-    if parent_id is not None:
-        query = query.filter(Model.parent_id == parent_id)
-    else:
-        # By default, show only top-level models (not children)
-        query = query.filter(Model.parent_id == None)
-        
+    # Filter by related_to_id if provided (for related models)
+    if related_to_id is not None:
+        # Get the model we want to find relations for
+        related_model = db.query(Model).filter(Model.id == related_to_id).first()
+        if related_model:
+            # Get models that are related to this model
+            # Возвращаем только related_to для избежания циклической зависимости
+            return related_model.related_to
+        return []
+    
     if sort_by and hasattr(Model, sort_by):
         order_by = desc(getattr(Model, sort_by)) if sort_desc else getattr(Model, sort_by)
         query = query.order_by(order_by)
@@ -184,3 +187,43 @@ def delete_gcode_file(db: Session, file_id: int):
         db.delete(db_file)
         db.commit()
     return db_file
+
+# Add functions to manage model relationships
+def add_model_relation(db: Session, model_id: int, related_model_id: int, relation_type: str = None):
+    # Get both models
+    model = get(db, model_id)
+    related_model = get(db, related_model_id)
+    
+    if not model or not related_model:
+        return None
+    
+    # Check if relation already exists
+    if related_model not in model.related_to:
+        model.related_to.append(related_model)
+        db.commit()
+        db.refresh(model)
+    
+    return model
+
+def remove_model_relation(db: Session, model_id: int, related_model_id: int):
+    # Get both models
+    model = get(db, model_id)
+    related_model = get(db, related_model_id)
+    
+    if not model or not related_model:
+        return None
+    
+    # Check if relation exists and remove it
+    if related_model in model.related_to:
+        model.related_to.remove(related_model)
+        db.commit()
+        db.refresh(model)
+    
+    return model
+
+def get_related_models(db: Session, model_id: int):
+    model = get(db, model_id)
+    if not model:
+        return []
+    
+    return model.related_to

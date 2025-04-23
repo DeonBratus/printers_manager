@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from db.database import get_db
-from schemas import ModelCreate, Model, ModelFile, ModelFileCreate, GCodeFile, GCodeFileCreate
+from schemas import ModelCreate, Model, ModelFile, ModelFileCreate, GCodeFile, GCodeFileCreate, ModelSimple
 from services import ModelService
 from auth.auth import get_current_active_user, get_studio_id_from_user
 from models import User
@@ -33,7 +33,7 @@ def read_models(
     sort_by: Optional[str] = None,
     sort_desc: bool = False,
     studio_id: Optional[int] = None,
-    parent_id: Optional[int] = None,
+    related_to_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -45,7 +45,7 @@ def read_models(
             limit=limit, 
             sort_by=sort_by, 
             sort_desc=sort_desc, 
-            parent_id=parent_id
+            related_to_id=related_to_id
         )
     else:
         # Get the current studio ID from the user's studios using the passed studio_id
@@ -59,7 +59,7 @@ def read_models(
             sort_by=sort_by, 
             sort_desc=sort_desc,
             studio_id=user_studio_id,
-            parent_id=parent_id
+            related_to_id=related_to_id
         )
     return models
 
@@ -383,3 +383,75 @@ def delete_gcode_file_endpoint(
     
     # Delete file
     return ModelService.delete_gcode_file(db, file_id)
+
+# Add new endpoints for model relationships
+@router.post("/{model_id}/relations/{related_model_id}")
+def add_model_relation(
+    model_id: int,
+    related_model_id: int,
+    relation_type: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Check if models exist and user has access
+    model = ModelService.get_model(db, model_id=model_id)
+    related_model = ModelService.get_model(db, model_id=related_model_id)
+    
+    if model is None or related_model is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+    
+    # Check permissions
+    if not current_user.is_superuser:
+        # Get the current studio ID from the user's studios
+        studio_id = get_studio_id_from_user(current_user, db)
+        
+        if model.studio_id != studio_id or related_model.studio_id != studio_id:
+            raise HTTPException(status_code=403, detail="Not authorized to update model relations")
+    
+    return ModelService.add_model_relation(db, model_id, related_model_id, relation_type)
+
+@router.delete("/{model_id}/relations/{related_model_id}")
+def remove_model_relation(
+    model_id: int,
+    related_model_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Check if models exist and user has access
+    model = ModelService.get_model(db, model_id=model_id)
+    related_model = ModelService.get_model(db, model_id=related_model_id)
+    
+    if model is None or related_model is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+    
+    # Check permissions
+    if not current_user.is_superuser:
+        # Get the current studio ID from the user's studios
+        studio_id = get_studio_id_from_user(current_user, db)
+        
+        if model.studio_id != studio_id or related_model.studio_id != studio_id:
+            raise HTTPException(status_code=403, detail="Not authorized to update model relations")
+    
+    return ModelService.remove_model_relation(db, model_id, related_model_id)
+
+@router.get("/{model_id}/relations", response_model=List[ModelSimple])
+def get_related_models(
+    model_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    # Check if model exists and user has access
+    model = ModelService.get_model(db, model_id=model_id)
+    
+    if model is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+    
+    # Check permissions
+    if not current_user.is_superuser:
+        # Get the current studio ID from the user's studios
+        studio_id = get_studio_id_from_user(current_user, db)
+        
+        if model.studio_id != studio_id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this model")
+    
+    return ModelService.get_related_models(db, model_id)

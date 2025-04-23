@@ -57,6 +57,16 @@ role_permission = Table(
     Column("studio_id", Integer, ForeignKey("td_studios.id"), primary_key=True),
 )
 
+# Add a new association table for Model-Model relationships
+model_relation = Table(
+    "td_model_relation",
+    Base.metadata,
+    Column("model_id", Integer, ForeignKey("td_models.id"), primary_key=True),
+    Column("related_model_id", Integer, ForeignKey("td_models.id"), primary_key=True),
+    Column("relation_type", String, nullable=True),  # Optional field to describe the relation type
+    Column("created_at", DateTime, default=datetime.now),
+)
+
 # Base database models only
 class Printer(Base):
     __tablename__ = "td_printers"
@@ -86,7 +96,6 @@ class Model(Base):
     printing_time = Column(Float)
     studio_id = Column(Integer, ForeignKey("td_studios.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.now)
-    parent_id = Column(Integer, ForeignKey("td_models.id"), nullable=True)
     
     # Define relationships
     printings = relationship("Printing", back_populates="model")
@@ -95,8 +104,14 @@ class Model(Base):
     files = relationship("ModelFile", back_populates="model", cascade="all, delete-orphan")
     gcode_files = relationship("GCodeFile", back_populates="model", cascade="all, delete-orphan")
     
-    # Self-referential relationship for composite models
-    children = relationship("Model", backref=backref("parent", remote_side=[id]), cascade="all, delete-orphan")
+    # Replace parent/child relationship with many-to-many
+    related_to = relationship(
+        "Model", 
+        secondary=model_relation,
+        primaryjoin=id==model_relation.c.model_id,
+        secondaryjoin=id==model_relation.c.related_model_id,
+        backref="related_from"
+    )
 
 class ModelFile(Base):
     __tablename__ = "td_model_files"

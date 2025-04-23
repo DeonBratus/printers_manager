@@ -9,8 +9,8 @@ class ModelService():
     def get_model(db: Session, model_id: int):
         return model_dal.get(db, model_id)
 
-    def get_models(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False, studio_id: int = None, parent_id: int = None):
-        return model_dal.get_all(db, skip, limit, sort_by, sort_desc, studio_id, parent_id)
+    def get_models(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_desc: bool = False, studio_id: int = None, related_to_id: int = None):
+        return model_dal.get_all(db, skip, limit, sort_by, sort_desc, studio_id, related_to_id)
 
     def update_model(db: Session, model_id: int, model: ModelCreate):
         return model_dal.update(db, model_id, model.dict())
@@ -68,3 +68,13 @@ class ModelService():
     
     def delete_gcode_file(db: Session, file_id: int):
         return model_dal.delete_gcode_file(db, file_id)
+
+    # Add new methods for model relationships
+    def add_model_relation(db: Session, model_id: int, related_model_id: int, relation_type: str = None):
+        return model_dal.add_model_relation(db, model_id, related_model_id, relation_type)
+
+    def remove_model_relation(db: Session, model_id: int, related_model_id: int):
+        return model_dal.remove_model_relation(db, model_id, related_model_id)
+
+    def get_related_models(db: Session, model_id: int):
+        return model_dal.get_related_models(db, model_id)

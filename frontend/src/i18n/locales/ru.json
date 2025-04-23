@@ -48,7 +48,17 @@
     "noData": "Нет данных",
     "total": "Всего",
     "average": "В среднем",
-    "efficiency": "Эффективность"
+    "efficiency": "Эффективность",
+    "add": "Добавить",
+    "select": "Выбрать",
+    "sort": "Сортировка",
+    "all": "Все",
+    "yes": "Да",
+    "no": "Нет",
+    "reject": "Отклонить",
+    "showAll": "Показать все",
+    "collapse": "Свернуть",
+    "details": "Подробнее"
   },
   "navigation": {
     "dashboard": "Панель управления",
@@ -129,7 +139,23 @@
     "completed": "Завершено",
     "deleteModel": "Удалить модель",
     "deleteConfirmation": "Вы уверены, что хотите удалить модель",
-    "deleteWarning": "Это действие нельзя отменить. Вся история печати для этой модели останется в базе данных."
+    "deleteWarning": "Это действие нельзя отменить. Вся история печати для этой модели останется в базе данных.",
+    "modelRelations": "Связи 3D-модели",
+    "relatedModels": "Связанные модели",
+    "relatedTo": "Связан с",
+    "relatedFrom": "Связан из",
+    "addRelation": "Добавить связь",
+    "removeRelation": "Удалить связь",
+    "selectRelated": "Выберите модель для связи",
+    "noRelations": "Нет связанных моделей",
+    "connections": "Связи моделей",
+    "connectsTo": "Связана с",
+    "connectedFrom": "Связана от",
+    "relatedToThis": "Эта модель связана с",
+    "relatedFromThis": "Эта модель является составной частью",
+    "addRelationError": "Ошибка при добавлении связи",
+    "removeRelationError": "Ошибка при удалении связи",
+    "fetchRelationsError": "Ошибка при загрузке связей"
   },
   "printings": {
     "title": "Печати",

@@ -9,7 +9,6 @@ class ModelBase(BaseModel):
     description: Optional[str] = None
     printing_time: float  # в минутах
     studio_id: Optional[int] = None
-    parent_id: Optional[int] = None
 
 
 class ModelCreate(ModelBase):
@@ -76,12 +75,27 @@ class GCodeFile(GCodeFileBase):
         from_attributes = True
 
 
+# Добавляем базовую модель без рекурсивных полей
+class ModelSimple(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    printing_time: float
+    studio_id: Optional[int] = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
 class Model(ModelBase):
     id: int
     created_at: datetime
     files: Optional[List[ModelFile]] = []
     gcode_files: Optional[List[GCodeFile]] = []
-    children: Optional[List["Model"]] = []
+    # Используем ModelSimple для связей чтобы избежать циклических зависимостей
+    related_to: Optional[List[ModelSimple]] = []
+    related_from: Optional[List[ModelSimple]] = []
     
     class Config:
         from_attributes = True

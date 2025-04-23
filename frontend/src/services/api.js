@@ -173,10 +173,10 @@ export const addPrinterParameter = (printerId, paramData) => api.post(`/printers
 export const deletePrinterParameter = (printerId, paramId) => api.delete(`/printers/${printerId}/parameters/${paramId}`);
 
 // Models API
-export const getModels = (studio_id, parent_id) => {
+export const getModels = (studio_id, related_to_id) => {
   const params = new URLSearchParams();
   if (studio_id) params.append('studio_id', studio_id);
-  if (parent_id) params.append('parent_id', parent_id);
+  if (related_to_id) params.append('related_to_id', related_to_id);
   return api.get(`/models/?${params.toString()}`);
 };
 
@@ -262,6 +262,25 @@ export const exportPrintersReport = (studio_id) => {
       'Accept': 'text/csv'
     }
   });
+};
+
+// Model relationships API
+export const getRelatedModels = (modelId) => {
+  if (!modelId) return Promise.resolve({ data: [] });
+  return api.get(`/models/${modelId}/relations`);
+};
+
+export const addModelRelation = (modelId, relatedModelId, relationType) => {
+  if (!modelId || !relatedModelId) return Promise.reject(new Error('Missing required parameters'));
+  
+  const params = new URLSearchParams();
+  if (relationType) params.append('relation_type', relationType);
+  return api.post(`/models/${modelId}/relations/${relatedModelId}?${params.toString()}`);
+};
+
+export const removeModelRelation = (modelId, relatedModelId) => {
+  if (!modelId || !relatedModelId) return Promise.reject(new Error('Missing required parameters'));
+  return api.delete(`/models/${modelId}/relations/${relatedModelId}`);
 };
 
 export default api;
