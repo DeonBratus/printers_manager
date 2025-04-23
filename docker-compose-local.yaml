@@ -22,6 +22,8 @@ services:
       - db
     networks:
       - app-network
+    volumes:
+      - uploads_data:/app/uploads  # Монтируем общий volume для загружаемых файлов
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
       interval: 30s
@@ -63,7 +65,8 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:  # Убедитесь, что том объявлен здесь
+  postgres_data:  # Том для базы данных
+  uploads_data:   # Общий том для загружаемых файлов
 
 networks:
   app-network:
