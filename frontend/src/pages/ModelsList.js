@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
-import ModelCube from '../components/ModelCube';
+import { ModelCube } from '../components/models';
 import CollectionTree from '../components/CollectionTree';
 import CollectionModal from '../components/CollectionModal';
 import { 

@@ -21,11 +21,9 @@ import { useTranslation } from 'react-i18next';
 import ModelFiles from '../components/ModelFiles';
 import GCodeFiles from '../components/GCodeFiles';
 import ModelCollections from '../components/ModelCollections';
-import ModelViewer from '../components/ModelViewer';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
-import ModelCube from '../components/ModelCube';
-import ModelFullView from '../components/ModelFullView';
+import { ModelCube, ModelFullView, ModelViewer } from '../components/models';
 
 const ModelDetail = () => {
   const { t } = useTranslation();
