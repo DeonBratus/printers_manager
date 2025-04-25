@@ -4,7 +4,10 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { downloadModelFile } from '../services/api';
 
-const ModelFullView = ({ color = '#3B82F6', fileId }) => {
+const ModelFullView = ({ color = '#3B82F6', fileId, file }) => {
+  // Если передан объект file, извлекаем из него id
+  const modelFileId = file?.id || fileId;
+  
   const containerRef = useRef(null);
   const mountRef = useRef(null);
   const rendererRef = useRef(null);
@@ -37,13 +40,24 @@ const ModelFullView = ({ color = '#3B82F6', fileId }) => {
 
   // Функция загрузки STL модели
   const loadModel = async () => {
-    if (!fileId) return;
+    if (!modelFileId) return;
+    
+    // Проверяем тип файла, если доступна информация о файле
+    if (file && file.file_type) {
+      const fileType = file.file_type.toLowerCase();
+      const supportedTypes = ['stl', 'obj', '3mf', 'amf'];
+      
+      if (!supportedTypes.includes(fileType)) {
+        setError(`Неподдерживаемый тип файла: ${file.file_type}`);
+        return;
+      }
+    }
     
     try {
       setLoading(true);
       setError(null);
       
-      const response = await downloadModelFile(fileId);
+      const response = await downloadModelFile(modelFileId);
       const blob = new Blob([response.data]);
       const url = URL.createObjectURL(blob);
       
@@ -180,11 +194,6 @@ const ModelFullView = ({ color = '#3B82F6', fileId }) => {
     
     animate();
 
-    // Пробуем загрузить модель, если указан ID файла
-    if (fileId) {
-      loadModel();
-    }
-
     // Очистка
     return () => {
       cancelAnimationFrame(frameIdRef.current);
@@ -211,7 +220,7 @@ const ModelFullView = ({ color = '#3B82F6', fileId }) => {
         rendererRef.current.dispose();
       }
     };
-  }, [color, dimensions, fileId]);
+  }, [color, dimensions]);
 
   // Настраиваем обсервер изменения размеров при изменении размера контейнера
   useEffect(() => {
@@ -237,10 +246,10 @@ const ModelFullView = ({ color = '#3B82F6', fileId }) => {
 
   // Перезагружаем модель при изменении fileId
   useEffect(() => {
-    if (fileId) {
+    if (modelFileId) {
       loadModel();
     }
-  }, [fileId]);
+  }, [modelFileId]);
 
   return (
     <div 

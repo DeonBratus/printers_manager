@@ -13,13 +13,14 @@ import {
   ExclamationCircleIcon,
   ChartBarIcon,
   ArrowLeftIcon,
-  ArrowRightIcon
+  ArrowRightIcon,
+  FolderIcon
 } from '@heroicons/react/24/outline';
 import { formatDuration, formatMinutesToHHMM, parseHHMMToMinutes } from '../utils/timeFormat';
 import { useTranslation } from 'react-i18next';
 import ModelFiles from '../components/ModelFiles';
 import GCodeFiles from '../components/GCodeFiles';
-import ModelRelations from '../components/ModelRelations';
+import ModelCollections from '../components/ModelCollections';
 import ModelViewer from '../components/ModelViewer';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -41,6 +42,7 @@ const ModelDetail = () => {
   const [modelFiles, setModelFiles] = useState([]);
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [modelColors] = useState(['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444']);
+  const [activeTab, setActiveTab] = useState('files'); // 'files', 'gcode', 'collections'
 
   const fetchModelData = useCallback(async () => {
     try {
@@ -84,6 +86,10 @@ const ModelDetail = () => {
   }, [id, t]);
 
   useEffect(() => {
+    fetchModelData();
+  }, [fetchModelData]);
+
+  const handleFilesUpdated = useCallback(() => {
     fetchModelData();
   }, [fetchModelData]);
 
@@ -162,6 +168,11 @@ const ModelDetail = () => {
       modelFiles[currentFileIndex] : null;
   };
 
+  // Обработчик обновления коллекций
+  const handleCollectionsChanged = () => {
+    fetchModelData();
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-full">Загрузка...</div>;
   }
@@ -202,316 +213,338 @@ const ModelDetail = () => {
       </div>
       
       {error && (
-        <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
-          <div className="flex">
-            <ExclamationCircleIcon className="h-5 w-5 text-red-400" aria-hidden="true" />
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800 dark:text-red-300">Ошибка</h3>
-              <div className="text-sm text-red-700 dark:text-red-300">{error}</div>
-            </div>
-          </div>
+        <div className="bg-red-100 p-4 rounded-md text-red-700">
+          <ExclamationCircleIcon className="h-5 w-5 inline mr-2" />
+          {error}
         </div>
       )}
-
-      {editing ? (
-        <Card className="p-4">
-          <h2 className="text-lg font-semibold mb-4 dark:text-white">Редактирование модели</h2>
-          <form onSubmit={handleEditSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Название
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={editForm.name}
-                onChange={handleEditChange}
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Описание
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                value={editForm.description || ''}
-                onChange={handleEditChange}
-                rows={3}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div>
-              <label htmlFor="printing_time" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Время печати (ЧЧ:ММ)
-              </label>
-              <input
-                type="text"
-                id="printing_time"
-                name="printing_time"
-                value={editForm.printing_time}
-                onChange={handleEditChange}
-                required
-                pattern="[0-9]{1,2}:[0-9]{2}"
-                placeholder="Введите время в формате ЧЧ:ММ"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="flex justify-end">
-              <Button type="submit" isLoading={isSubmitting}>Сохранить</Button>
-            </div>
-          </form>
-        </Card>
-      ) : (
-        <>
-          {/* Файлы моделей и G-код (перемещено выше) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <ModelFiles modelId={id} />
-            <GCodeFiles modelId={id} />
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Область 3D Модели */}
-            <Card className="p-4 lg:col-span-8">
-              <div className="flex flex-col h-full">
-                {/* Просмотр 3D модели */}
-                <div className="relative bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden mb-4" style={{ height: "600px" }}>
-                  {modelFiles.length > 0 ? (
-                    <>
-                      <div className="h-full w-full">
-                        {currentFile && (
-                          <ModelFullView 
-                            color={modelColors[currentFileIndex % modelColors.length]}
-                            fileId={currentFile.id}
-                          />
-                        )}
-                      </div>
-                      
-                      {/* Кнопки навигации */}
-                      {hasMultipleFiles && (
-                        <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-4">
-                          <button 
-                            onClick={prevModelFile}
-                            className="p-2 bg-white dark:bg-gray-700 rounded-full shadow hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                            title="Предыдущая модель"
-                          >
-                            <ArrowLeftIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-                          </button>
-                          <div className="px-3 py-2 bg-white dark:bg-gray-700 rounded-full text-sm shadow text-gray-700 dark:text-gray-300">
-                            {currentFileIndex + 1} / {modelFiles.length}
-                          </div>
-                          <button 
-                            onClick={nextModelFile}
-                            className="p-2 bg-white dark:bg-gray-700 rounded-full shadow hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                            title="Следующая модель"
-                          >
-                            <ArrowRightIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-                          </button>
-                        </div>
-                      )}
-                    </>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Model Details */}
+        <div className="md:col-span-2">
+          {editing ? (
+            <Card>
+              <div className="p-4">
+                <h2 className="text-xl font-semibold mb-4 dark:text-white">Редактирование модели</h2>
+                <form onSubmit={handleEditSubmit}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Название</label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={editForm.name}
+                        onChange={handleEditChange}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Описание</label>
+                      <textarea
+                        name="description"
+                        value={editForm.description}
+                        onChange={handleEditChange}
+                        rows={3}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Время печати (ЧЧ:ММ)</label>
+                      <input
+                        type="text"
+                        name="printing_time"
+                        value={editForm.printing_time}
+                        onChange={handleEditChange}
+                        pattern="^([0-9]+:[0-5][0-9]|[0-9]+)$"
+                        title="Формат: ЧЧ:ММ или минуты"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        required
+                      />
+                      <p className="mt-1 text-xs text-gray-500">Формат: ЧЧ:ММ или общее количество минут</p>
+                    </div>
+                    
+                    <div className="flex justify-end space-x-3 pt-4">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setEditing(false)}
+                        disabled={isSubmitting}
+                      >
+                        Отмена
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? 'Сохранение...' : 'Сохранить'}
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </Card>
+          ) : (
+            <>
+              {/* Model visualization */}
+              <Card className="mb-6">
+                <div className="relative h-80">
+                  {currentFile ? (
+                    <ModelFullView file={currentFile} />
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-full">
-                      <CubeIcon className="h-16 w-16 text-gray-400 dark:text-gray-500 mb-2" />
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Нет файлов 3D-моделей</p>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <ModelCube 
+                        color={modelColors[0]} 
+                        size="large" 
+                      />
+                    </div>
+                  )}
+                  
+                  {hasMultipleFiles && (
+                    <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-4">
+                      <button
+                        onClick={prevModelFile}
+                        className="bg-white dark:bg-gray-800 rounded-full p-2 shadow hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <ArrowLeftIcon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+                      </button>
+                      <button
+                        onClick={nextModelFile}
+                        className="bg-white dark:bg-gray-800 rounded-full p-2 shadow hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <ArrowRightIcon className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+                      </button>
                     </div>
                   )}
                 </div>
                 
-                {/* Информация о файле */}
-                {currentFile && (
-                  <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                    <h4 className="font-semibold text-lg mb-2 dark:text-white">Информация о файле:</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><span className="font-medium dark:text-gray-300">Имя файла:</span> <span className="dark:text-gray-300 ml-1">{currentFile.filename}</span></div>
-                      <div><span className="font-medium dark:text-gray-300">Тип файла:</span> <span className="dark:text-gray-300 ml-1">{currentFile.file_type.toUpperCase()}</span></div>
-                      <div><span className="font-medium dark:text-gray-300">Размер файла:</span> <span className="dark:text-gray-300 ml-1">{Math.round(currentFile.file_size / 1024)} КБ</span></div>
-                      <div><span className="font-medium dark:text-gray-300">Дата загрузки:</span> <span className="dark:text-gray-300 ml-1">{formatDate(currentFile.created_at)}</span></div>
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">ID</div>
+                      <div className="mt-1 dark:text-white">{model.id}</div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </Card>
-            
-            {/* Детали и статистика модели */}
-            <Card className="p-4 lg:col-span-4">
-              <h2 className="text-lg font-semibold mb-4 dark:text-white">Детали модели</h2>
-              <div className="space-y-4">
-                {model.description && (
-                  <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <h3 className="font-medium mb-2 dark:text-white">Описание:</h3>
-                    <p className="text-gray-700 dark:text-gray-300">{model.description}</p>
-                  </div>
-                )}
-                
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <ClockIcon className="h-5 w-5 mr-2 text-blue-500" />
-                      <h3 className="font-medium dark:text-white">Время печати</h3>
-                    </div>
-                    <p className="text-xl font-semibold dark:text-gray-300">{formatDuration(model.printing_time)}</p>
-                  </div>
-                  
-                  <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <ChartBarIcon className="h-5 w-5 mr-2 text-green-500" />
-                      <h3 className="font-medium dark:text-white">Успешность печати</h3>
-                    </div>
-                    <p className="text-xl font-semibold dark:text-gray-300">{successRate}%</p>
-                  </div>
-                  
-                  <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <PrinterIcon className="h-5 w-5 mr-2 text-purple-500" />
-                      <h3 className="font-medium dark:text-white">Всего печатей</h3>
-                    </div>
-                    <p className="text-xl font-semibold dark:text-gray-300">{printings.length}</p>
-                  </div>
-                  
-                  <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <ClockIcon className="h-5 w-5 mr-2 text-amber-500" />
-                      <h3 className="font-medium dark:text-white">Среднее время печати</h3>
-                    </div>
-                    <p className="text-xl font-semibold dark:text-gray-300">{averagePrintTime} ч.</p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-            
-            {/* Активные печати */}
-            <Card className="p-4 lg:col-span-12">
-              <h2 className="text-lg font-semibold mb-4 dark:text-white">Активные печати</h2>
-              
-              {activePrintings.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {activePrintings.map(printing => (
-                    <div key={printing.id} className="border dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex justify-between mb-3">
-                        <div className="flex items-center">
-                          <PrinterIcon className="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
-                          <Link 
-                            to={`/printers/${printing.printer_id}`} 
-                            className="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                          >
-                            {getPrinterName(printing.printer_id)}
-                          </Link>
-                        </div>
-                        <StatusBadge status={printing.status} />
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Время печати</div>
+                      <div className="mt-1 flex items-center dark:text-white">
+                        <ClockIcon className="h-5 w-5 text-gray-400 mr-1" />
+                        {formatMinutesToHHMM(model.printing_time)}
                       </div>
-                      
-                      <div className="space-y-2 mb-3 text-sm">
-                        <div className="flex items-center dark:text-gray-300">
-                          <CalendarIcon className="h-4 w-4 mr-2 text-gray-500 dark:text-gray-400" />
-                          <span>Начало: {formatDate(printing.start_time)}</span>
-                        </div>
-                        
-                        {printing.real_time_stop && (
-                          <div className="flex items-center dark:text-gray-300">
-                            <CalendarIcon className="h-4 w-4 mr-2 text-gray-500 dark:text-gray-400" />
-                            <span>Завершение: {formatDate(printing.real_time_stop)}</span>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Дата создания</div>
+                      <div className="mt-1 dark:text-white">{formatDate(model.created_at)}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Успешность печати</div>
+                      <div className="mt-1 dark:text-white">{successRate}%</div>
+                    </div>
+                  </div>
+                  
+                  {model.description && (
+                    <div className="mt-4">
+                      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Описание</div>
+                      <div className="mt-1 dark:text-white">{model.description}</div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+              
+              {/* Tabs for files, G-code, and collections */}
+              <Card>
+                <div className="border-b border-gray-200 dark:border-gray-700">
+                  <nav className="flex -mb-px">
+                    <button
+                      className={`px-4 py-3 font-medium text-sm border-b-2 ${
+                        activeTab === 'files'
+                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                      }`}
+                      onClick={() => setActiveTab('files')}
+                    >
+                      <CubeIcon className="h-5 w-5 inline mr-2" />
+                      Файлы модели
+                    </button>
+                    <button
+                      className={`px-4 py-3 font-medium text-sm border-b-2 ${
+                        activeTab === 'gcode'
+                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                      }`}
+                      onClick={() => setActiveTab('gcode')}
+                    >
+                      <PrinterIcon className="h-5 w-5 inline mr-2" />
+                      G-Code файлы
+                    </button>
+                    <button
+                      className={`px-4 py-3 font-medium text-sm border-b-2 ${
+                        activeTab === 'collections'
+                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                      }`}
+                      onClick={() => setActiveTab('collections')}
+                    >
+                      <FolderIcon className="h-5 w-5 inline mr-2" />
+                      Коллекции
+                    </button>
+                  </nav>
+                </div>
+                
+                <div className="p-4">
+                  {activeTab === 'files' && (
+                    <ModelFiles 
+                      modelId={model.id}
+                      onFilesUpdated={handleFilesUpdated}
+                    />
+                  )}
+                  
+                  {activeTab === 'gcode' && (
+                    <GCodeFiles 
+                      modelId={model.id}
+                      onFilesUpdated={fetchModelData}
+                    />
+                  )}
+                  
+                  {activeTab === 'collections' && (
+                    <ModelCollections 
+                      model={model}
+                      onCollectionsChanged={handleCollectionsChanged}
+                    />
+                  )}
+                </div>
+              </Card>
+            </>
+          )}
+        </div>
+        
+        {/* Printings History */}
+        <div>
+          <Card>
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-medium dark:text-white">История печати</h2>
+            </div>
+            <div className="p-4">
+              {printings.length === 0 ? (
+                <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                  Нет истории печати для этой модели
+                </div>
+              ) : (
+                <>
+                  {/* Statistics */}
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-md">
+                      <div className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                        Всего печатей
+                      </div>
+                      <div className="mt-1 text-2xl font-semibold text-blue-900 dark:text-blue-300">
+                        {printings.length}
+                      </div>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-900/30 p-4 rounded-md">
+                      <div className="text-sm font-medium text-green-700 dark:text-green-400">
+                        Успешность
+                      </div>
+                      <div className="mt-1 text-2xl font-semibold text-green-900 dark:text-green-300">
+                        {successRate}%
+                      </div>
+                    </div>
+                    <div className="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-md">
+                      <div className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                        Среднее время
+                      </div>
+                      <div className="mt-1 text-2xl font-semibold text-amber-900 dark:text-amber-300">
+                        {averagePrintTime} ч
+                      </div>
+                    </div>
+                    <div className="bg-purple-50 dark:bg-purple-900/30 p-4 rounded-md">
+                      <div className="text-sm font-medium text-purple-700 dark:text-purple-400">
+                        Активных
+                      </div>
+                      <div className="mt-1 text-2xl font-semibold text-purple-900 dark:text-purple-300">
+                        {activePrintings.length}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Active printings */}
+                  {activePrintings.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                        Активные печати
+                      </h3>
+                      <div className="space-y-3">
+                        {activePrintings.slice(0, 3).map(printing => (
+                          <div key={printing.id} className="bg-white dark:bg-gray-700 p-3 rounded-md border border-gray-200 dark:border-gray-600 shadow-sm">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <Link to={`/printings/${printing.id}`} className="font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                                  Печать #{printing.id}
+                                </Link>
+                                <div className="text-sm text-gray-600 dark:text-gray-300">
+                                  {getPrinterName(printing.printer_id)}
+                                </div>
+                              </div>
+                              <StatusBadge status={printing.status} />
+                            </div>
+                            <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                              Начата: {formatDate(printing.start_time)}
+                            </div>
+                          </div>
+                        ))}
+                        {activePrintings.length > 3 && (
+                          <div className="text-center">
+                            <Link to={`/printings?model_id=${model.id}`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                              Показать все ({activePrintings.length})
+                            </Link>
                           </div>
                         )}
                       </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm dark:text-gray-300">
-                          <span>Прогресс печати</span>
-                          <span>{Math.round(printing.progress || 0)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                          <div 
-                            className="bg-blue-600 dark:bg-blue-500 h-2.5 rounded-full" 
-                            style={{ width: `${printing.progress || 0}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-4 text-right">
-                        <Link to={`/printings/${printing.id}`}>
-                          <Button variant="outline" size="sm">Подробнее</Button>
-                        </Link>
+                    </div>
+                  )}
+                  
+                  {/* Completed printings */}
+                  {completedPrintings.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                        История печати
+                      </h3>
+                      <div className="space-y-3">
+                        {completedPrintings.slice(0, 5).map(printing => (
+                          <div key={printing.id} className="bg-white dark:bg-gray-700 p-3 rounded-md border border-gray-200 dark:border-gray-600 shadow-sm">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <Link to={`/printings/${printing.id}`} className="font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                                  Печать #{printing.id}
+                                </Link>
+                                <div className="text-sm text-gray-600 dark:text-gray-300">
+                                  {getPrinterName(printing.printer_id)}
+                                </div>
+                              </div>
+                              <StatusBadge status={printing.status} />
+                            </div>
+                            <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                              {formatDate(printing.start_time)}
+                            </div>
+                          </div>
+                        ))}
+                        {completedPrintings.length > 5 && (
+                          <div className="text-center">
+                            <Link to={`/printings?model_id=${model.id}`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                              Показать все ({completedPrintings.length})
+                            </Link>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 dark:text-gray-400">
-                  <CubeIcon className="h-12 w-12 mx-auto text-gray-400 dark:text-gray-500 mb-3" />
-                  <p>Нет активных печатей</p>
-                </div>
+                  )}
+                </>
               )}
-            </Card>
-          </div>
-          
-          {/* Связанные модели */}
-          <ModelRelations modelId={id} studioId={model.studio_id} />
-        </>
-      )}
-
-      {/* История печатей */}
-      <Card className="p-4">
-        <h2 className="text-lg font-semibold mb-4 dark:text-white">История печатей</h2>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-800">
-              <tr>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Принтер</th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Статус</th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Начало печати</th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Завершение печати</th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Длительность</th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Действия</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {completedPrintings.length > 0 ? (
-                completedPrintings.map(printing => (
-                  <tr key={printing.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="py-3 px-4 dark:text-gray-300">{printing.id}</td>
-                    <td className="py-3 px-4">
-                      <Link to={`/printers/${printing.printer_id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                        {getPrinterName(printing.printer_id)}
-                      </Link>
-                    </td>
-                    <td className="py-3 px-4">
-                      <StatusBadge status={printing.status} />
-                    </td>
-                    <td className="py-3 px-4 dark:text-gray-300">{formatDate(printing.start_time)}</td>
-                    <td className="py-3 px-4 dark:text-gray-300">{formatDate(printing.real_time_stop)}</td>
-                    <td className="py-3 px-4 dark:text-gray-300">
-                      {printing.real_time_stop ? 
-                        Math.round((new Date(printing.real_time_stop) - new Date(printing.start_time)) / (1000 * 60 * 60) * 10) / 10 + ' ч.' : 
-                        'Не завершена'
-                      }
-                    </td>
-                    <td className="py-3 px-4">
-                      <Link to={`/printings/${printing.id}`}>
-                        <Button variant="outline" size="xs">Просмотр</Button>
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="7" className="py-8 text-center text-gray-500 dark:text-gray-400">
-                    Нет истории печатей
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+            </div>
+          </Card>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

@@ -98,3 +98,23 @@ pyinstaller --onefile --windowed --icon=printer_icon.ico desktop_client.py
 
 get gcodes:         /server/files/list?root=gcodes
 get status printer: /printer/objects/query
+
+# Recent Fixes
+
+## Fixed Issues
+- Fixed 404 error when adding models to collections by correcting parameter order in `ModelCollections.js`
+- Added better error handling and logging in models loading process
+- Improved collection-related functions with better error handling and validation
+- Fixed potential issues with null models or collections
+
+## How to Test
+1. Open the Models list page
+2. Check browser console for model loading logs  
+3. Try adding models to collections
+4. Check browser console for detailed API calls and responses
+
+## Troubleshooting
+If you still encounter issues:
+- Make sure the backend server is running and accessible
+- Check network tab in developer tools for API responses
+- Review browser console logs for detailed error information

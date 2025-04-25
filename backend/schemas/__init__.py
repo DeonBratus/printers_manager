@@ -6,3 +6,4 @@ from schemas.printings_schemas import *
 from schemas.roles_schemas import *
 from schemas.studios_schemas import *
 from schemas.users_schemas import *
+from schemas.collections_schemas import *

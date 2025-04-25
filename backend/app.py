@@ -14,6 +14,7 @@ from auth.router import router as auth_router
 from routers.studios import router as studio_router
 from routers.invitations import router as invitations_router
 from routers.members import router as members_router
+from routers.collections import router as collections_router
 
 from services.printers.background_tasks import start_scheduler
 from pathlib import Path
@@ -58,6 +59,7 @@ app.include_router(members_router)
 app.include_router(invitations_router)
 app.include_router(studio_router)
 app.include_router(auth_router)
+app.include_router(collections_router)
 
 
 # Запускаем планировщик при старте приложения

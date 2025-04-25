@@ -177,6 +177,7 @@ export const getModels = (studio_id, related_to_id) => {
   const params = new URLSearchParams();
   if (studio_id) params.append('studio_id', studio_id);
   if (related_to_id) params.append('related_to_id', related_to_id);
+  console.log(`Calling GET /models/?${params.toString()}`);
   return api.get(`/models/?${params.toString()}`);
 };
 
@@ -255,32 +256,52 @@ export const getModelReport = (modelId, studio_id) => {
   return api.get(`/reports/models/${modelId}`, { params: { studio_id } });
 };
 export const exportPrintersReport = (studio_id) => {
-  return api.get('/reports/printers/export/', { 
-    params: { studio_id },
-    responseType: 'blob',
-    headers: {
-      'Accept': 'text/csv'
-    }
-  });
+  let url = '/reports/printers/export';
+  if (studio_id) {
+    url += `?studio_id=${studio_id}`;
+  }
+  return api.get(url, { responseType: 'blob' });
 };
 
-// Model relationships API
-export const getRelatedModels = (modelId) => {
-  if (!modelId) return Promise.resolve({ data: [] });
-  return api.get(`/models/${modelId}/relations`);
-};
-
-export const addModelRelation = (modelId, relatedModelId, relationType) => {
-  if (!modelId || !relatedModelId) return Promise.reject(new Error('Missing required parameters'));
-  
+// Collections API
+export const getCollections = (studio_id, parent_id) => {
   const params = new URLSearchParams();
-  if (relationType) params.append('relation_type', relationType);
-  return api.post(`/models/${modelId}/relations/${relatedModelId}?${params.toString()}`);
+  if (studio_id) params.append('studio_id', studio_id);
+  if (parent_id !== undefined) params.append('parent_id', parent_id);
+  return api.get(`/collections/?${params.toString()}`);
 };
 
-export const removeModelRelation = (modelId, relatedModelId) => {
-  if (!modelId || !relatedModelId) return Promise.reject(new Error('Missing required parameters'));
-  return api.delete(`/models/${modelId}/relations/${relatedModelId}`);
+export const getCollectionTree = (studio_id) => {
+  const params = new URLSearchParams();
+  if (studio_id) params.append('studio_id', studio_id);
+  return api.get(`/collections/tree?${params.toString()}`);
+};
+
+export const getCollection = (id) => api.get(`/collections/${id}`);
+
+export const createCollection = (collectionData) => api.post('/collections/', collectionData);
+
+export const updateCollection = (id, collectionData) => api.put(`/collections/${id}`, collectionData);
+
+export const deleteCollection = (id) => api.delete(`/collections/${id}`);
+
+export const getCollectionModels = (collectionId, skip = 0, limit = 100) => {
+  console.log(`Calling GET /collections/${collectionId}/models?skip=${skip}&limit=${limit}`);
+  return api.get(`/collections/${collectionId}/models?skip=${skip}&limit=${limit}`);
+};
+
+export const addModelToCollection = async (modelId, collectionId) => {
+  try {
+    const response = await api.post(`/collections/${collectionId}/models/${modelId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error adding model to collection:', error);
+    throw error;
+  }
+};
+
+export const removeModelFromCollection = (collectionId, modelId) => {
+  return api.delete(`/collections/${collectionId}/models/${modelId}`);
 };
 
 export default api;

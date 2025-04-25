@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import FileUpload from './FileUpload';
 import FilesList from './FilesList';
 import Card from './Card';
+import Button from './Button';
 import { 
   getModelFiles,
   uploadModelFile,
@@ -11,7 +12,8 @@ import {
 } from '../services/api';
 import { 
   DocumentPlusIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 // Define supported model file types
@@ -23,7 +25,7 @@ const MODEL_FILE_TYPES = [
   { value: 'other', label: 'Other format', ext: '*' }
 ];
 
-const ModelFiles = ({ modelId }) => {
+const ModelFiles = ({ modelId, onFilesUpdated }) => {
   const { t } = useTranslation();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +56,7 @@ const ModelFiles = ({ modelId }) => {
       await uploadModelFile(modelId, file, fileType);
       setUploadMode(false);
       setRefreshTrigger(prev => prev + 1);
+      if (onFilesUpdated) onFilesUpdated();
     } catch (err) {
       console.error('Error uploading file:', err);
       throw new Error(t('models.uploadError'));
@@ -90,6 +93,7 @@ const ModelFiles = ({ modelId }) => {
     try {
       await deleteModelFile(file.id);
       setRefreshTrigger(prev => prev + 1);
+      if (onFilesUpdated) onFilesUpdated();
     } catch (err) {
       console.error('Error deleting file:', err);
       setError(t('models.deleteFileError'));
@@ -101,8 +105,8 @@ const ModelFiles = ({ modelId }) => {
   };
 
   return (
-    <Card className="p-4">
-      <div className="flex justify-between items-center mb-4">
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold dark:text-white">{t('models.files')}</h3>
         <div className="flex space-x-2">
           <button
@@ -112,13 +116,24 @@ const ModelFiles = ({ modelId }) => {
           >
             <ArrowPathIcon className="h-5 w-5" />
           </button>
-          <button
+          <Button
             onClick={() => setUploadMode(!uploadMode)}
-            className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full"
-            title={uploadMode ? t('common.cancel') : t('models.uploadFile')}
+            variant={uploadMode ? "danger" : "primary"}
+            size="sm"
+            className="flex items-center"
           >
-            <DocumentPlusIcon className="h-5 w-5" />
-          </button>
+            {uploadMode ? (
+              <>
+                <XMarkIcon className="h-5 w-5 mr-1" />
+                {t('common.cancel')}
+              </>
+            ) : (
+              <>
+                <DocumentPlusIcon className="h-5 w-5 mr-1" />
+                {t('models.uploadFile')}
+              </>
+            )}
+          </Button>
         </div>
       </div>
 
@@ -129,13 +144,22 @@ const ModelFiles = ({ modelId }) => {
       )}
 
       {uploadMode ? (
-        <div className="mb-4">
+        <Card className="p-5 border-2 border-blue-500 dark:border-blue-700">
+          <h3 className="text-lg font-semibold mb-3 dark:text-white">{t('models.addNewFile')}</h3>
+          <p className="mb-4 text-gray-600 dark:text-gray-400">
+            Загрузите 3D-модель в формате STL, OBJ или другом поддерживаемом формате.
+            После загрузки модель будет автоматически доступна для просмотра и печати.
+          </p>
           <FileUpload
             onUpload={handleUpload}
             fileTypes={MODEL_FILE_TYPES}
             buttonText={t('models.uploadFile')}
+            className="w-full"
           />
-        </div>
+          <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+            Поддерживаемые форматы: STL, OBJ, AMF, 3MF и другие
+          </div>
+        </Card>
       ) : null}
 
       {loading ? (
@@ -143,14 +167,32 @@ const ModelFiles = ({ modelId }) => {
           {t('common.loading')}
         </div>
       ) : (
-        <FilesList
-          files={files}
-          onDownload={handleDownload}
-          onDelete={handleDelete}
-          emptyMessage={t('models.noFiles')}
-        />
+        <>
+          {files.length === 0 && !uploadMode && (
+            <Card className="p-5 text-center">
+              <p className="text-gray-500 dark:text-gray-400 mb-4">{t('models.noFiles')}</p>
+              <Button 
+                onClick={() => setUploadMode(true)}
+                variant="primary"
+                className="flex items-center mx-auto"
+              >
+                <DocumentPlusIcon className="h-5 w-5 mr-2" />
+                {t('models.uploadFile')}
+              </Button>
+            </Card>
+          )}
+          
+          {files.length > 0 && (
+            <FilesList
+              files={files}
+              onDownload={handleDownload}
+              onDelete={handleDelete}
+              emptyMessage={t('models.noFiles')}
+            />
+          )}
+        </>
       )}
-    </Card>
+    </div>
   );
 };
 

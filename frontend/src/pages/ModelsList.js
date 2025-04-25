@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { getModels, getStudios, createModel, deleteModel, getModelFiles } from '../services/api';
+import { useTranslation } from 'react-i18next';
+import { getModels, getStudios, createModel, deleteModel, getModelFiles, getCollectionTree, getCollectionModels, createCollection, updateCollection, deleteCollection, addModelToCollection, getCollections, getCollection } from '../services/api';
 import { useStudio } from '../context/StudioContext';
 import { useAuth } from '../context/AuthContext';
-import { useTranslation } from 'react-i18next';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import ModelCube from '../components/ModelCube';
-import ModelConnections from '../components/ModelConnections';
-import ModelNetworkView from '../components/ModelNetworkView';
+import CollectionTree from '../components/CollectionTree';
+import CollectionModal from '../components/CollectionModal';
 import { 
   CubeIcon, 
   ClockIcon, 
@@ -27,21 +27,19 @@ import {
   Bars3Icon,
   AdjustmentsHorizontalIcon,
   ArrowPathIcon,
-  MagnifyingGlassIcon as SearchIcon,
-  ArrowDownTrayIcon as DownloadIcon
+  FolderIcon
 } from '@heroicons/react/24/outline';
 import { formatMinutesToHHMM, parseHHMMToMinutes, formatDuration } from '../utils/timeFormat';
 import {
   ChartBarIcon,
   ShareIcon as ShareIconSolid,
-  ArrowDownTrayIcon as DownloadIconSolid
+  ArrowDownTrayIcon as DownloadIconSolid,
+  PlusCircleIcon as PlusCircleSolid
 } from '@heroicons/react/24/solid';
 
 // Tab configuration
 const ViewIcon = ({ type }) => {
   switch (type) {
-    case 'network':
-      return <ChartBarIcon className="h-5 w-5 text-blue-500" aria-hidden="true" />;
     case 'grid':
       return <Squares2X2Icon className="h-5 w-5 text-blue-500" aria-hidden="true" />;
     case 'list':
@@ -56,6 +54,19 @@ const ModelsList = () => {
   const { hasPermission } = useAuth();
   const { selectedStudio, getCurrentStudioId } = useStudio();
   
+  // Безопасная версия функции hasPermission
+  const safeHasPermission = useCallback((permission) => {
+    try {
+      if (typeof hasPermission === 'function') {
+        return hasPermission(permission);
+      }
+      return false;
+    } catch (error) {
+      console.error('Error in hasPermission:', error);
+      return false;
+    }
+  }, [hasPermission]);
+  
   // State management
   const [models, setModels] = useState([]);
   const [modelFiles, setModelFiles] = useState({});
@@ -66,9 +77,23 @@ const ModelsList = () => {
     name: '', 
     printing_time: '01:00'
   });
-  const [viewMode, setViewMode] = useState(localStorage.getItem('modelsViewMode') || 'grid'); // 'grid', 'list', or 'network'
+  const [viewMode, setViewMode] = useState(localStorage.getItem('modelsViewMode') || 'grid'); // 'grid' or 'list'
   const [searchQuery, setSearchQuery] = useState('');
-  const networkContainerRef = useRef(null);
+  
+  // Состояния для коллекций
+  const [collections, setCollections] = useState([]);
+  const [selectedCollection, setSelectedCollection] = useState(null);
+  const [collectionModels, setCollectionModels] = useState([]);
+  const [isCollectionLoading, setIsCollectionLoading] = useState(false);
+  const [showCollectionSidebar, setShowCollectionSidebar] = useState(
+    localStorage.getItem('showCollectionSidebar') !== 'false'
+  );
+  
+  // Состояния для модального окна коллекций
+  const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
+  const [editingCollection, setEditingCollection] = useState(null);
+  const [parentCollection, setParentCollection] = useState(null);
+  const [isCollectionSubmitting, setIsCollectionSubmitting] = useState(false);
   
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -96,68 +121,39 @@ const ModelsList = () => {
 
   // Filtered models based on search query
   const filteredModels = useMemo(() => {
-    if (!searchQuery || !searchQuery.trim()) return models;
+    if (!searchQuery || !searchQuery.trim()) {
+      // Если выбрана категория "Без коллекции"
+      if (selectedCollection === 'uncategorized') {
+        // Фильтруем модели, которые не принадлежат никакой коллекции
+        // Это требует дополнительной логики на бэкенде или дополнительного запроса
+        return models.filter(model => !model.collection_ids || model.collection_ids.length === 0);
+      }
+      
+      // Если выбрана обычная коллекция, показываем модели из неё
+      return selectedCollection ? collectionModels : models;
+    }
     
     const query = searchQuery.toLowerCase().trim();
-    return models.filter(model => 
+    const modelsToFilter = selectedCollection === 'uncategorized' 
+      ? models.filter(model => !model.collection_ids || model.collection_ids.length === 0)
+      : (selectedCollection ? collectionModels : models);
+    
+    return modelsToFilter.filter(model => 
       model && model.name && model.name.toLowerCase().includes(query)
     );
-  }, [models, searchQuery]);
-
-  // Build connection map for use in network view
-  const connectionMap = useMemo(() => {
-    const connections = {};
-    
-    models.forEach(model => {
-      if (!model || !model.id) return;
-      
-      if (!connections[model.id]) {
-        connections[model.id] = { to: [], from: [] };
-      }
-      
-      // Add related_to connections
-      if (model.related_to && model.related_to.length > 0) {
-        connections[model.id].to = model.related_to.map(related => related.id);
-        
-        // Make sure all target models have connections object
-        model.related_to.forEach(related => {
-          if (!connections[related.id]) {
-            connections[related.id] = { to: [], from: [] };
-          }
-          // Add reverse connection
-          if (!connections[related.id].from.includes(model.id)) {
-            connections[related.id].from.push(model.id);
-          }
-        });
-      }
-      
-      // Add related_from connections
-      if (model.related_from && model.related_from.length > 0) {
-        connections[model.id].from = model.related_from.map(related => related.id);
-        
-        // Make sure all source models have connections object
-        model.related_from.forEach(related => {
-          if (!connections[related.id]) {
-            connections[related.id] = { to: [], from: [] };
-          }
-          // Add reverse connection
-          if (!connections[related.id].to.includes(model.id)) {
-            connections[related.id].to.push(model.id);
-          }
-        });
-      }
-    });
-    
-    return connections;
-  }, [models]);
+  }, [models, collectionModels, selectedCollection, searchQuery]);
 
   const fetchModels = async () => {
     setLoading(true);
     setError(null);
     try {
+      console.log("Fetching models...");
       // Pass the selected studio ID
       const selectedStudioId = selectedStudio ? selectedStudio.id : null;
+      console.log("Using studio ID:", selectedStudioId);
+      
       let response = await getModels(selectedStudioId);
+      console.log("Model API response:", response);
       
       // Handle different API response formats
       let modelsData = [];
@@ -170,11 +166,17 @@ const ModelsList = () => {
         }
       }
       
-      setModels(modelsData);
+      console.log("Models data before collection info:", modelsData);
+      
+      // Получаем информацию о коллекциях для каждой модели, если её нет
+      const modelsWithCollectionInfo = await enrichModelsWithCollectionInfo(modelsData);
+      
+      console.log("Models with collection info:", modelsWithCollectionInfo);
+      setModels(modelsWithCollectionInfo);
       
       // For each model, fetch the STL files to display
-      if (modelsData.length > 0) {
-        const filesPromises = modelsData.map(model => {
+      if (modelsWithCollectionInfo.length > 0) {
+        const filesPromises = modelsWithCollectionInfo.map(model => {
           if (!model || !model.id) return Promise.resolve({ modelId: null, files: [], stlFile: null });
           
           return getModelFiles(model.id)
@@ -203,644 +205,954 @@ const ModelsList = () => {
             });
         });
       
+        // Wait for all file fetch promises to complete
       const filesResults = await Promise.all(filesPromises);
-      const filesMap = {};
         
+        // Build a map of model files
+        const newModelFiles = {};
         filesResults.forEach(result => {
-          if (result && result.modelId) {
-            filesMap[result.modelId] = { 
-              files: result.files || [], 
-              stlFile: result.stlFile || null 
+          if (result.modelId) {
+            newModelFiles[result.modelId] = {
+              files: result.files,
+              stlFile: result.stlFile
             };
           }
       });
       
-      setModelFiles(filesMap);
+        setModelFiles(newModelFiles);
       }
-    } catch (err) {
-      console.error("Error fetching models:", err);
-      setError(t('models.fetchError', 'Failed to load models. Please try again.'));
+    } catch (error) {
+      console.error('Error fetching models:', error);
+      setError('Ошибка загрузки моделей');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchStudios = async () => {
+  // Загрузка дерева коллекций
+  const fetchCollections = async () => {
     try {
-      let response = await getStudios();
-      // Handle different API response formats
-      let studiosData = [];
+      const selectedStudioId = selectedStudio ? selectedStudio.id : null;
+      const response = await getCollectionTree(selectedStudioId);
+      setCollections(response.data || []);
+    } catch (error) {
+      console.error('Error fetching collections:', error);
+      // Не устанавливаем ошибку, чтобы не блокировать основной UI
+    }
+  };
+  
+  // Загрузка моделей из выбранной коллекции
+  const fetchCollectionModels = async (collectionId) => {
+    if (!collectionId) {
+      console.error("No collection ID provided to fetchCollectionModels");
+      return;
+    }
+    
+    console.log(`Fetching models for collection ${collectionId}`);
+    setIsCollectionLoading(true);
+    try {
+      const response = await getCollectionModels(collectionId);
+      console.log("Collection models response:", response);
+      const models = response.data || [];
       
-      if (response) {
-        if (Array.isArray(response)) {
-          studiosData = response;
-        } else if (response.data) {
-          studiosData = Array.isArray(response.data) ? response.data : [];
-        }
+      // Получаем информацию о коллекции
+      const collectionResponse = await getCollection(collectionId);
+      console.log("Collection details response:", collectionResponse);
+      const collection = collectionResponse.data;
+      
+      if (!collection || !collection.id) {
+        console.error("Collection not found or invalid response");
+        setCollectionModels([]);
+        return;
       }
       
-      setStudios(studiosData);
+      // Добавляем информацию о коллекции к каждой модели
+      const modelsWithCollection = models.map(model => ({
+        ...model,
+        collection_name: collection.name,
+        collection_ids: [collection.id],
+        collection_names: [collection.name]
+      }));
+      
+      console.log(`Loaded ${modelsWithCollection.length} models for collection ${collectionId}`);
+      setCollectionModels(modelsWithCollection);
     } catch (error) {
-      console.error('Error fetching studios:', error);
-      setStudios([]); // Set to empty array on error
+      console.error('Error fetching collection models:', error);
+      setCollectionModels([]);
+    } finally {
+      setIsCollectionLoading(false);
     }
   };
 
-  // Fetch data when dependencies change
+  const fetchStudios = async () => {
+    try {
+      const response = await getStudios();
+      setStudios(response.data || []);
+    } catch (error) {
+      console.error('Error fetching studios:', error);
+    }
+  };
+
+  // Определяем безопасный вариант функции fetchModels, обернутый в useCallback
+  const safeFetchModels = useCallback(async () => {
+    try {
+      return await fetchModels();
+    } catch (error) {
+      console.error('Error in safeFetchModels:', error);
+      setError('Ошибка загрузки моделей');
+      return null;
+    }
+  }, []);
+
+  // Определяем безопасный вариант функции fetchCollections
+  const safeFetchCollections = useCallback(async () => {
+    try {
+      return await fetchCollections();
+    } catch (error) {
+      console.error('Error in safeFetchCollections:', error);
+      return null;
+    }
+  }, []);
+
+  // Определяем безопасный вариант функции fetchStudios
+  const safeFetchStudios = useCallback(async () => {
+    try {
+      return await fetchStudios();
+    } catch (error) {
+      console.error('Error in safeFetchStudios:', error);
+      return null;
+    }
+  }, []);
+
+  // При инициализации загружаем данные и информацию о коллекциях для моделей
   useEffect(() => {
-    // Create a flag to prevent state updates if component unmounts
     let isMounted = true;
     
     const loadData = async () => {
       try {
-        await fetchModels();
-        await fetchStudios();
-      } catch (err) {
-        console.error("Error loading data:", err);
+        // Загружаем данные последовательно, чтобы избежать проблем с одновременными вызовами
+        if (isMounted) await safeFetchModels();
+        if (isMounted) await safeFetchCollections();
+        if (isMounted) await safeFetchStudios();
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+        if (isMounted) setError('Ошибка загрузки данных');
       }
     };
     
     loadData();
     
-    // Set up periodic refresh with proper cleanup
-    const refreshInterval = setInterval(() => {
-      if (isMounted) {
-      fetchModels().catch(err => console.error("Error in periodic refresh:", err));
-      }
-    }, 30000); // refresh every 30 seconds
-    
-    // Cleanup function
+    // Очистка при размонтировании компонента
     return () => {
       isMounted = false;
-      clearInterval(refreshInterval);
     };
-  }, [selectedStudio]); // Only re-run when selected studio changes
+  }, [safeFetchModels, safeFetchCollections, safeFetchStudios]);
+
+  // При изменении студии обновляем данные
+  useEffect(() => {
+    // Сбрасываем выбранную коллекцию при смене студии
+    setSelectedCollection(null);
+    setCollectionModels([]);
+    
+    // Загружаем данные для новой студии
+    safeFetchModels();
+    safeFetchCollections();
+  }, [selectedStudio, safeFetchModels, safeFetchCollections]);
+  
+  // При выборе коллекции загружаем модели из неё
+  useEffect(() => {
+    if (selectedCollection && selectedCollection.id) {
+      fetchCollectionModels(selectedCollection.id);
+    } else {
+      setCollectionModels([]);
+    }
+  }, [selectedCollection]);
+  
+  // Сохраняем состояние видимости сайдбара
+  useEffect(() => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('showCollectionSidebar', String(showCollectionSidebar));
+    }
+  }, [showCollectionSidebar]);
 
   const handleInputChange = (e) => {
-    if (e && e.target && typeof e.target.name === 'string') {
-      setNewModel(prev => ({ ...prev, [e.target.name]: e.target.value }));
-    }
+    if (!e || typeof e.target === 'undefined') return;
+    const { name, value } = e.target;
+    setNewModel(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
-    if (e && e.preventDefault && typeof e.preventDefault === 'function') {
+    if (e && typeof e.preventDefault === 'function') {
       e.preventDefault();
     }
-    
-    if (!newModel.name || !newModel.name.trim() || !newModel.printing_time) {
+    try {
+      setIsSubmitting(true);
+      setError(null);
+      
+      // Convert HH:MM to minutes
+      const printingTimeMinutes = parseHHMMToMinutes(newModel.printing_time || '01:00');
+      
+      const modelData = {
+        ...newModel,
+        printing_time: printingTimeMinutes,
+        studio_id: selectedStudio ? selectedStudio.id : null
+      };
+      
+      // Создаем модель
+      const createdModel = await createModel(modelData);
+      
+      // Если была выбрана коллекция, добавляем модель в нее
+      if (newModel.collection_id && createdModel && createdModel.id) {
+        try {
+          // Вызываем API для добавления модели в коллекцию
+          await addModelToCollection(createdModel.id, newModel.collection_id);
+          
+          // Обновляем список моделей в коллекции, если текущая коллекция - та, в которую добавляем
+          if (selectedCollection && selectedCollection.id === newModel.collection_id) {
+            await fetchCollectionModels(selectedCollection.id);
+          }
+        } catch (collectionError) {
+          console.error('Error adding model to collection:', collectionError);
+        }
+      }
+      
+      // Reset form and close modal
+      setNewModel({ name: '', printing_time: '01:00', collection_id: '' });
+      setIsAddModalOpen(false);
+      
+      // Refresh models list
+      safeFetchModels();
+    } catch (error) {
+      console.error('Error creating model:', error);
+      setError('Ошибка при создании модели');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Обработчики для коллекций
+  const handleSelectCollection = (collection) => {
+    if (!collection) return;
+    setSelectedCollection(collection);
+  };
+  
+  const handleAddCollection = (parentColl = null) => {
+    setEditingCollection(null);
+    setParentCollection(parentColl);
+    setIsCollectionModalOpen(true);
+  };
+  
+  const handleEditCollection = (collection) => {
+    if (!collection) return;
+    setEditingCollection(collection);
+    setParentCollection(null);
+    setIsCollectionModalOpen(true);
+  };
+  
+  const handleDeleteCollection = (collection) => {
+    if (!collection || !collection.id) return;
+    if (window.confirm('Вы уверены, что хотите удалить эту коллекцию?')) {
+      deleteCollectionFromDb(collection.id);
+    }
+  };
+  
+  const handleSaveCollection = async (collectionData) => {
+    if (!collectionData) return;
+    setIsCollectionSubmitting(true);
+    try {
+      // Добавляем studio_id, если не указан
+      if (!collectionData.studio_id) {
+        collectionData.studio_id = selectedStudio ? selectedStudio.id : null;
+      }
+      
+      if (editingCollection && editingCollection.id) {
+        // Обновление существующей коллекции
+        await updateCollection(editingCollection.id, collectionData);
+      } else {
+        // Создание новой коллекции
+        await createCollection(collectionData);
+      }
+      
+      // Закрываем модальное окно и обновляем список коллекций
+      setIsCollectionModalOpen(false);
+      safeFetchCollections();
+      
+      // Если редактировали текущую коллекцию, обновляем её данные
+      if (selectedCollection && editingCollection && 
+          selectedCollection.id && editingCollection.id && 
+          selectedCollection.id === editingCollection.id) {
+        setSelectedCollection(prev => ({ ...prev, ...collectionData }));
+      }
+    } catch (error) {
+      console.error('Error saving collection:', error);
+      alert('Ошибка при сохранении коллекции');
+    } finally {
+      setIsCollectionSubmitting(false);
+    }
+  };
+  
+  const deleteCollectionFromDb = async (collectionId) => {
+    if (!collectionId) return;
+    try {
+      await deleteCollection(collectionId);
+      
+      // Обновляем список коллекций
+      safeFetchCollections();
+      
+      // Если удалили текущую коллекцию, сбрасываем выбор
+      if (selectedCollection && selectedCollection.id === collectionId) {
+        setSelectedCollection(null);
+      }
+    } catch (error) {
+      console.error('Error deleting collection:', error);
+      alert('Ошибка при удалении коллекции');
+    }
+  };
+
+  const openDeleteModal = (model) => {
+    if (!model) return;
+    setModelToDelete(model);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!modelToDelete || !modelToDelete.id) {
+      setIsDeleteModalOpen(false);
       return;
     }
     
     try {
       setIsSubmitting(true);
-      // Convert time from HH:MM to minutes
-      const minutes = parseHHMMToMinutes(newModel.printing_time);
+      setError(null);
       
-      const modelData = {
-        ...newModel,
-        printing_time: minutes, // time in minutes for API
-        studio_id: getCurrentStudioId() // Use the currently selected studio
-      };
-      
-      await createModel(modelData);
-      setNewModel({ 
-        name: '', 
-        printing_time: '01:00'
-      });
-      setIsAddModalOpen(false);
-      await fetchModels();
-    } catch (error) {
-      console.error('Error creating model:', error);
-      setError(t('models.createError', 'Failed to create model. Please try again.'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const openDeleteModal = (model) => {
-    if (model) {
-    setModelToDelete(model);
-    setIsDeleteModalOpen(true);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!modelToDelete || !modelToDelete.id) return;
-    
-    try {
-      setIsSubmitting(true);
       await deleteModel(modelToDelete.id);
-      await fetchModels();
+      
+      // Close modal and refresh models
       setIsDeleteModalOpen(false);
-      setModelToDelete(null);
+      safeFetchModels();
+      
+      // If we were showing collection models, refresh those too
+      if (selectedCollection && selectedCollection.id) {
+        fetchCollectionModels(selectedCollection.id);
+      }
     } catch (error) {
       console.error('Error deleting model:', error);
-      setError(t('models.deleteError', 'Failed to delete model. Please try again.'));
+      setError('Ошибка при удалении модели');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const changeViewMode = (mode) => {
+    if (!mode) return;
     setViewMode(mode);
+    if (typeof localStorage !== 'undefined') {
     localStorage.setItem('modelsViewMode', mode);
+    }
+  };
+  
+  const toggleCollectionSidebar = () => {
+    setShowCollectionSidebar(prev => !prev);
+  };
+
+  // Обработчик для выбора категории "Без коллекции"
+  const handleSelectUncategorized = () => {
+    try {
+      setSelectedCollection('uncategorized');
+      setCollectionModels([]); // Сбрасываем коллекционные модели
+    } catch (error) {
+      console.error('Error selecting uncategorized collection:', error);
+    }
+  };
+
+  // Вспомогательная функция для получения информации о коллекциях для моделей
+  const enrichModelsWithCollectionInfo = async (models) => {
+    try {
+      console.log("Starting model enrichment with collection info");
+      
+      // Handle empty models array
+      if (!models || !Array.isArray(models) || models.length === 0) {
+        console.log("No models to enrich with collection info");
+        return models || [];
+      }
+      
+      // Создаем карту моделей по ID для быстрого доступа
+      const modelsMap = models.reduce((map, model) => {
+        if (model && model.id) {
+          map[model.id] = { ...model, collection_ids: [], collection_names: [] };
+        }
+        return map;
+      }, {});
+      
+      console.log("Created models map:", Object.keys(modelsMap).length);
+
+      // Получаем все коллекции
+      const collsResponse = await getCollections(selectedStudio?.id);
+      const collections = collsResponse.data || [];
+      console.log("Fetched collections for enrichment:", collections.length);
+
+      // Для каждой коллекции получаем её модели
+      for (const collection of collections) {
+        try {
+          if (!collection || !collection.id) continue;
+          
+          const collModelsResponse = await getCollectionModels(collection.id);
+          const collectionModels = collModelsResponse.data || [];
+          console.log(`Fetched ${collectionModels.length} models for collection ${collection.id}`);
+
+          // Добавляем информацию о коллекции к каждой модели
+          collectionModels.forEach(model => {
+            if (model && model.id && modelsMap[model.id]) {
+              modelsMap[model.id].collection_ids = modelsMap[model.id].collection_ids || [];
+              modelsMap[model.id].collection_names = modelsMap[model.id].collection_names || [];
+              
+              // Добавляем ID и название коллекции, если их ещё нет
+              if (!modelsMap[model.id].collection_ids.includes(collection.id)) {
+                modelsMap[model.id].collection_ids.push(collection.id);
+                modelsMap[model.id].collection_names.push(collection.name);
+              }
+              
+              // Устанавливаем основное название коллекции для отображения в карточке
+              if (!modelsMap[model.id].collection_name) {
+                modelsMap[model.id].collection_name = collection.name;
+              }
+            }
+          });
+        } catch (err) {
+          console.error(`Error fetching models for collection ${collection.id}:`, err);
+        }
+      }
+
+      // Возвращаем обогащенные модели
+      const result = Object.values(modelsMap);
+      console.log(`Returning ${result.length} enriched models`);
+      return result;
+    } catch (error) {
+      console.error('Error enriching models with collection info:', error);
+      return models || []; // Возвращаем исходные модели в случае ошибки
+    }
   };
 
   const renderLoadingState = () => (
-    <div className="h-full flex flex-col items-center justify-center p-10 space-y-4">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-t-2 border-blue-500"></div>
-      <p className="text-gray-600 dark:text-gray-300">{t('common.loading', 'Loading...')}</p>
+    <div className="flex justify-center items-center min-h-[400px]">
+      <div className="text-center">
+        <ArrowPathIcon className="h-10 w-10 text-blue-500 animate-spin mx-auto mb-2" />
+        <p className="text-gray-600 dark:text-gray-400">{t('Loading models...')}</p>
+      </div>
     </div>
   );
 
-  // Early loading return
-  if (loading) {
-    return renderLoadingState();
-  }
-
+  // Отображение карточек моделей в сетке
+  const renderGridView = () => {
   return (
-    <div className="space-y-6">
-      {/* Header Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-              <CubeIcon className="h-7 w-7 mr-2 text-blue-500" />
-              {t('models.title', 'Модели')}
-            </h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {filteredModels.length} {filteredModels.length === 1 ? 
-                t('models.modelSingular', 'модель') : 
-                t('models.modelPlural', 'моделей')}
-            </p>
-          </div>
-          
-          {/* Navigation Controls */}
-          <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-            {/* View Title Section */}
-            <div className="flex items-center">
-              <h2 className="text-xl font-semibold flex items-center">
-                <ViewIcon type={viewMode} />
-                <span className="ml-2">
-                  {viewMode === 'network' ? t('Models Network', 'Сеть моделей') : 
-                   viewMode === 'grid' ? t('Models Grid', 'Сетка моделей') : 
-                   t('Models List', 'Список моделей')}
-                </span>
-              </h2>
-              {error && (
-                <div className="ml-4 flex items-center text-red-500">
-                  <ExclamationCircleIcon className="h-5 w-5 mr-1" />
-                  <span>{error}</span>
-                </div>
-              )}
-            </div>
-            
-            {/* Actions Section */}
-            <div className="flex items-center space-x-2">
-              {/* Search Input */}
-              <div className="relative flex-grow max-w-xs">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <SearchIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                </div>
-                <input
-                  type="text"
-                  className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  placeholder={t('Search models...', 'Поиск моделей...')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              
-              {/* Refresh Button */}
-              <button
-                type="button"
-                className="bg-white dark:bg-gray-700 p-2 rounded-md border border-gray-300 dark:border-gray-600 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none"
-                onClick={fetchModels}
-              >
-                <ArrowPathIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-              </button>
-              
-              {/* View Mode Toggles */}
-              <div className="flex rounded-md shadow-sm">
-                {/* List/Grid Toggle */}
-                <div className="inline-flex rounded-md shadow-sm">
-                  <button
-                    type="button"
-                    className={`relative inline-flex items-center px-3 py-2 rounded-l-md border ${
-                      viewMode === 'list' ? 'bg-blue-50 border-blue-500 z-10 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-white border-gray-300 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'
-                    }`}
-                    onClick={() => setViewMode('list')}
-                  >
-                    <Bars3Icon className="h-5 w-5" />
-                    <span className="sr-only">{t('List View', 'Список')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`relative inline-flex items-center px-3 py-2 rounded-r-md border ${
-                      viewMode === 'grid' ? 'bg-blue-50 border-blue-500 z-10 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-white border-gray-300 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'
-                    }`}
-                    onClick={() => setViewMode('grid')}
-                  >
-                    <Squares2X2Icon className="h-5 w-5" />
-                    <span className="sr-only">{t('Grid View', 'Сетка')}</span>
-                  </button>
-                </div>
-                
-                {/* Network View Button */}
-                <button
-                  type="button"
-                  className={`ml-2 inline-flex items-center px-3 py-2 border rounded-md ${
-                    viewMode === 'network' ? 'bg-blue-50 border-blue-500 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-white border-gray-300 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'
-                  }`}
-                  onClick={() => setViewMode('network')}
-                >
-                  <ChartBarIcon className="h-5 w-5" />
-                  <span className="sr-only">{t('Network View', 'Сеть')}</span>
-                </button>
-              </div>
-              
-              {/* Add Model Button */}
-              <Button 
-                onClick={() => setIsAddModalOpen(true)} 
-                icon={<PlusCircleIcon className="h-5 w-5 mr-1" />}
-              >
-                {t('models.addNew', 'Добавить модель')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* View Content */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-        <div className="p-4">
-          {/* Network View */}
-          {viewMode === 'network' ? (
-            <div 
-              ref={networkContainerRef} 
-              className="min-h-[600px]"
-            >
-              <ModelNetworkView 
-                models={filteredModels}
-                modelFiles={modelFiles}
-                connectionMap={connectionMap}
-                getModelColor={getModelColor}
-                onDeleteClick={openDeleteModal}
-                containerRef={networkContainerRef}
-              />
-            </div>
-          ) : viewMode === 'grid' ? (
-            /* Grid View */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredModels.length > 0 ? (
-                filteredModels.map((model) => {
-                  return model && model.id ? (
-                    <Card key={model.id} className="overflow-hidden group hover:shadow-md transition-shadow duration-300 dark:border dark:border-gray-700">
-                      <Link to={`/models/${model.id}`} className="block">
-                        <div className="p-4 flex justify-center items-center h-44 bg-gray-100 dark:bg-gray-800 transition-colors duration-200 hover:bg-gray-200 dark:hover:bg-gray-700 relative">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {filteredModels.map((model) => (
+                    <Card key={model.id} className="flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-300 border border-gray-200 dark:border-gray-700">
+            {/* Отображение коллекции модели */}
+                      {model.collection_name && (
+                        <div className="absolute top-0 left-0 z-10 m-2 px-2 py-1 bg-blue-500/80 text-white text-xs rounded">
+                          <div className="flex items-center">
+                            <FolderIcon className="h-3 w-3 mr-1" />
+                            <span>{model.collection_name}</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="relative group h-52">
+                        <div className="absolute inset-0 overflow-hidden bg-gray-100 dark:bg-gray-800">
+                {/* 3D-модель или заглушка */}
                           {modelFiles[model.id]?.stlFile ? (
                             <ModelCube 
-                              size="lg" 
                               color={getModelColor(model.id)} 
-                              fileId={modelFiles[model.id].stlFile.id}
-                              showPlaceholder={true}
-                              interactive={false}
+                              stlFile={modelFiles[model.id]?.stlFile}
                             />
                           ) : (
-                            <ModelCube 
-                              size="lg" 
-                              color={getModelColor(model.id)}
-                              showPlaceholder={true}
-                              interactive={false}
-                            />
-                          )}
-                          
-                          {/* Quick Action Overlay */}
-                          <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                            <Button 
-                              variant="primary" 
-                              size="sm"
-                              className="transform transition-transform duration-300 scale-90 group-hover:scale-100"
-                            >
-                              {t('common.view', 'Просмотр')}
-                            </Button>
-                          </div>
-                        </div>
-                      </Link>
-                      <div className="p-4">
-                        <div className="flex justify-between">
-                          <h3 className="font-medium text-gray-900 dark:text-white">{model.name}</h3>
-                          <button 
-                            type="button"
-                            onClick={(e) => { 
-                              if (e && e.preventDefault && typeof e.preventDefault === 'function') {
-                                e.preventDefault();
-                              }
-                              if (e && e.stopPropagation && typeof e.stopPropagation === 'function') {
-                                e.stopPropagation();
-                              }
-                              openDeleteModal(model);
-                            }}
-                            className="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors duration-200"
-                            title={t('models.deleteModel', 'Удалить модель')}
-                          >
-                            <span className="sr-only">{t('common.delete', 'Удалить')}</span>
-                            <ExclamationTriangleIcon className="h-5 w-5" />
-                          </button>
-                        </div>
-                        <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400">
-                          <ClockIcon className="h-4 w-4 mr-1 text-gray-400 dark:text-gray-500" aria-hidden="true" />
-                          <span>{t('models.printingTime', 'Время печати')}: {formatDuration(model.printing_time)}</span>
-                        </div>
-                        
-                        {/* Connections Indicator */}
-                        {(model.related_to?.length > 0 || model.related_from?.length > 0) && (
-                          <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
-                            <div className="flex items-center text-xs text-blue-600 dark:text-blue-400">
-                              <ArrowsRightLeftIcon className="h-3.5 w-3.5 mr-1" />
-                              <span>
-                                {((model.related_to && model.related_to.length) || 0) + 
-                                 ((model.related_from && model.related_from.length) || 0)} {t('models.connections', 'связей')}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  ) : null;
-                })
-              ) : (
-                <div className="col-span-full text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
-                  <CubeIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
-                  {searchQuery ? (
-                    <>
-                      <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-300">
-                        {t('models.noSearchResults', 'Модели не найдены')}
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {t('models.tryDifferentSearch', 'Попробуйте изменить параметры поиска.')}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-300">
-                        {t('models.noModels', 'Нет моделей')}
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {t('models.startByAdding', 'Начните с добавления новой 3D модели.')}
-                      </p>
-                      <div className="mt-6">
-                        <Button onClick={() => setIsAddModalOpen(true)}>
-                          <PlusCircleIcon className="h-5 w-5 mr-2" />
-                          {t('models.addNew', 'Добавить модель')}
-                        </Button>
-                      </div>
-                    </>
-                  )}
+                            <div className="h-full w-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+                              <CubeIcon className="h-16 w-16 text-gray-300 dark:text-gray-600" />
                 </div>
               )}
             </div>
-          ) : (
-            /* List View */
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-              <div className="overflow-x-auto">
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <div className="absolute bottom-0 w-full p-3 flex justify-between items-center">
+                            <Link
+                              to={`/models/${model.id}`}
+                              className="bg-white/90 dark:bg-gray-800/90 text-gray-800 dark:text-white hover:bg-white dark:hover:bg-gray-700 px-3 py-1.5 rounded-md shadow-md font-medium text-sm"
+                            >
+                    {t('common.view')}
+                            </Link>
+                            {safeHasPermission('manage_models') && (
+                              <button 
+                                onClick={() => openDeleteModal(model)}
+                                className="p-1.5 bg-white/90 dark:bg-gray-800/90 text-red-500 hover:bg-white dark:hover:bg-gray-700 rounded-md shadow-md"
+                              >
+                                <XMarkIcon className="h-5 w-5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-4 flex-1 flex flex-col bg-white dark:bg-gray-800">
+                        <h3 className="text-lg font-medium dark:text-white line-clamp-1 mb-1">
+                          {model.name}
+                        </h3>
+                        <div className="mt-1 text-gray-500 dark:text-gray-400 flex items-center text-sm">
+                          <ClockIcon className="h-4 w-4 mr-1 flex-shrink-0" />
+                          <span>{formatMinutesToHHMM(model.printing_time)}</span>
+                        </div>
+                        <div className="mt-auto pt-3 flex justify-between items-center">
+                          <div className="text-gray-400 dark:text-gray-500 text-xs">
+                            ID: {model.id}
+                          </div>
+                          <div className="text-gray-500 dark:text-gray-400 text-xs">
+                            {new Date(model.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+    );
+  };
+              
+  // Отображение моделей в виде таблицы
+  const renderListView = () => {
+    return (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden border border-gray-200 dark:border-gray-700">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-900">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        {t('common.name', 'Название')}
+                {t('models.model')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        {t('models.printingTime', 'Время печати')}
+                {t('models.collection')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        {t('models.connections', 'Связи')}
+                {t('models.printTime')}
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                {t('models.dateAdded')}
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        {t('common.actions', 'Действия')}
+                {t('common.actions')}
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredModels.length > 0 ? (
-                      filteredModels.map((model) => {
-                        return model && model.id ? (
-                          <tr key={model.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
+                      {filteredModels.map((model) => (
+                        <tr key={model.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center">
-                                  <div className="h-8 w-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `${getModelColor(model.id)}20` }}>
-                                    <CubeIcon className="h-5 w-5" style={{ color: getModelColor(model.id) }} />
-                                  </div>
-                                </div>
-                                <div className="ml-4">
-                                  <Link to={`/models/${model.id}`} className="text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400">
-                                    {model.name}
-                                  </Link>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">{t('models.id', 'ID')}: {model.id}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-                                <ClockIcon className="h-4 w-4 mr-1 text-gray-500 dark:text-gray-400" />
-                                {formatDuration(model.printing_time)}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center text-sm">
-                                {(model.related_to?.length > 0 || model.related_from?.length > 0) ? (
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100">
-                                    <ArrowsRightLeftIcon className="h-3.5 w-3.5 mr-1" />
-                                    {((model.related_to && model.related_to.length) || 0) + 
-                                     ((model.related_from && model.related_from.length) || 0)}
-                                  </span>
+                              <div className="h-12 w-12 flex-shrink-0 mr-4 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700 shadow-sm">
+                                {modelFiles[model.id]?.stlFile ? (
+                                  <ModelCube
+                                    color={getModelColor(model.id)}
+                                    stlFile={modelFiles[model.id]?.stlFile}
+                                    size="small"
+                                  />
                                 ) : (
-                                  <span className="text-gray-500 dark:text-gray-400 text-xs">
-                                    {t('models.noConnections', 'Нет связей')}
-                                  </span>
+                                  <div className="h-full w-full flex items-center justify-center">
+                                    <CubeIcon className="h-8 w-8 text-gray-300 dark:text-gray-600" />
+                                  </div>
                                 )}
+                                </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {model.name}
+                                </div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                  ID: {model.id}
+                              </div>
+                              </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                            {model.collection_name ? (
+                              <div className="text-sm text-blue-600 dark:text-blue-400 flex items-center">
+                                <FolderIcon className="h-4 w-4 text-blue-500 mr-1.5" />
+                                {model.collection_name}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+                      {t('models.noCollection')}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900 dark:text-white flex items-center">
+                              <ClockIcon className="h-4 w-4 text-gray-400 mr-1.5" />
+                              {formatMinutesToHHMM(model.printing_time)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {new Date(model.created_at).toLocaleDateString()}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <div className="flex justify-end space-x-2">
-                                <Link to={`/models/${model.id}`}>
-                                  <Button variant="outline" size="xs">{t('common.view', 'Просмотр')}</Button>
+                            <Link
+                              to={`/models/${model.id}`}
+                              className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-4 inline-flex items-center"
+                            >
+                    <span>{t('common.view')}</span>
                                 </Link>
-                                <Button 
-                                  variant="outline" 
-                                  size="xs" 
-                                  className="text-red-600 border-red-600 hover:bg-red-50 dark:text-red-400 dark:border-red-400 dark:hover:bg-red-900/20"
+                            {safeHasPermission('manage_models') && (
+                              <button
                                   onClick={() => openDeleteModal(model)}
-                                >
-                                  {t('common.delete', 'Удалить')}
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ) : null;
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
-                          <CubeIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
-                          {searchQuery ? (
-                            <>
-                              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-300">
-                                {t('models.noSearchResults', 'Модели не найдены')}
-                              </h3>
-                              <p className="mt-1 text-sm">
-                                {t('models.tryDifferentSearch', 'Попробуйте изменить параметры поиска.')}
-                              </p>
-                            </>
-                          ) : (
-                            <>
-                              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-300">
-                                {t('models.noModels', 'Нет моделей')}
-                              </h3>
-                              <p className="mt-1 text-sm">
-                                {t('models.startByAdding', 'Начните с добавления новой 3D модели.')}
-                              </p>
-                              <div className="mt-6 flex justify-center">
-                                <Button onClick={() => setIsAddModalOpen(true)}>
-                                  <PlusCircleIcon className="h-5 w-5 mr-2" />
-                                  {t('models.addNew', 'Добавить модель')}
-                                </Button>
-                              </div>
-                            </>
+                                className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center"
+                              >
+                      <span>{t('common.delete')}</span>
+                              </button>
                           )}
                         </td>
                       </tr>
-                    )}
+                      ))}
                   </tbody>
                 </table>
-              </div>
             </div>
+    );
+  };
+
+  // Отрендерить список моделей
+  const renderModels = () => {
+    if (filteredModels.length === 0) {
+      return (
+        <div className="text-center py-10 px-4">
+          <CubeIcon className="h-16 w-16 mx-auto text-gray-400 dark:text-gray-600" />
+          <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">Нет доступных моделей</h3>
+          <p className="mt-2 text-gray-500 dark:text-gray-400">
+            {searchQuery ? 'Ни одна модель не соответствует вашему запросу.' : 'Начните с добавления вашей первой модели.'}
+          </p>
+          {safeHasPermission('models:create') && (
+            <Button
+              onClick={() => setIsAddModalOpen(true)}
+              className="mt-4 inline-flex items-center"
+            >
+              <PlusCircleSolid className="h-5 w-5 mr-2" />
+              Добавить модель
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    // Отображение в виде сетки или списка
+    return viewMode === 'grid' ? renderGridView() : renderListView();
+  };
+
+  // Модальное окно для создания модели
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center flex-wrap gap-4">
+        <h1 className="text-2xl font-bold dark:text-white">
+          {t('models.title')}
+        </h1>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Поиск */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder={t('common.search')}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            />
+          </div>
+          
+          {/* Переключатель вида */}
+          <div className="flex rounded-md shadow-sm">
+            <button
+              type="button"
+              onClick={() => changeViewMode('grid')}
+              className={`relative inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                viewMode === 'grid'
+                  ? 'bg-blue-50 text-blue-700 border-blue-500 z-10'
+                  : 'text-gray-700 hover:bg-gray-50'
+              } dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+            >
+              <Squares2X2Icon className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => changeViewMode('list')}
+              className={`relative -ml-px inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                viewMode === 'list'
+                  ? 'bg-blue-50 text-blue-700 border-blue-500 z-10'
+                  : 'text-gray-700 hover:bg-gray-50'
+              } dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+            >
+              <Bars3Icon className="h-5 w-5" />
+            </button>
+          </div>
+          
+          {/* Кнопка для сайдбара коллекций */}
+          <button
+            type="button"
+            onClick={toggleCollectionSidebar}
+            className={`inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md ${
+              showCollectionSidebar
+                ? 'bg-blue-50 text-blue-700 border-blue-500'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            } dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+            title={showCollectionSidebar ? t('models.hideCollections') : t('models.showCollections')}
+          >
+            <FolderIcon className="h-5 w-5" />
+          </button>
+          
+          {/* Кнопка добавления новой модели */}
+          {safeHasPermission('models:create') && (
+            <Button
+              onClick={() => setIsAddModalOpen(true)}
+              className="ml-auto shadow-md"
+              variant="primary"
+              size="md"
+            >
+              <PlusCircleSolid className="h-5 w-5 mr-2" />
+              Добавить модель
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Add Model Modal */}
+      {/* Отображение ошибки при её наличии */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md">
+          <ExclamationCircleIcon className="h-5 w-5 inline mr-2" />
+          {error}
+        </div>
+      )}
+
+      {/* Основное содержимое с коллекциями и моделями */}
+      <div className="flex">
+        {/* Сайдбар с коллекциями */}
+        {showCollectionSidebar && (
+          <div className="w-72 mr-6 border-r border-gray-200 dark:border-gray-700 pr-4">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-lg font-medium dark:text-gray-200">{t('models.collections')}</h2>
+              {safeHasPermission('manage_models') && (
+                <Button 
+                  size="sm"
+                  variant="primary"
+                  onClick={() => handleAddCollection()}
+                  className="py-1 px-2"
+                >
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  {t('common.new')}
+                </Button>
+              )}
+            </div>
+            
+            {/* Специальный пункт "Без коллекции" */}
+            <div 
+              className={`mb-3 p-2 rounded-md flex items-center cursor-pointer ${
+                selectedCollection === 'uncategorized' 
+                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' 
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
+              onClick={handleSelectUncategorized}
+            >
+              <FolderIcon className="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
+              <span>{t('models.modelsWithoutCollection')}</span>
+            </div>
+            
+            <div className="max-h-[calc(100vh-250px)] overflow-y-auto pr-1 pb-4">
+              <CollectionTree
+                collections={collections}
+                onSelectCollection={handleSelectCollection}
+                selectedCollectionId={typeof selectedCollection === 'object' ? selectedCollection?.id : null}
+                onAddCollection={handleAddCollection}
+                onEditCollection={handleEditCollection}
+                onDeleteCollection={handleDeleteCollection}
+                canEdit={safeHasPermission('manage_models')}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Основное содержимое для списка моделей */}
+        <div className="flex-1">
+          {/* Заголовок для выбранной коллекции */}
+          {selectedCollection && selectedCollection !== 'uncategorized' && (
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900 rounded-lg flex justify-between items-center border border-blue-200 dark:border-blue-800">
+              <div>
+                <span className="text-blue-700 dark:text-blue-300 font-medium flex items-center">
+                  <FolderIcon className="h-5 w-5 mr-2 opacity-70" />
+                  {selectedCollection.name}
+                </span>
+                {selectedCollection.description && (
+                  <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                    {selectedCollection.description}
+                  </p>
+                )}
+              </div>
+              <button 
+                onClick={() => setSelectedCollection(null)}
+                className="text-blue-500 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-100 p-1.5 rounded-full hover:bg-blue-100 dark:hover:bg-blue-800"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+
+          {/* Заголовок для выбора "Без коллекции" */}
+          {selectedCollection === 'uncategorized' && (
+            <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg flex justify-between items-center border border-gray-200 dark:border-gray-700">
+              <div>
+                <span className="text-gray-700 dark:text-gray-300 font-medium flex items-center">
+                  <FolderIcon className="h-5 w-5 mr-2 opacity-70" />
+                  {t('models.modelsWithoutCollection')}
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedCollection(null)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100 p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+          
+          {/* Содержимое для списка моделей */}
+          {loading || isCollectionLoading ? (
+            renderLoadingState()
+          ) : (
+            renderModels()
+          )}
+        </div>
+      </div>
+
+      {/* Обновленное модальное окно для загрузки новой модели */}
       <Modal 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)}
-        title={t('models.addNew', 'Добавить модель')}
+        title={t('Add New 3D Model')}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('models.name', 'Название модели')} *
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('Model Name')}
             </label>
             <input
               type="text"
               name="name"
-              id="name"
-              value={newModel.name || ''}
+              value={newModel.name}
               onChange={handleInputChange}
               required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              placeholder={t('models.enterName', 'Введите название модели')}
+              placeholder={t('Enter model name')}
+              className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
             />
           </div>
           
           <div>
-            <label htmlFor="printing_time" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('models.printingTime', 'Время печати')} (ЧЧ:ММ) *
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('Print Time')}
             </label>
+            <div className="flex items-center">
             <input
               type="text"
               name="printing_time"
-              id="printing_time"
-              value={newModel.printing_time || '01:00'}
+                value={newModel.printing_time}
               onChange={handleInputChange}
-              required
-              pattern="[0-9]{1,2}:[0-9]{2}"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               placeholder="01:00"
-            />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {t('models.enterHHMM', 'Введите примерное время печати в формате ЧЧ:ММ (например, 01:30 для 1 часа 30 минут)')}
+                pattern="^([0-9]+:[0-5][0-9]|[0-9]+)$"
+                title={t('Accepted formats: HH:MM or minutes')}
+                required
+                className="block w-full border border-gray-300 dark:border-gray-600 rounded-l-md shadow-sm py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+              />
+              <div className="bg-gray-100 dark:bg-gray-600 py-2.5 px-3 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-md text-gray-600 dark:text-gray-300 text-sm">
+                {t('HH:MM')}
+              </div>
+            </div>
+            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+              {t('Specify print time in HH:MM format (e.g., 01:30) or in minutes (e.g., 90)')}
             </p>
           </div>
           
-          <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700 mt-6">
+          {collections.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('Add to Collection (optional)')}
+              </label>
+              <select
+                name="collection_id"
+                value={newModel.collection_id || ''}
+                onChange={handleInputChange}
+                className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+              >
+                <option value="">{t('Do not add to any collection')}</option>
+                {collections.map(collection => (
+                  <option key={collection.id} value={collection.id}>
+                    {collection.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          
+          <div className="flex justify-end space-x-3 pt-5">
             <Button 
-              type="button"
-              variant="outline" 
+              variant="secondary"
               onClick={() => setIsAddModalOpen(false)}
               disabled={isSubmitting}
             >
-              {t('common.cancel', 'Отмена')}
+              {t('Cancel')}
             </Button>
             <Button 
               type="submit"
-              isLoading={isSubmitting}
+              disabled={isSubmitting}
             >
-              {t('common.create', 'Создать')}
+              {isSubmitting ? t('Creating...') : t('Create Model')}
             </Button>
           </div>
         </form>
       </Modal>
 
-      {/* Delete Model Modal */}
+      {/* Оставшиеся модальные окна */}
       <Modal 
         isOpen={isDeleteModalOpen} 
-        onClose={() => {
-          if (!isSubmitting) {
-            setIsDeleteModalOpen(false);
-            setModelToDelete(null);
-          }
-        }}
-        title={t('models.deleteModel', 'Удалить модель')}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title={t('Delete Model')}
       >
         <div className="space-y-4">
-          <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
-            <ExclamationTriangleIcon className="h-6 w-6" />
-            <p className="font-medium">{t('models.deleteConfirmation', 'Вы уверены, что хотите удалить эту модель?')}</p>
-          </div>
-          
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {t('models.deleteWarning', 'Это действие невозможно отменить. Все файлы и данные для этой модели будут безвозвратно удалены.')}
+          <p className="text-gray-700 dark:text-gray-300">
+            {t('Are you sure you want to delete this model')}: <strong>{modelToDelete?.name}</strong>?
+          </p>
+          <p className="text-sm text-red-600 dark:text-red-400">
+            {t('This action cannot be undone.')}
           </p>
           
-          {modelToDelete && (
-            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md text-sm">
-              <div className="grid grid-cols-2 gap-y-2">
-                <div className="font-medium dark:text-gray-300">{t('common.name', 'Название')}:</div>
-                <div className="dark:text-gray-300">{modelToDelete.name}</div>
-                
-                <div className="font-medium dark:text-gray-300">{t('common.id', 'ID')}:</div>
-                <div className="dark:text-gray-300">{modelToDelete.id}</div>
-                
-                <div className="font-medium dark:text-gray-300">{t('models.printingTime', 'Время печати')}:</div>
-                <div className="dark:text-gray-300">{formatDuration(modelToDelete.printing_time)}</div>
-              </div>
-            </div>
-          )}
-          
-          <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700 mt-6">
+          <div className="flex justify-end space-x-3 pt-4">
             <Button 
-              type="button"
-              variant="outline" 
-              onClick={() => {
-                setIsDeleteModalOpen(false);
-                setModelToDelete(null);
-              }}
+              variant="secondary"
+              onClick={() => setIsDeleteModalOpen(false)}
               disabled={isSubmitting}
             >
-              {t('common.cancel', 'Отмена')}
+              {t('Cancel')}
             </Button>
             <Button 
-              type="button"
               variant="danger"
               onClick={handleDelete}
-              isLoading={isSubmitting}
+              disabled={isSubmitting}
             >
-              {t('common.delete', 'Удалить')}
+              {isSubmitting ? t('Deleting...') : t('Delete Model')}
             </Button>
           </div>
         </div>
       </Modal>
+      
+      <CollectionModal
+        isOpen={isCollectionModalOpen}
+        onClose={() => setIsCollectionModalOpen(false)}
+        onSave={handleSaveCollection}
+        collection={editingCollection}
+        parentCollection={parentCollection}
+        collections={collections}
+        isSubmitting={isCollectionSubmitting}
+      />
     </div>
   );
 };

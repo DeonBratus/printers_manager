@@ -22,6 +22,13 @@ class ModelFileType(str, enum.Enum):
     THREEMF = "3mf"
     OTHER = "other"
 
+# Define collection type enum
+class CollectionType(str, enum.Enum):
+    DEFAULT = "default"  # стандартная коллекция
+    PROJECT = "project"  # для проектов
+    ARCHIVE = "archive"  # для архивных моделей
+    CUSTOM = "custom"    # пользовательский тип
+
 # Define permission enum
 class StudioPermission(str, enum.Enum):
     MANAGE_USERS = "manage_users"
@@ -64,6 +71,15 @@ model_relation = Table(
     Column("model_id", Integer, ForeignKey("td_models.id"), primary_key=True),
     Column("related_model_id", Integer, ForeignKey("td_models.id"), primary_key=True),
     Column("relation_type", String, nullable=True),  # Optional field to describe the relation type
+    Column("created_at", DateTime, default=datetime.now),
+)
+
+# Add a new association table for Collection-Model relationships
+collection_model = Table(
+    "td_collection_model",
+    Base.metadata,
+    Column("collection_id", Integer, ForeignKey("td_collections.id"), primary_key=True),
+    Column("model_id", Integer, ForeignKey("td_models.id"), primary_key=True),
     Column("created_at", DateTime, default=datetime.now),
 )
 
@@ -112,6 +128,9 @@ class Model(Base):
         secondaryjoin=id==model_relation.c.related_model_id,
         backref="related_from"
     )
+    
+    # Add relationship with collections
+    collections = relationship("Collection", secondary=collection_model, back_populates="models")
 
 class ModelFile(Base):
     __tablename__ = "td_model_files"
@@ -240,6 +259,7 @@ class Studio(Base):
     queue_items = relationship("PrintQueue", back_populates="studio")
     invitations = relationship("StudioInvitation", back_populates="studio")
     gcode_files = relationship("GCodeFile", back_populates="studio")
+    collections = relationship("Collection", back_populates="studio")
 
 class Session(Base):
     __tablename__ = "td_sessions"
@@ -268,4 +288,24 @@ class StudioInvitation(Base):
     
     # Define relationships
     studio = relationship("Studio", back_populates="invitations")
-    inviter = relationship("User", foreign_keys=[created_by]) 
+    inviter = relationship("User", foreign_keys=[created_by])
+
+class Collection(Base):
+    """
+    Модель коллекции для группировки 3D-моделей
+    Может содержать вложенные коллекции (иерархическая структура)
+    """
+    __tablename__ = "td_collections"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, index=True)
+    description = Column(String, nullable=True)
+    collection_type = Column(String, default=CollectionType.DEFAULT)
+    parent_id = Column(Integer, ForeignKey("td_collections.id"), nullable=True)
+    studio_id = Column(Integer, ForeignKey("td_studios.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    models = relationship("Model", secondary=collection_model, back_populates="collections")
+    children = relationship("Collection", backref=backref("parent", remote_side=[id]))
+    studio = relationship("Studio", back_populates="collections") 
