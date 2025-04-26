@@ -8,6 +8,7 @@ import Button from '../components/Button';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 import ModelCube from '../components/ModelCube';
+import ModelThumbnail from '../components/ModelThumbnail';
 import CollectionTree from '../components/CollectionTree';
 import CollectionModal from '../components/CollectionModal';
 import { 
@@ -244,9 +245,10 @@ const ModelsList = () => {
               stlFile: result.stlFile
             };
           }
-      });
+        });
       
-        setModelFiles(newModelFiles);
+        // Нормализуем URL файлов перед сохранением в состоянии
+        setModelFiles(normalizeModelFileUrls(newModelFiles));
       }
     } catch (error) {
       console.error('Error fetching models:', error);
@@ -254,6 +256,78 @@ const ModelsList = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Состояние для отслеживания ошибок загрузки моделей
+  const [failedModelFiles, setFailedModelFiles] = useState({});
+
+  // Функция для нормализации URL моделей
+  const normalizeModelFileUrls = (files) => {
+    if (!files) return files;
+    
+    const normalizedFiles = {...files};
+    
+    Object.keys(normalizedFiles).forEach(modelId => {
+      // Пропускаем модели, которые ранее не удалось загрузить
+      if (failedModelFiles[modelId]) {
+        console.log(`Skipping previously failed model ${modelId}`);
+        return;
+      }
+    
+      if (normalizedFiles[modelId] && normalizedFiles[modelId].stlFile) {
+        const stlFile = normalizedFiles[modelId].stlFile;
+        
+        // Для ID 42, о котором известно, что он вызывает проблемы
+        if (stlFile.id === 42 || (stlFile.file_path && stlFile.file_path.includes('/42_'))) {
+          console.log(`Marking model ${modelId} with problematic file ID 42 as failed`);
+          setFailedModelFiles(prev => ({...prev, [modelId]: true}));
+          delete normalizedFiles[modelId].stlFile;
+          return;
+        }
+        
+        // Если у нас нет stlFile, но есть массив файлов, пробуем найти STL
+        if (!stlFile && normalizedFiles[modelId].files && normalizedFiles[modelId].files.length > 0) {
+          const firstStl = normalizedFiles[modelId].files.find(f => 
+            f.file_type && f.file_type.toLowerCase() === 'stl'
+          );
+          
+          if (firstStl) {
+            normalizedFiles[modelId].stlFile = firstStl;
+            return; // Продолжаем со следующей моделью, так как мы только что создали stlFile
+          }
+        }
+        
+        // При наличии ID, но отсутствии URL, формируем API URL
+        if (stlFile.id && (!stlFile.file_path && !stlFile.url)) {
+          console.log(`Setting direct API URL for model ${modelId} file ${stlFile.id}`);
+          // Этот URL будет использоваться для прямого API вызова
+          // Не устанавливаем полный URL, так как downloadModelFile требует только ID
+        }
+        
+        // Если есть путь файла, но нет базового URL
+        if (stlFile.file_path && !stlFile.file_path.startsWith('http') && !stlFile.file_path.startsWith('/')) {
+          // Формируем полный URL с учетом базового пути API
+          const baseUrl = process.env.REACT_APP_API_URL || '';
+          stlFile.file_path = `${baseUrl}/${stlFile.file_path}`;
+          console.log(`Normalized file_path for model ${modelId}:`, stlFile.file_path);
+        }
+        
+        // Если нет пути файла, но есть URL
+        if (!stlFile.file_path && stlFile.url && !stlFile.url.startsWith('http') && !stlFile.url.startsWith('/')) {
+          const baseUrl = process.env.REACT_APP_API_URL || '';
+          stlFile.url = `${baseUrl}/${stlFile.url}`;
+          console.log(`Normalized URL for model ${modelId}:`, stlFile.url);
+        }
+      }
+    });
+    
+    return normalizedFiles;
+  };
+
+  // Обработчик ошибок загрузки файлов моделей
+  const handleModelFileLoadError = (modelId) => {
+    console.log(`Marking model ${modelId} as failed to load`);
+    setFailedModelFiles(prev => ({...prev, [modelId]: true}));
   };
 
   // Загрузка дерева коллекций
@@ -722,7 +796,7 @@ const ModelsList = () => {
       ? (selectedCollection.children || [])
       : collections;
     
-    return (
+  return (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {/* Отображение коллекций */}
                   {collectionsToShow.map((collection) => (
@@ -832,20 +906,19 @@ const ModelsList = () => {
                         <div 
                           className="absolute inset-0 overflow-hidden bg-gray-100 dark:bg-gray-800 cursor-pointer"
                           onClick={() => {
-                            window.location.href = `/models/${model.id}`;
+                            showModelPreview(model);
                           }}
                         >
-                {/* 3D-модель или заглушка */}
-                          {modelFiles[model.id]?.stlFile ? (
-                            <ModelCube 
-                              color={getModelColor(model.id)} 
+                          {/* Заменяем 3D-модель на 2D-превью для оптимизации */}
+                          <ModelThumbnail 
                               stlFile={modelFiles[model.id]?.stlFile}
-                            />
-                          ) : (
-                            <div className="h-full w-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-                              <CubeIcon className="h-16 w-16 text-gray-300 dark:text-gray-600" />
-                </div>
-              )}
+                            color={getModelColor(model.id)}
+                            width="100%"
+                            height="100%"
+                            className="w-full h-full"
+                            quality="medium"
+                            onError={() => handleModelFileLoadError(model.id)}
+                          />
             </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <div className="absolute bottom-0 w-full p-3 flex justify-between items-center">
@@ -879,8 +952,8 @@ const ModelsList = () => {
                       >
                         <div className="flex justify-between items-start">
                           <h3 className="text-lg font-medium dark:text-white line-clamp-1 mb-1 flex-1">
-                            {model.name}
-                          </h3>
+                          {model.name}
+                        </h3>
                           {safeHasPermission('manage_models') && (
                             <div className="relative" onClick={(e) => e.stopPropagation()}>
                               <button
@@ -1051,17 +1124,15 @@ const ModelsList = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                               <div className="h-12 w-12 flex-shrink-0 mr-4 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700 shadow-sm">
-                                {modelFiles[model.id]?.stlFile ? (
-                                  <ModelCube
-                                    color={getModelColor(model.id)}
+                                <ModelThumbnail
                                     stlFile={modelFiles[model.id]?.stlFile}
-                                    size="small"
-                                  />
-                                ) : (
-                                  <div className="h-full w-full flex items-center justify-center">
-                                    <CubeIcon className="h-8 w-8 text-gray-300 dark:text-gray-600" />
-                                  </div>
-                                )}
+                                  color={getModelColor(model.id)}
+                                  width={48}
+                                  height={48}
+                                  className="w-full h-full"
+                                  quality="low"
+                                  onError={() => handleModelFileLoadError(model.id)}
+                                />
                                 </div>
                               <div>
                                 <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -1103,10 +1174,10 @@ const ModelsList = () => {
                               onClick={(e) => e.stopPropagation()}
                             >
                               <span>Просмотр</span>
-                            </Link>
+                                </Link>
                             {safeHasPermission('manage_models') && (
                               <>
-                                <button
+                              <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     openEditModal(model);
@@ -1114,7 +1185,7 @@ const ModelsList = () => {
                                   className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 mr-4 inline-flex items-center"
                                 >
                                   <span>Изменить</span>
-                                </button>
+                              </button>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1139,8 +1210,8 @@ const ModelsList = () => {
                                   <EllipsisVerticalIcon className="h-5 w-5" />
                                 </button>
                               </>
-                            )}
-                          </td>
+                          )}
+                        </td>
                       </tr>
                       ))}
                   </tbody>
@@ -1518,6 +1589,15 @@ const ModelsList = () => {
     };
   }, [collectionContextMenu.visible]);
 
+  // Добавить новое состояние в компонент ModelsList
+  const [previewModel, setPreviewModel] = useState(null);
+
+  // Добавить обработчик для показа предпросмотра 3D-модели
+  const showModelPreview = (model) => {
+    if (!model) return;
+    setPreviewModel(model);
+  };
+
   // Модальное окно для создания модели
   return (
     <div className="space-y-6">
@@ -1579,8 +1659,8 @@ const ModelsList = () => {
               <FolderIcon className="h-5 w-5 mr-2" />
               Добавить коллекцию
             </Button>
-            
-            {/* Кнопка добавления новой модели */}
+          
+          {/* Кнопка добавления новой модели */}
             <Button
               onClick={() => {
                 // Pre-select current collection if inside one
@@ -1611,47 +1691,47 @@ const ModelsList = () => {
       {/* Основное содержимое с коллекциями и моделями */}
       <div className="flex">
         {/* Сайдбар с коллекциями */}
-        <div className="w-72 mr-6 border-r border-gray-200 dark:border-gray-700 pr-4">
-          <div className="flex justify-between items-center mb-3">
+          <div className="w-72 mr-6 border-r border-gray-200 dark:border-gray-700 pr-4">
+            <div className="flex justify-between items-center mb-3">
             <h2 className="text-lg font-medium dark:text-gray-200">Коллекции</h2>
-            {safeHasPermission('manage_models') && (
-              <Button 
-                size="sm"
-                variant="primary"
-                onClick={() => handleAddCollection()}
-                className="py-1 px-2"
-              >
-                <PlusIcon className="h-4 w-4 mr-1" />
+              {safeHasPermission('manage_models') && (
+                <Button 
+                  size="sm"
+                  variant="primary"
+                  onClick={() => handleAddCollection()}
+                  className="py-1 px-2"
+                >
+                  <PlusIcon className="h-4 w-4 mr-1" />
                 Новая
-              </Button>
-            )}
-          </div>
-          
+                </Button>
+              )}
+            </div>
+            
           {/* Root folder item */}
-          <div 
-            className={`mb-3 p-2 rounded-md flex items-center cursor-pointer ${
+            <div 
+              className={`mb-3 p-2 rounded-md flex items-center cursor-pointer ${
               selectedCollection === null 
-                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' 
-                : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-            }`}
+                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' 
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
             onClick={() => setSelectedCollection(null)}
-          >
+            >
             <FolderIcon className="h-5 w-5 mr-2 text-blue-500 dark:text-blue-400" />
             <span>Корневая папка</span>
+            </div>
+            
+            <div className="max-h-[calc(100vh-250px)] overflow-y-auto pr-1 pb-4">
+              <CollectionTree
+                collections={collections}
+                onSelectCollection={handleSelectCollection}
+                selectedCollectionId={typeof selectedCollection === 'object' ? selectedCollection?.id : null}
+                onAddCollection={handleAddCollection}
+                onEditCollection={handleEditCollection}
+                onDeleteCollection={handleDeleteCollection}
+                canEdit={safeHasPermission('manage_models')}
+              />
+            </div>
           </div>
-          
-          <div className="max-h-[calc(100vh-250px)] overflow-y-auto pr-1 pb-4">
-            <CollectionTree
-              collections={collections}
-              onSelectCollection={handleSelectCollection}
-              selectedCollectionId={typeof selectedCollection === 'object' ? selectedCollection?.id : null}
-              onAddCollection={handleAddCollection}
-              onEditCollection={handleEditCollection}
-              onDeleteCollection={handleDeleteCollection}
-              canEdit={safeHasPermission('manage_models')}
-            />
-          </div>
-        </div>
 
         {/* Основное содержимое для списка моделей */}
         <div className="flex-1">
@@ -1697,12 +1777,12 @@ const ModelsList = () => {
                   <PlusIcon className="h-4 w-4 mr-1" />
                   Добавить подколлекцию
                 </Button>
-                <button 
-                  onClick={() => setSelectedCollection(null)}
-                  className="text-blue-500 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-100 p-1.5 rounded-full hover:bg-blue-100 dark:hover:bg-blue-800"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
+              <button 
+                onClick={() => setSelectedCollection(null)}
+                className="text-blue-500 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-100 p-1.5 rounded-full hover:bg-blue-100 dark:hover:bg-blue-800"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
               </div>
             </div>
           )}
@@ -2150,6 +2230,66 @@ const ModelsList = () => {
             >
               {isCollectionSubmitting ? t('Deleting...') : t('Delete Collection')}
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal for 3D model preview */}
+      <Modal
+        isOpen={!!previewModel}
+        onClose={() => setPreviewModel(null)}
+        title={previewModel?.name || "Предпросмотр 3D модели"}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="h-96 w-full bg-gray-100 dark:bg-gray-800 rounded-lg flex justify-center items-center">
+            {previewModel && modelFiles[previewModel.id]?.stlFile ? (
+              <ModelCube
+                stlFile={modelFiles[previewModel.id]?.stlFile}
+                color={getModelColor(previewModel.id)}
+                interactive={true}
+                size="xl"
+                className="w-full h-full"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full">
+                <CubeIcon className="h-24 w-24 text-gray-300 dark:text-gray-600 mb-2" />
+                <p className="text-gray-500 dark:text-gray-400">Невозможно загрузить 3D-модель</p>
+              </div>
+            )}
+          </div>
+          
+          {previewModel && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Название модели</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">{previewModel.name}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Время печати</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                  <ClockIcon className="h-5 w-5 mr-2 text-gray-500" />
+                  {formatMinutesToHHMM(previewModel.printing_time)}
+                </p>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button 
+              variant="secondary"
+              onClick={() => setPreviewModel(null)}
+            >
+              Закрыть
+            </Button>
+            {previewModel && (
+              <Link
+                to={`/models/${previewModel.id}`}
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Подробнее
+              </Link>
+            )}
           </div>
         </div>
       </Modal>

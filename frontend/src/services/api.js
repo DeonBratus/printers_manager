@@ -200,7 +200,16 @@ export const uploadModelFile = (modelId, file, fileType) => {
 };
 
 export const getModelFiles = (modelId) => api.get(`/models/${modelId}/files`);
-export const downloadModelFile = (fileId) => api.get(`/models/files/${fileId}`, { responseType: 'blob' });
+export const downloadModelFile = (fileId) => {
+  console.log(`Downloading model file with ID: ${fileId}`);
+  return api.get(`/models/files/${fileId}`, { responseType: 'blob' })
+    .catch(error => {
+      console.error(`Error downloading model file ${fileId}:`, error.response ? 
+        `Status: ${error.response.status}, Message: ${error.response.data}` : 
+        error.message);
+      throw error;
+    });
+};
 export const deleteModelFile = (fileId) => api.delete(`/models/files/${fileId}`);
 
 // G-code files API
