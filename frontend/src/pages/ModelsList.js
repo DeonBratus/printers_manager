@@ -634,11 +634,9 @@ const ModelsList = () => {
   };
 
   const renderLoadingState = () => (
-    <div className="flex justify-center items-center min-h-[400px]">
-      <div className="text-center">
-        <ArrowPathIcon className="h-10 w-10 text-blue-500 animate-spin mx-auto mb-2" />
-        <p className="text-gray-600 dark:text-gray-400">{t('Loading models...')}</p>
-      </div>
+    <div className="text-center py-12">
+      <ArrowPathIcon className="h-10 w-10 mx-auto text-blue-500 animate-spin" />
+      <p className="text-gray-600 dark:text-gray-400">Загрузка моделей...</p>
     </div>
   );
 
@@ -678,7 +676,7 @@ const ModelsList = () => {
                               to={`/models/${model.id}`}
                               className="bg-white/90 dark:bg-gray-800/90 text-gray-800 dark:text-white hover:bg-white dark:hover:bg-gray-700 px-3 py-1.5 rounded-md shadow-md font-medium text-sm"
                             >
-                    {t('common.view')}
+                              Просмотр
                             </Link>
                             {safeHasPermission('manage_models') && (
                               <button 
@@ -722,19 +720,19 @@ const ModelsList = () => {
                     <thead className="bg-gray-50 dark:bg-gray-900">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                {t('models.model')}
+                        Модель
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                {t('models.collection')}
+                        Коллекция
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                {t('models.printTime')}
+                        Время печати
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                {t('models.dateAdded')}
+                        Дата добавления
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                {t('common.actions')}
+                        Действия
                       </th>
                     </tr>
                   </thead>
@@ -774,7 +772,7 @@ const ModelsList = () => {
                               </div>
                             ) : (
                               <div className="text-sm text-gray-500 dark:text-gray-400 italic">
-                      {t('models.noCollection')}
+                                Без коллекции
                               </div>
                             )}
                           </td>
@@ -794,14 +792,14 @@ const ModelsList = () => {
                               to={`/models/${model.id}`}
                               className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-4 inline-flex items-center"
                             >
-                    <span>{t('common.view')}</span>
+                                <span>Просмотр</span>
                                 </Link>
                             {safeHasPermission('manage_models') && (
                               <button
                                   onClick={() => openDeleteModal(model)}
                                 className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center"
                               >
-                      <span>{t('common.delete')}</span>
+                                <span>Удалить</span>
                               </button>
                           )}
                         </td>
@@ -845,7 +843,7 @@ const ModelsList = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-2xl font-bold dark:text-white">
-          {t('models.title')}
+          3D-модели
         </h1>
         
         <div className="flex flex-wrap items-center gap-3">
@@ -856,7 +854,7 @@ const ModelsList = () => {
             </div>
             <input
               type="text"
-              placeholder={t('common.search')}
+              placeholder="Поиск"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
@@ -898,16 +896,29 @@ const ModelsList = () => {
                 ? 'bg-blue-50 text-blue-700 border-blue-500'
                 : 'bg-white text-gray-700 hover:bg-gray-50'
             } dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
-            title={showCollectionSidebar ? t('models.hideCollections') : t('models.showCollections')}
+            title={showCollectionSidebar ? "Скрыть коллекции" : "Показать коллекции"}
           >
             <FolderIcon className="h-5 w-5" />
           </button>
+          
+          {/* Кнопка добавления новой коллекции */}
+          {safeHasPermission('manage_models') && (
+            <Button
+              onClick={() => handleAddCollection()}
+              className="ml-auto shadow-md"
+              variant="secondary"
+              size="md"
+            >
+              <FolderIcon className="h-5 w-5 mr-2" />
+              Добавить коллекцию
+            </Button>
+          )}
           
           {/* Кнопка добавления новой модели */}
           {safeHasPermission('models:create') && (
             <Button
               onClick={() => setIsAddModalOpen(true)}
-              className="ml-auto shadow-md"
+              className="shadow-md"
               variant="primary"
               size="md"
             >
@@ -932,7 +943,7 @@ const ModelsList = () => {
         {showCollectionSidebar && (
           <div className="w-72 mr-6 border-r border-gray-200 dark:border-gray-700 pr-4">
             <div className="flex justify-between items-center mb-3">
-              <h2 className="text-lg font-medium dark:text-gray-200">{t('models.collections')}</h2>
+              <h2 className="text-lg font-medium dark:text-gray-200">Коллекции</h2>
               {safeHasPermission('manage_models') && (
                 <Button 
                   size="sm"
@@ -941,7 +952,7 @@ const ModelsList = () => {
                   className="py-1 px-2"
                 >
                   <PlusIcon className="h-4 w-4 mr-1" />
-                  {t('common.new')}
+                  Создать
                 </Button>
               )}
             </div>
@@ -956,7 +967,7 @@ const ModelsList = () => {
               onClick={handleSelectUncategorized}
             >
               <FolderIcon className="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" />
-              <span>{t('models.modelsWithoutCollection')}</span>
+              <span>Модели без коллекции</span>
             </div>
             
             <div className="max-h-[calc(100vh-250px)] overflow-y-auto pr-1 pb-4">
@@ -1029,12 +1040,12 @@ const ModelsList = () => {
       <Modal 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)}
-        title={t('Add New 3D Model')}
+        title="Добавить новую 3D-модель"
       >
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('Model Name')}
+              Название модели
             </label>
             <input
               type="text"
@@ -1042,40 +1053,40 @@ const ModelsList = () => {
               value={newModel.name}
               onChange={handleInputChange}
               required
-              placeholder={t('Enter model name')}
+              placeholder="Введите название модели"
               className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
             />
           </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('Print Time')}
+              Время печати
             </label>
             <div className="flex items-center">
             <input
               type="text"
               name="printing_time"
-                value={newModel.printing_time}
+              value={newModel.printing_time}
               onChange={handleInputChange}
               placeholder="01:00"
-                pattern="^([0-9]+:[0-5][0-9]|[0-9]+)$"
-                title={t('Accepted formats: HH:MM or minutes')}
-                required
-                className="block w-full border border-gray-300 dark:border-gray-600 rounded-l-md shadow-sm py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
-              />
+              pattern="^([0-9]+:[0-5][0-9]|[0-9]+)$"
+              title="Допустимые форматы: ЧЧ:ММ или минуты"
+              required
+              className="block w-full border border-gray-300 dark:border-gray-600 rounded-l-md shadow-sm py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+            />
               <div className="bg-gray-100 dark:bg-gray-600 py-2.5 px-3 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-md text-gray-600 dark:text-gray-300 text-sm">
-                {t('HH:MM')}
+                ЧЧ:ММ
               </div>
             </div>
             <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-              {t('Specify print time in HH:MM format (e.g., 01:30) or in minutes (e.g., 90)')}
+              Укажите время печати в формате ЧЧ:ММ (например, 01:30) или в минутах (например, 90)
             </p>
           </div>
           
           {collections.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('Add to Collection (optional)')}
+                Добавить в коллекцию (необязательно)
               </label>
               <select
                 name="collection_id"
@@ -1083,7 +1094,7 @@ const ModelsList = () => {
                 onChange={handleInputChange}
                 className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white sm:text-sm"
               >
-                <option value="">{t('Do not add to any collection')}</option>
+                <option value="">Не добавлять в коллекцию</option>
                 {collections.map(collection => (
                   <option key={collection.id} value={collection.id}>
                     {collection.name}
@@ -1099,13 +1110,13 @@ const ModelsList = () => {
               onClick={() => setIsAddModalOpen(false)}
               disabled={isSubmitting}
             >
-              {t('Cancel')}
+              Отмена
             </Button>
             <Button 
               type="submit"
               disabled={isSubmitting}
             >
-              {isSubmitting ? t('Creating...') : t('Create Model')}
+              {isSubmitting ? "Создание..." : "Создать модель"}
             </Button>
           </div>
         </form>
@@ -1115,14 +1126,14 @@ const ModelsList = () => {
       <Modal 
         isOpen={isDeleteModalOpen} 
         onClose={() => setIsDeleteModalOpen(false)}
-        title={t('Delete Model')}
+        title="Удалить модель"
       >
         <div className="space-y-4">
           <p className="text-gray-700 dark:text-gray-300">
-            {t('Are you sure you want to delete this model')}: <strong>{modelToDelete?.name}</strong>?
+            Вы уверены, что хотите удалить модель: <strong>{modelToDelete?.name}</strong>?
           </p>
           <p className="text-sm text-red-600 dark:text-red-400">
-            {t('This action cannot be undone.')}
+            Это действие нельзя будет отменить.
           </p>
           
           <div className="flex justify-end space-x-3 pt-4">
@@ -1131,14 +1142,14 @@ const ModelsList = () => {
               onClick={() => setIsDeleteModalOpen(false)}
               disabled={isSubmitting}
             >
-              {t('Cancel')}
+              Отмена
             </Button>
             <Button 
               variant="danger"
               onClick={handleDelete}
               disabled={isSubmitting}
             >
-              {isSubmitting ? t('Deleting...') : t('Delete Model')}
+              {isSubmitting ? "Удаление..." : "Удалить модель"}
             </Button>
           </div>
         </div>

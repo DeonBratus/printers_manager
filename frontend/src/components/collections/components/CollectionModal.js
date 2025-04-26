@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { 
   FolderIcon, 
   BriefcaseIcon, 
@@ -31,13 +30,11 @@ const CollectionModal = ({
   collections = [],
   isSubmitting = false
 }) => {
-  const { t } = useTranslation();
-  
   const COLLECTION_TYPES = [
-    { value: 'default', label: t('Default', 'По умолчанию'), icon: <FolderIcon className="h-5 w-5" /> },
-    { value: 'project', label: t('Project', 'Проект'), icon: <BriefcaseIcon className="h-5 w-5" /> },
-    { value: 'archive', label: t('Archive', 'Архив'), icon: <ArchiveBoxIcon className="h-5 w-5" /> },
-    { value: 'custom', label: t('Custom', 'Произвольный'), icon: <TagIcon className="h-5 w-5" /> }
+    { value: 'default', label: 'По умолчанию', icon: <FolderIcon className="h-5 w-5" /> },
+    { value: 'project', label: 'Проект', icon: <BriefcaseIcon className="h-5 w-5" /> },
+    { value: 'archive', label: 'Архив', icon: <ArchiveBoxIcon className="h-5 w-5" /> },
+    { value: 'custom', label: 'Произвольный', icon: <TagIcon className="h-5 w-5" /> }
   ];
 
   const [form, setForm] = useState({
@@ -97,7 +94,7 @@ const CollectionModal = ({
     const newErrors = {};
     
     if (!form.name || form.name.trim() === '') {
-      newErrors.name = t('Name is required', 'Название обязательно');
+      newErrors.name = 'Название обязательно';
     }
     
     setErrors(newErrors);
@@ -177,12 +174,12 @@ const CollectionModal = ({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={collection ? t('Edit Collection', 'Редактирование коллекции') : t('Create Collection', 'Создание коллекции')}
+      title={collection ? 'Редактирование коллекции' : 'Создание коллекции'}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('Name', 'Название')}
+            Название
           </label>
           <input
             type="text"
@@ -190,7 +187,7 @@ const CollectionModal = ({
             value={form.name}
             onChange={handleChange}
             required
-            placeholder={t('Enter collection name', 'Введите название коллекции')}
+            placeholder="Введите название коллекции"
             className={`mt-1 block w-full border rounded-md shadow-sm py-2.5 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm
               ${errors.name ? 'border-red-300 focus:border-red-500 focus:ring-red-500 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'}
             `}
@@ -205,21 +202,21 @@ const CollectionModal = ({
         
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('Description', 'Описание')}
+            Описание
           </label>
           <textarea
             name="description"
             value={form.description || ''}
             onChange={handleChange}
             rows={3}
-            placeholder={t('Enter optional description', 'Введите описание (необязательно)')}
+            placeholder="Введите описание (необязательно)"
             className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2.5 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
           />
         </div>
         
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('Collection Type', 'Тип коллекции')}
+            Тип коллекции
           </label>
           <div className="grid grid-cols-2 gap-2">
             {COLLECTION_TYPES.map(type => (
@@ -246,7 +243,7 @@ const CollectionModal = ({
         
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('Parent Collection', 'Родительская коллекция')}
+            Родительская коллекция
           </label>
           <select
             name="parent_id"
@@ -254,7 +251,7 @@ const CollectionModal = ({
             onChange={handleChange}
             className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2.5 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
           >
-            <option value="">{t('None (Root Collection)', 'Нет (Корневая коллекция)')}</option>
+            <option value="">Нет (Корневая коллекция)</option>
             {validParents.map(col => (
               <option key={col.id || Math.random().toString()} value={col.id}>
                 {col.parent_id ? getCollectionPath(col.id) : col.name}
@@ -269,14 +266,14 @@ const CollectionModal = ({
             onClick={handleClose}
             disabled={isSubmitting}
           >
-            {t('Cancel', 'Отмена')}
+            Отмена
           </Button>
           <Button
             type="submit" 
             disabled={isSubmitting}
             isLoading={isSubmitting}
           >
-            {collection ? t('Update', 'Обновить') : t('Create', 'Создать')}
+            {collection ? 'Обновить' : 'Создать'}
           </Button>
         </div>
       </form>
