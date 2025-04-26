@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import LanguageSwitcher from './LanguageSwitcher';
 import StudioSelector from './StudioSelector';
 import { getUserInvitations, updateInvitationStatus } from '../services/api';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Layout = ({ children }) => {
   const { t } = useTranslation();
@@ -138,6 +140,18 @@ const Layout = ({ children }) => {
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme={isDarkMode ? "dark" : "light"}
+      />
       {/* Top header with navigation */}
       <header className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} fixed top-0 left-0 right-0 z-10 border-b`}>
         <div className="mx-auto px-4 sm:px-6 lg:px-8">

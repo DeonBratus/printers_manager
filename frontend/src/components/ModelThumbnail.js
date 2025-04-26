@@ -594,4 +594,4 @@ const ModelThumbnail = ({
   );
 };
 
-export default ModelThumbnail; 
+export default ModelThumbnail;

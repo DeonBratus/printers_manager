@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getModels, getStudios, createModel, deleteModel, getModelFiles, getCollectionTree, getCollectionModels, createCollection, updateCollection, deleteCollection, addModelToCollection, getCollections, getCollection, updateModel, removeModelFromCollection } from '../services/api';
+import { getModels, getStudios, createModel, deleteModel, getModelFiles, getCollectionTree, getCollectionModels, createCollection, updateCollection, deleteCollection, addModelToCollection, getCollections, getCollection, updateModel, removeModelFromCollection, getModel } from '../services/api';
 import { useStudio } from '../context/StudioContext';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
@@ -11,6 +11,7 @@ import ModelCube from '../components/ModelCube';
 import ModelThumbnail from '../components/ModelThumbnail';
 import CollectionTree from '../components/CollectionTree';
 import CollectionModal from '../components/CollectionModal';
+import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toastUtils';
 import { 
   CubeIcon, 
   ClockIcon, 
@@ -60,6 +61,7 @@ const ModelsList = () => {
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
   const { selectedStudio, getCurrentStudioId } = useStudio();
+  const navigate = useNavigate();
   
   // Безопасная версия функции hasPermission
   const safeHasPermission = useCallback((permission) => {
@@ -125,6 +127,69 @@ const ModelsList = () => {
     y: 0,
     collection: null
   });
+  
+  // Drag and drop state
+  const [draggedModel, setDraggedModel] = useState(null);
+  const [dragOverCollectionId, setDragOverCollectionId] = useState(null);
+  
+  // Drag and drop handlers
+  const handleDragStart = (e, model) => {
+    setDraggedModel(model);
+    // Create a drag image to show what's being dragged
+    try {
+      const dragImg = document.createElement('div');
+      dragImg.classList.add('drag-image');
+      dragImg.innerHTML = `<div class="p-2 bg-blue-100 rounded shadow text-blue-800 text-sm">${model.name}</div>`;
+      dragImg.style.position = 'absolute';
+      dragImg.style.top = '-1000px';
+      document.body.appendChild(dragImg);
+      e.dataTransfer.setDragImage(dragImg, 0, 0);
+      // Clean up after drag ends
+      setTimeout(() => {
+        document.body.removeChild(dragImg);
+      }, 0);
+    } catch (error) {
+      console.error('Error setting drag image:', error);
+    }
+    
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      modelId: model.id,
+      modelName: model.name
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  
+  const handleDragOver = (e, collectionId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (collectionId !== dragOverCollectionId) {
+      setDragOverCollectionId(collectionId);
+    }
+    e.dataTransfer.dropEffect = 'move';
+  };
+  
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCollectionId(null);
+  };
+  
+  const handleDrop = async (e, collectionId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCollectionId(null);
+    
+    if (!draggedModel || !collectionId) return;
+    
+    // Call the existing moveModelToCollection function
+    await moveModelToCollection(draggedModel, collectionId);
+    setDraggedModel(null);
+  };
+  
+  const handleDragEnd = () => {
+    setDraggedModel(null);
+    setDragOverCollectionId(null);
+  };
 
   // Define a set of colors to use for the model cubes
   const modelColors = useMemo(() => [
@@ -345,12 +410,12 @@ const ModelsList = () => {
   // Загрузка моделей из выбранной коллекции
   const fetchCollectionModels = async (collectionId) => {
     if (!collectionId) {
-      console.error("No collection ID provided to fetchCollectionModels");
+      setCollectionModels([]);
       return;
     }
     
-    console.log(`Fetching models for collection ${collectionId}`);
     setIsCollectionLoading(true);
+    
     try {
       const response = await getCollectionModels(collectionId);
       console.log("Collection models response:", response);
@@ -367,16 +432,33 @@ const ModelsList = () => {
         return;
       }
       
-      // Добавляем информацию о коллекции к каждой модели
-      const modelsWithCollection = models.map(model => ({
+      // Получаем подробную информацию о каждой модели
+      const detailedModelsPromises = models.map(async (model) => {
+        try {
+          if (!model || !model.id) return model;
+          const modelResponse = await getModel(model.id);
+          const detailedModel = modelResponse.data;
+          return {
+            ...detailedModel,
+            collection_name: collection.name,
+            collection_ids: [collection.id],
+            collection_names: [collection.name]
+          };
+        } catch (err) {
+          console.error(`Error fetching details for model ${model.id}:`, err);
+          return {
         ...model,
         collection_name: collection.name,
         collection_ids: [collection.id],
         collection_names: [collection.name]
-      }));
+          };
+        }
+      });
       
-      console.log(`Loaded ${modelsWithCollection.length} models for collection ${collectionId}`);
-      setCollectionModels(modelsWithCollection);
+      const detailedModels = await Promise.all(detailedModelsPromises);
+      
+      console.log(`Loaded ${detailedModels.length} models for collection ${collectionId}`);
+      setCollectionModels(detailedModels);
     } catch (error) {
       console.error('Error fetching collection models:', error);
       setCollectionModels([]);
@@ -540,7 +622,7 @@ const ModelsList = () => {
       await safeFetchModels();
       
       // Show success message
-      alert(t('Model created successfully!'));
+      toastSuccess(t('Model created successfully!'));
     } catch (error) {
       console.error('Error creating model:', error);
       setError('Ошибка при создании модели');
@@ -587,7 +669,7 @@ const ModelsList = () => {
       setIsDeleteCollectionModalOpen(false);
     } catch (error) {
       console.error('Error confirming collection deletion:', error);
-      alert('Error deleting collection');
+      toastError('Error deleting collection');
     } finally {
       setIsCollectionSubmitting(false);
     }
@@ -640,9 +722,12 @@ const ModelsList = () => {
           setSelectedCollection(updatedCollection.data);
         }
       }
+      
+      // Show success toast
+      toastSuccess(editingCollection ? t('Collection updated successfully') : t('Collection created successfully'));
     } catch (error) {
       console.error('Error saving collection:', error);
-      alert('Ошибка при сохранении коллекции');
+      toastError('Ошибка при сохранении коллекции');
     } finally {
       setIsCollectionSubmitting(false);
     }
@@ -695,9 +780,12 @@ const ModelsList = () => {
       if (selectedCollection && selectedCollection.id) {
         fetchCollectionModels(selectedCollection.id);
       }
+      
+      // Show success message
+      toastSuccess(t('Model deleted successfully'));
     } catch (error) {
       console.error('Error deleting model:', error);
-      setError('Ошибка при удалении модели');
+      toastError(t('Error deleting model'));
     } finally {
       setIsSubmitting(false);
     }
@@ -802,8 +890,15 @@ const ModelsList = () => {
                   {collectionsToShow.map((collection) => (
                     <Card 
                       key={`collection-${collection.id}`} 
-                      className="flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-300 border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20"
+                      className={`flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-300 border-2 ${
+                        dragOverCollectionId === collection.id 
+                          ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/30' 
+                          : 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20'
+                      }`}
                       onContextMenu={(e) => handleCollectionContextMenu(e, collection)}
+                      onDragOver={(e) => handleDragOver(e, collection.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, collection.id)}
                     >
                       <div 
                         className="h-52 cursor-pointer"
@@ -821,6 +916,11 @@ const ModelsList = () => {
                               <span className="italic opacity-75">Можно добавлять подколлекции</span>
                             )}
                           </div>
+                          {dragOverCollectionId === collection.id && (
+                            <div className="mt-2 text-sm font-medium text-green-600 dark:text-green-400 animate-pulse">
+                              {t('Drop to add to this collection')}
+                            </div>
+                          )}
                         </div>
                         {safeHasPermission('manage_models') && (
                           <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
@@ -882,8 +982,11 @@ const ModelsList = () => {
                         !selectedCollection && (!model.collection_ids || model.collection_ids.length === 0) 
                           ? 'border-dashed border-gray-300 dark:border-gray-600' 
                           : 'border-gray-200 dark:border-gray-700'
-                      }`}
+                      } ${draggedModel?.id === model.id ? 'opacity-50' : ''}`}
                       onContextMenu={(e) => handleModelContextMenu(e, model)}
+                      draggable="true"
+                      onDragStart={(e) => handleDragStart(e, model)}
+                      onDragEnd={handleDragEnd}
                     >
             {/* Отображение коллекции модели */}
                       {model.collection_name && (
@@ -891,6 +994,18 @@ const ModelsList = () => {
                           <div className="flex items-center">
                             <FolderIcon className="h-3 w-3 mr-1" />
                             <span>{model.collection_name}</span>
+                            {selectedCollection && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeModelFromCurrentCollection(model);
+                                }}
+                                className="ml-2 text-white hover:text-red-200"
+                                title={t('Remove from collection')}
+                              >
+                                <XMarkIcon className="h-3 w-3" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
@@ -1023,8 +1138,15 @@ const ModelsList = () => {
                       {collectionsToShow.map((collection) => (
                         <tr 
                           key={`collection-${collection.id}`} 
-                          className="hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                          className={`hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors ${
+                            dragOverCollectionId === collection.id
+                              ? 'bg-green-50 dark:bg-green-900/30 border-l-4 border-green-400 dark:border-green-600'
+                              : ''
+                          }`}
                           onContextMenu={(e) => handleCollectionContextMenu(e, collection)}
+                          onDragOver={(e) => handleDragOver(e, collection.id)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, collection.id)}
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -1040,6 +1162,11 @@ const ModelsList = () => {
                                 {collection.children && collection.children.length > 0 && (
                                   <div className="text-xs text-blue-500 dark:text-blue-400">
                                     {collection.children.length} {t('subcollections')}
+                                  </div>
+                                )}
+                                {dragOverCollectionId === collection.id && (
+                                  <div className="text-xs font-medium text-green-600 dark:text-green-400 mt-1 animate-pulse">
+                                    {t('Drop to add to this collection')}
                                   </div>
                                 )}
                               </div>
@@ -1115,11 +1242,14 @@ const ModelsList = () => {
                             !selectedCollection && (!model.collection_ids || model.collection_ids.length === 0)
                               ? 'bg-gray-50/50 dark:bg-gray-800/50' // Легкий фон для моделей без коллекции
                               : ''
-                          } cursor-pointer`}
+                          } ${draggedModel?.id === model.id ? 'opacity-50' : ''} cursor-pointer`}
                           onClick={() => {
                             window.location.href = `/models/${model.id}`;
                           }}
                           onContextMenu={(e) => handleModelContextMenu(e, model)}
+                          draggable="true"
+                          onDragStart={(e) => handleDragStart(e, model)}
+                          onDragEnd={handleDragEnd}
                         >
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
@@ -1148,11 +1278,23 @@ const ModelsList = () => {
                             {model.collection_name ? (
                               <div className="text-sm text-blue-600 dark:text-blue-400 flex items-center">
                                 <FolderIcon className="h-4 w-4 text-blue-500 mr-1.5" />
-                                {model.collection_name}
+                                <span>{model.collection_name}</span>
+                                {selectedCollection && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeModelFromCurrentCollection(model);
+                                    }}
+                                    className="ml-2 text-gray-400 hover:text-red-500"
+                                    title={t('Remove from collection')}
+                                  >
+                                    <XMarkIcon className="h-4 w-4" />
+                                  </button>
+                                )}
                               </div>
                             ) : (
-                              <div className="text-sm text-gray-500 dark:text-gray-400 italic flex items-center">
-                                <span className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded-md text-xs">{t('models.notCategorized')}</span>
+                              <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+                                {t('No collection')}
                               </div>
                             )}
                           </td>
@@ -1346,49 +1488,60 @@ const ModelsList = () => {
   };
 
   // Handle context menu actions
-  const handleContextMenuAction = (action) => {
-    const model = contextMenu.model;
-    closeContextMenu();
-    
-    if (!model) return;
+  const handleContextMenuAction = (action, payload = {}) => {
+    if (!contextMenu.model) return;
     
     switch (action) {
-      case 'view':
-        window.location.href = `/models/${model.id}`;
+      case 'edit':
+        openEditModal(contextMenu.model);
         break;
       case 'delete':
-        // Вызываем удаление полностью без выбора типа
-        setModelToDelete(model);
-        setDeleteType('complete');
-        setIsDeleteModalOpen(true);
+        openDeleteModal(contextMenu.model);
         break;
-      case 'edit':
-        openEditModal(model);
-        break;
-      case 'download':
-        // Download model or show download options
-        if (modelFiles[model.id]?.stlFile) {
-          window.open(modelFiles[model.id].stlFile.url, '_blank');
-        } else {
-          alert(t('No files available for download'));
-        }
-        break;
-      case 'duplicate':
-        // Duplicate model logic here
-        alert(t('Duplicate feature will be available soon'));
+      case 'view':
+        navigate(`/models/${contextMenu.model.id}`);
         break;
       case 'remove-from-collection':
-        // Показать подтверждение удаления из коллекции
-        if (selectedCollection && selectedCollection.id && model.id) {
-          if (window.confirm(t('Are you sure you want to remove this model from the current collection?'))) {
-            removeModelFromCurrentCollection(model);
-          }
-        } else {
-          alert(t('Model is not in any collection'));
-        }
+        removeModelFromCurrentCollection(contextMenu.model);
+        break;
+      case 'move-to-collection':
+        moveModelToCollection(contextMenu.model, payload.collectionId);
         break;
       default:
-        break;
+        console.warn('Unknown context menu action:', action);
+    }
+    
+    closeContextMenu();
+  };
+
+  // Move model to a specific collection
+  const moveModelToCollection = async (model, targetCollectionId) => {
+    if (!model || !model.id || !targetCollectionId) return;
+    
+    try {
+      // First remove from current collections if any
+      if (model.collection_ids && model.collection_ids.length > 0) {
+        for (const collectionId of model.collection_ids) {
+          await removeModelFromCollection(collectionId, model.id);
+        }
+      }
+      
+      // Then add to new collection
+      await addModelToCollection(model.id, targetCollectionId);
+      
+      // Refresh models
+      await safeFetchModels();
+      
+      // If viewing a collection, refresh its models
+      if (selectedCollection && selectedCollection.id) {
+        await fetchCollectionModels(selectedCollection.id);
+      }
+      
+      // Success message
+      toastSuccess(t('Model successfully moved to collection'));
+    } catch (error) {
+      console.error('Error moving model to collection:', error);
+      toastError(t('Error moving model to collection'));
     }
   };
 
@@ -1397,7 +1550,7 @@ const ModelsList = () => {
     if (!model || !model.id || !selectedCollection || !selectedCollection.id) return;
     
     try {
-      await removeModelFromCollection(model.id, selectedCollection.id);
+      await removeModelFromCollection(selectedCollection.id, model.id);
       
       // Refresh models in current collection
       await fetchCollectionModels(selectedCollection.id);
@@ -1406,10 +1559,10 @@ const ModelsList = () => {
       await safeFetchModels();
       
       // Show success message
-      alert(t('Model successfully removed from collection. The model still exists in the system and can be found in the root folder.'));
+      toastInfo(t('Model successfully removed from collection. The model still exists in the system and can be found in the root folder.'));
     } catch (error) {
       console.error('Error removing model from collection:', error);
-      alert(t('Error removing model from collection'));
+      toastError(t('Error removing model from collection'));
     }
   };
 
@@ -1485,7 +1638,7 @@ const ModelsList = () => {
           // If model was in a collection but now isn't, remove it
           if (originalCollectionIds.length > 0 && !newCollectionId) {
             try {
-              await removeModelFromCollection(modelToEdit.id, originalCollectionIds[0]);
+              await removeModelFromCollection(originalCollectionIds[0], modelToEdit.id);
             } catch (error) {
               console.error('Error removing model from collection:', error);
             }
@@ -1496,7 +1649,7 @@ const ModelsList = () => {
             // First remove from old collection if needed
             if (originalCollectionIds.length > 0) {
               try {
-                await removeModelFromCollection(modelToEdit.id, originalCollectionIds[0]);
+                await removeModelFromCollection(originalCollectionIds[0], modelToEdit.id);
               } catch (error) {
                 console.error('Error removing model from previous collection:', error);
               }
@@ -1524,7 +1677,7 @@ const ModelsList = () => {
       }
       
       // Success message
-      alert(t('Model updated successfully!'));
+      toastSuccess(t('Model updated successfully!'));
     } catch (error) {
       console.error('Error updating model:', error);
       setError('Error updating model');
@@ -1728,6 +1881,13 @@ const ModelsList = () => {
                 onAddCollection={handleAddCollection}
                 onEditCollection={handleEditCollection}
                 onDeleteCollection={handleDeleteCollection}
+                onCollectionContextMenu={handleCollectionContextMenu}
+                onModelContextMenu={handleModelContextMenu}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onDragLeave={handleDragLeave}
+                dragOverCollectionId={dragOverCollectionId}
+                showModels={true}
                 canEdit={safeHasPermission('manage_models')}
               />
             </div>
@@ -2093,10 +2253,10 @@ const ModelsList = () => {
         )}
       </Modal>
 
-      {/* Context Menu */}
+      {/* Model Context Menu */}
       {contextMenu.visible && (
         <div 
-          className="fixed z-50 bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700 py-1 w-48"
+          className="fixed z-50 bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700 py-1 w-60"
           style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
         >
           <button 
@@ -2104,7 +2264,7 @@ const ModelsList = () => {
             onClick={() => handleContextMenuAction('view')}
           >
             <EyeIcon className="h-4 w-4 mr-2 text-blue-500" />
-            Просмотр
+            {t('View')}
           </button>
 
           <button 
@@ -2112,24 +2272,53 @@ const ModelsList = () => {
             onClick={() => handleContextMenuAction('edit')}
           >
             <PencilIcon className="h-4 w-4 mr-2 text-gray-500" />
-            Изменить
+            {t('Edit')}
           </button>
 
-          <button 
-            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
-            onClick={() => handleContextMenuAction('download')}
+          {/* Collections dropdown */}
+          <div 
+            className="px-4 py-2 border-t border-gray-200 dark:border-gray-700"
+            onClick={(e) => e.stopPropagation()} // Prevent menu from closing
           >
-            <ArrowDownTrayIcon className="h-4 w-4 mr-2 text-green-500" />
-            Скачать
-          </button>
-
-          <button 
-            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
-            onClick={() => handleContextMenuAction('duplicate')}
-          >
-            <DocumentDuplicateIcon className="h-4 w-4 mr-2 text-amber-500" />
-            Дублировать
-          </button>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              {t('Move to collection')}
+            </p>
+            <select
+              className="block w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-1 px-2 bg-white dark:bg-gray-700 focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:text-white"
+              onChange={(e) => {
+                e.stopPropagation(); // Stop propagation to prevent menu closing
+                if (e.target.value) {
+                  handleContextMenuAction('move-to-collection', { collectionId: e.target.value });
+                }
+              }}
+              onClick={(e) => e.stopPropagation()} // Prevent the click from closing the menu
+              value=""
+            >
+              <option value="">{t('Select a collection')}</option>
+              {collections.map(collection => {
+                // Render collection and its subcollections recursively
+                const renderCollectionOptions = (coll, depth = 0) => {
+                  const indent = "—".repeat(depth);
+                  const result = [
+                    <option key={coll.id} value={coll.id}>
+                      {indent && `${indent} `}{coll.name}
+                    </option>
+                  ];
+                  
+                  // Recursively add subcollections if they exist
+                  if (coll.children && coll.children.length > 0) {
+                    coll.children.forEach(child => {
+                      result.push(...renderCollectionOptions(child, depth + 1));
+                    });
+                  }
+                  
+                  return result;
+                };
+                
+                return renderCollectionOptions(collection);
+              })}
+            </select>
+          </div>
 
           {/* Add the remove from collection option when inside a collection */}
           {selectedCollection && selectedCollection.id && (
@@ -2138,7 +2327,7 @@ const ModelsList = () => {
               onClick={() => handleContextMenuAction('remove-from-collection')}
             >
               <ArrowsRightLeftIcon className="h-4 w-4 mr-2" />
-              Убрать только из коллекции
+              {t('Remove from collection')}
             </button>
           )}
 
@@ -2149,7 +2338,7 @@ const ModelsList = () => {
             onClick={() => handleContextMenuAction('delete')}
           >
             <TrashIcon className="h-4 w-4 mr-2" />
-            Удалить полностью из системы
+            {t('Delete')}
           </button>
         </div>
       )}

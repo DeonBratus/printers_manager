@@ -56,12 +56,25 @@ const ModelDetail = () => {
         getModelFiles(id)
       ]);
       
-      setModel(modelRes.data);
+      console.log("Model data from API:", modelRes.data);
+      
+      // Make a copy of the model data to ensure collections are properly preserved
+      const modelData = { ...modelRes.data };
+      
+      // If collections array isn't present or is empty, initialize it
+      if (!modelData.collections || !Array.isArray(modelData.collections)) {
+        modelData.collections = [];
+      }
+      
+      console.log("Model with collections:", modelData);
+      
+      setModel(modelData);
+      
       // Конвертируем минуты в формат HH:MM для формы редактирования
       setEditForm({ 
-        name: modelRes.data.name, 
-        description: modelRes.data.description || '',
-        printing_time: formatMinutesToHHMM(modelRes.data.printing_time)
+        name: modelData.name, 
+        description: modelData.description || '',
+        printing_time: formatMinutesToHHMM(modelData.printing_time)
       });
       
       // Filter printings for this model
