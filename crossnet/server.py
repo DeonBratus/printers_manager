@@ -38,6 +38,10 @@ async def get_all_printers():
 async def get_available_commands():
     return list(COMMAND_POOL.keys())
 
+@app.get("/tasks/")
+async def get_all_tasks():
+    return tasks_db
+
 @app.post("/tasks/")
 async def create_task(task: TaskRequest):
     # Проверяем существование принтера
