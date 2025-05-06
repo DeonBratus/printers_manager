@@ -1,13 +1,15 @@
-from fastapi import FastAPI, Request, Body
+from fastapi import FastAPI, Request, Body, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import uvicorn
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 import logging
 import json
 import time
+import uuid
+from enum import Enum
 
 # Настройка логирования
 logging.basicConfig(
@@ -34,6 +36,34 @@ class Printer(BaseModel):
 
 # Список принтеров
 printers: List[Printer] = []
+
+# Статус команды
+class CommandStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+# Модель команды
+class PrinterCommand(BaseModel):
+    command_id: str
+    printer_name: str
+    command_type: str
+    parameters: Dict[str, Any]
+    status: CommandStatus = CommandStatus.PENDING
+    result: Optional[Dict[str, Any]] = None
+    created_at: float
+    updated_at: float
+    
+# Класс для создания новой команды
+class CreateCommand(BaseModel):
+    printer_name: str
+    command_type: str
+    parameters: Dict[str, Any] = {}
+
+# Хранилище команд
+# Структура: {printer_name: {command_id: PrinterCommand}}
+printer_commands: Dict[str, Dict[str, PrinterCommand]] = {}
 
 @app.post("/receive_data")
 async def receive_data(request: Request):
@@ -128,6 +158,107 @@ async def delete_printer(printer_name: str):
     
     logger.warning(f"Принтер {printer_name} не найден при попытке удаления")
     return {"message": f"Printer '{printer_name}' not found"}
+
+# API для управления командами принтеров
+@app.post("/api/commands", response_model=PrinterCommand)
+async def create_command(command: CreateCommand):
+    """Создание новой команды для принтера"""
+    printer_name = command.printer_name
+    
+    # Проверяем, существует ли принтер
+    if not any(p.name == printer_name for p in printers):
+        raise HTTPException(status_code=404, detail=f"Printer '{printer_name}' not found")
+    
+    # Создаем команду
+    now = time.time()
+    command_id = str(uuid.uuid4())
+    
+    new_command = PrinterCommand(
+        command_id=command_id,
+        printer_name=printer_name,
+        command_type=command.command_type,
+        parameters=command.parameters,
+        created_at=now,
+        updated_at=now
+    )
+    
+    # Инициализируем словарь команд для принтера, если его еще нет
+    if printer_name not in printer_commands:
+        printer_commands[printer_name] = {}
+    
+    # Сохраняем команду
+    printer_commands[printer_name][command_id] = new_command
+    
+    logger.info(f"Создана новая команда {command_id} для принтера {printer_name}: {command.command_type}")
+    logger.debug(f"Параметры команды: {json.dumps(command.parameters, indent=2)}")
+    
+    return new_command
+
+@app.get("/api/commands")
+async def get_all_commands():
+    """Получение всех команд для всех принтеров"""
+    all_commands = []
+    for printer_cmds in printer_commands.values():
+        all_commands.extend(printer_cmds.values())
+    
+    # Сортируем команды по времени создания (сначала новые)
+    all_commands.sort(key=lambda x: x.created_at, reverse=True)
+    
+    return all_commands
+
+@app.get("/api/commands/{printer_name}")
+async def get_printer_commands(printer_name: str):
+    """Получение команд для конкретного принтера"""
+    if printer_name not in printer_commands:
+        return []
+    
+    # Получаем команды и сортируем по времени создания
+    cmds = list(printer_commands[printer_name].values())
+    cmds.sort(key=lambda x: x.created_at, reverse=True)
+    
+    return cmds
+
+@app.get("/api/commands/{printer_name}/pending")
+async def get_pending_commands(printer_name: str):
+    """Получение ожидающих команд для конкретного принтера"""
+    if printer_name not in printer_commands:
+        return []
+    
+    # Фильтруем только ожидающие команды
+    pending_cmds = [
+        cmd for cmd in printer_commands[printer_name].values() 
+        if cmd.status == CommandStatus.PENDING
+    ]
+    
+    # Сортируем по времени создания (сначала старые, чтобы выполнялись в порядке очереди)
+    pending_cmds.sort(key=lambda x: x.created_at)
+    
+    return pending_cmds
+
+@app.post("/api/commands/{command_id}/update", response_model=PrinterCommand)
+async def update_command_status(
+    command_id: str, 
+    status: CommandStatus, 
+    result: Dict[str, Any] = None
+):
+    """Обновление статуса команды"""
+    # Ищем команду во всех принтерах
+    for printer_name, commands in printer_commands.items():
+        if command_id in commands:
+            cmd = commands[command_id]
+            cmd.status = status
+            cmd.updated_at = time.time()
+            
+            if result is not None:
+                cmd.result = result
+            
+            logger.info(f"Обновлен статус команды {command_id} для принтера {printer_name}: {status}")
+            if result:
+                logger.debug(f"Результат команды: {json.dumps(result, indent=2)}")
+            
+            return cmd
+    
+    raise HTTPException(status_code=404, detail=f"Command with ID {command_id} not found")
 
 @app.on_event("startup")
 async def startup_event():
