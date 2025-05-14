@@ -180,15 +180,15 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Управление 3D-принтерами</h1>
+        <h1>Управление 3D-принтерами</h1>
             <p>Система мониторинга и управления принтерами через API</p>
         </div>
-
+        
         <h2>Принтеры</h2>
         <div id="printer-list" class="printer-list">
             <p>Загрузка принтеров...</p>
         </div>
-
+        
         <div class="add-printer-form">
             <h3>Добавить принтер</h3>
             <div class="form-row">
@@ -198,13 +198,13 @@
             <div class="form-row">
                 <label class="form-label" for="printer-ip">IP-адрес:</label>
                 <input class="form-input" type="text" id="printer-ip" placeholder="Например: 192.168.1.100">
-            </div>
+                </div>
             <div class="form-row">
                 <div class="form-label"></div>
                 <button id="add-printer-btn" class="btn btn-success">Добавить принтер</button>
-            </div>
+                </div>
         </div>
-
+        
         <div class="commands-history">
             <h2>История команд</h2>
             <div id="commands-list">
@@ -363,8 +363,8 @@
                         
                         const date = new Date(cmd.created_at * 1000);
                         const dateStr = date.toLocaleString();
-                        
-                        html += `
+                
+                html += `
                             <li>
                                 <strong>${cmd.command_type}</strong> для ${cmd.printer_name} 
                                 <span class="printer-status ${statusClass}">${cmd.status}</span>

@@ -238,10 +238,17 @@ async def get_pending_commands(printer_name: str):
 @app.post("/api/commands/{command_id}/update", response_model=PrinterCommand)
 async def update_command_status(
     command_id: str, 
-    status: CommandStatus, 
-    result: Dict[str, Any] = None
+    data: Dict[str, Any] = Body(...)
 ):
     """Обновление статуса команды"""
+    # Извлекаем данные из тела запроса
+    status = data.get("status")
+    result = data.get("result")
+    
+    # Проверяем, что status - это валидное значение перечисления CommandStatus
+    if status not in [s.value for s in CommandStatus]:
+        raise HTTPException(status_code=400, detail=f"Invalid status value: {status}")
+        
     # Ищем команду во всех принтерах
     for printer_name, commands in printer_commands.items():
         if command_id in commands:
